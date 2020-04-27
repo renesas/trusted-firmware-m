@@ -134,4 +134,9 @@
 #define   RTE_EFLASH0                     1
 // </e> EFLASH (Flash Memory) [Driver_EFLASH0]
 
+// <e> EFLASH (Flash Memory) [Driver_EFLASH0]
+// <i> Configuration settings for Driver_EFLASH0 in component ::Drivers:FLASH
+#define   RTE_EFLASH1                     1
+// </e> EFLASH (Flash Memory) [Driver_EFLASH0]
+
 #endif  /* __RTE_DEVICE_H__ */

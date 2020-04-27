@@ -400,25 +400,25 @@ struct timer_cmsdk_dev_t CMSDK_TIMER1_DEV_NS = {&(CMSDK_TIMER1_DEV_CFG_NS),
                                                 &(CMSDK_TIMER1_DEV_DATA_NS)};
 #endif
 
-/** GFC-100 eflash driver structures */
-#ifdef GFC100_EFLASH0_S
-static const struct gfc100_eflash_dev_cfg_t GFC100_EFLASH0_CFG_S = {
-    .base = MUSCA_B1_EFLASH0_REG_MAP_S_BASE};
-static struct gfc100_eflash_dev_data_t GFC100_EFLASH0_DATA_S = {
-    .is_initialized = false,
-    .flash_size = 0};
-struct gfc100_eflash_dev_t GFC100_EFLASH0_DEV_S = {&(GFC100_EFLASH0_CFG_S),
-                                                   &(GFC100_EFLASH0_DATA_S)};
-#endif
+/** Flash driver structures */
+#if defined(DFLASH0_S) || defined(CFLASH0_S)
+static flash_hp_instance_ctrl_t flash_ctrl;
 
-#ifdef GFC100_EFLASH1_S
-static const struct gfc100_eflash_dev_cfg_t GFC100_EFLASH1_CFG_S = {
-    .base = MUSCA_B1_EFLASH1_REG_MAP_S_BASE};
-static struct gfc100_eflash_dev_data_t GFC100_EFLASH1_DATA_S = {
-    .is_initialized = false,
-    .flash_size = 0};
-struct gfc100_eflash_dev_t GFC100_EFLASH1_DEV_S = {&(GFC100_EFLASH1_CFG_S),
-                                                   &(GFC100_EFLASH1_DATA_S)};
+static flash_cfg_t const flash_cfg =
+{
+    .p_callback     = NULL,
+    .p_context      = 0,
+    .p_extend       = NULL,
+    .data_flash_bgo = false,
+    .ipl            = 5,
+    .irq            = FSP_INVALID_VECTOR,
+};
+
+static flash_instance_t FLASH0_DEV_S =
+{
+ .p_ctrl = &flash_ctrl,
+ .p_cfg = &flash_cfg
+};
 #endif
 
 /* QSPI IP6514E driver structures */

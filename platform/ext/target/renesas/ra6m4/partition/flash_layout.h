@@ -56,8 +56,12 @@
                                          FLASH_NS_PARTITION_SIZE)
 
 /* Sector size of the embedded flash hardware */
-#define FLASH_AREA_IMAGE_SECTOR_SIZE    (0x4000)   /* 16 KB */
-#define FLASH_TOTAL_SIZE                (0x200000) /* 2 MB */
+#define FLASH_AREA_IMAGE_SECTOR_SIZE    (0x8000)   /* 32 KB */
+#define FLASH_TOTAL_SIZE                (0x100000) /* 2 MB */
+
+/* Sector size of the data flash hardware */
+#define DATA_FLASH_AREA_IMAGE_SECTOR_SIZE    (0x40)   /* 64 B */
+#define DATA_FLASH_TOTAL_SIZE                (0x2000) /* 8 KB */
 
 /* Sector size of the QSPI flash hardware */
 #define QSPI_FLASH_AREA_IMAGE_SECTOR_SIZE (0x1000)   /* 4 KB */
@@ -65,7 +69,9 @@
 
 /* Flash layout info for BL2 bootloader */
 /* Same as MUSCA_B1_EFLASH0_S_BASE */
-#define FLASH_BASE_ADDRESS              (0x1A000000)
+#define FLASH_BASE_ADDRESS              (0x00000000)
+
+#define DATA_FLASH_BASE_ADDRESS         (0x08000000)
 
 /* Offset and size definitions of the flash partitions that are handled by the
  * bootloader. The image swapping is done between IMAGE_PRIMARY and
@@ -73,7 +79,7 @@
  * swapping.
  */
 #define FLASH_AREA_BL2_OFFSET      (0x0)
-#define FLASH_AREA_BL2_SIZE        (0x20000) /* 128 KB */
+#define FLASH_AREA_BL2_SIZE        (0x00000) /* 128 KB */
 
 #if !defined(MCUBOOT_IMAGE_NUMBER) || (MCUBOOT_IMAGE_NUMBER == 1)
 /* Secure + Non-secure image primary slot */
@@ -132,15 +138,14 @@
  */
 #define MCUBOOT_STATUS_MAX_ENTRIES      (0)
 
-/* Internal Trusted Storage (ITS) Service definitions (32 KB) */
-#define FLASH_ITS_AREA_OFFSET           (FLASH_AREA_SCRATCH_OFFSET + \
-                                         FLASH_AREA_SCRATCH_SIZE)
-#define FLASH_ITS_AREA_SIZE             (2 * FLASH_AREA_IMAGE_SECTOR_SIZE)
+/* Internal Trusted Storage (ITS) Service definitions (4 KB) */
+#define FLASH_ITS_AREA_OFFSET           (DATA_FLASH_BASE_ADDRESS)
+#define FLASH_ITS_AREA_SIZE             (DATA_FLASH_TOTAL_SIZE / 2)
 
 /* NV Counters definitions */
 #define FLASH_NV_COUNTERS_AREA_OFFSET   (FLASH_ITS_AREA_OFFSET + \
                                          FLASH_ITS_AREA_SIZE)
-#define FLASH_NV_COUNTERS_AREA_SIZE     (FLASH_AREA_IMAGE_SECTOR_SIZE)
+#define FLASH_NV_COUNTERS_AREA_SIZE     (DATA_FLASH_AREA_IMAGE_SECTOR_SIZE)
 
 /* Offset and size definition in flash area used by assemble.py */
 #define SECURE_IMAGE_OFFSET             (0x0)
@@ -152,14 +157,14 @@
 
 /* Secure Storage (SST) Service definitions size is 20 KB. */
 /* Same as MUSCA_B1_QSPI_FLASH_S_BASE */
-#define QSPI_FLASH_BASE_ADDRESS         (0x10000000)
+#define QSPI_FLASH_BASE_ADDRESS         (0x60000000)
 #define FLASH_SST_AREA_OFFSET           (0x0)
 #define FLASH_SST_AREA_SIZE             (5 * QSPI_FLASH_AREA_IMAGE_SECTOR_SIZE)
 
 /* Flash device name used by BL2
  * Name is defined in flash driver file: Driver_Flash.c
  */
-#define FLASH_DEV_NAME Driver_EFLASH0
+#define FLASH_DEV_NAME Driver_CFLASH0
 
 /* Secure Storage (SST) Service definitions
  * Note: Further documentation of these definitions can be found in the
@@ -189,7 +194,7 @@
  * allocated in the external flash just for development platforms that don't
  * have internal flash available.
  */
-#define ITS_FLASH_DEV_NAME Driver_EFLASH0
+#define ITS_FLASH_DEV_NAME Driver_DFLASH0
 
 /* In this target the CMSIS driver requires only the offset from the base
  * address instead of the full memory address.
@@ -201,27 +206,27 @@
 /* Number of ITS_SECTOR_SIZE per block */
 #define ITS_SECTORS_PER_BLOCK   (0x1)
 /* Specifies the smallest flash programmable unit in bytes */
-#define ITS_FLASH_PROGRAM_UNIT  (0x4)
+#define ITS_FLASH_PROGRAM_UNIT  (0x40)
 /* The maximum asset size to be stored in the ITS area */
 #define ITS_MAX_ASSET_SIZE      (512)
 /* The maximum number of assets to be stored in the ITS area */
-#define ITS_NUM_ASSETS          (10)
+#define ITS_NUM_ASSETS          (8)
 
 /* NV Counters definitions */
 #define TFM_NV_COUNTERS_AREA_ADDR    FLASH_NV_COUNTERS_AREA_OFFSET
-#define TFM_NV_COUNTERS_AREA_SIZE    (0x18) /* 24 Bytes */
+#define TFM_NV_COUNTERS_AREA_SIZE    (0x40) /* 64 Bytes */
 #define TFM_NV_COUNTERS_SECTOR_ADDR  FLASH_NV_COUNTERS_AREA_OFFSET
 #define TFM_NV_COUNTERS_SECTOR_SIZE  FLASH_NV_COUNTERS_AREA_SIZE
 
 /* Use eFlash 0 memory to store Code data */
-#define S_ROM_ALIAS_BASE  (0x1A000000)
-#define NS_ROM_ALIAS_BASE (0x0A000000)
+#define S_ROM_ALIAS_BASE  (0x00000000)
+#define NS_ROM_ALIAS_BASE (0x00060000)
 
 /* FIXME: Use SRAM2 memory to store RW data */
-#define S_RAM_ALIAS_BASE  (0x30000000)
+#define S_RAM_ALIAS_BASE  (0x20020000)
 #define NS_RAM_ALIAS_BASE (0x20000000)
 
 #define TOTAL_ROM_SIZE FLASH_TOTAL_SIZE
-#define TOTAL_RAM_SIZE (0x80000)     /* 512 KB */
+#define TOTAL_RAM_SIZE (0x40000)     /* 256 KB */
 
 #endif /* __FLASH_LAYOUT_H__ */

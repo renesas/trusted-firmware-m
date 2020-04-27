@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __MUSCA_B1_DEVICE_CFG_H__
-#define __MUSCA_B1_DEVICE_CFG_H__
+#ifndef __RA6M4_DEVICE_CFG_H__
+#define __RA6M4_DEVICE_CFG_H__
 
 /**
  * \file device_cfg.h
@@ -70,7 +70,8 @@
 #define CMSDK_TIMER1_NS
 
 /* GFC-100 EFlash controller */
-#define GFC100_EFLASH0_S
+#define DFLASH0_S
+#define CFLASH0_S
 
 /* Cadence QSPI Flash Controller */
 #define QSPI_IP6514E_S
@@ -83,4 +84,4 @@
 /* Default UART baud rate */
 #define DEFAULT_UART_BAUDRATE 115200
 
-#endif  /* __MUSCA_B1_DEVICE_CFG_H__ */
+#endif  /* __RA6M4_DEVICE_CFG_H__ */

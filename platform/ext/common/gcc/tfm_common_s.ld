@@ -55,7 +55,14 @@ SECTIONS
         . = ALIGN(4);
         __vectors_end__ = .;
     } > FLASH
-
+    
+     .fill :
+    {
+        FILL(0xFFFFFFFF);
+        . = 0x400 - 1;
+        BYTE(0xFF);
+    } > FLASH
+    
     .copy.table : ALIGN(4)
     {
         __copy_table_start__ = .;

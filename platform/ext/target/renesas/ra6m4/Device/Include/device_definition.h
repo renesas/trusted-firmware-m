@@ -23,8 +23,8 @@
  * driver structures.
  */
 
-#ifndef __MUSCA_B1_DEVICE_DEFINITION_H__
-#define __MUSCA_B1_DEVICE_DEFINITION_H__
+#ifndef __RA6M4_DEVICE_DEFINITION_H__
+#define __RA6M4_DEVICE_DEFINITION_H__
 
 #include "device_cfg.h"
 
@@ -173,13 +173,9 @@ extern struct uart_pl011_dev_t UART1_PL011_DEV_S;
 extern struct uart_pl011_dev_t UART1_PL011_DEV_NS;
 #endif
 
-#ifdef GFC100_EFLASH0_S
-#include "gfc100_eflash_drv.h"
-extern struct gfc100_eflash_dev_t GFC100_EFLASH0_DEV_S;
-#endif
-#ifdef GFC100_EFLASH1_S
-#include "gfc100_eflash_drv.h"
-extern struct gfc100_eflash_dev_t GFC100_EFLASH1_DEV_S;
+#if defined(DFLASH0_S) || defined(CFLASH0_S)
+#include "r_flash_hp.h"
+extern static flash_instance_t FLASH0_DEV_S;
 #endif
 
 /* QSPI Flash Controller driver structures */
@@ -209,4 +205,4 @@ extern struct mt25ql_dev_t MT25QL_DEV_NS;
 }
 #endif
 
-#endif  /* __MUSCA_B1_DEVICE_DEFINITION_H__ */
+#endif  /* __RA6M4_DEVICE_DEFINITION_H__ */
