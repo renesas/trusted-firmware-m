@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2018 ARM Limited
- * Copyright (c) 2019, Cypress Semiconductor Corporation. All rights reserved.
+ * Copyright (c) 2018-2019 Arm Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +19,39 @@
 
 #include "platform/ext/common/uart_stdout.h"
 #include "tfm_peripherals_def.h"
+#include "uart_pl011_drv.h"
 
-#define TFM_DRIVER_STDIO    Driver_USART5
-#define NS_DRIVER_STDIO     Driver_USART5
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define TFM_DRIVER_STDIO    Driver_USART1
+#define NS_DRIVER_STDIO     Driver_USART1
+
+/**
+ * \brief Defines the word offsets of Slave Peripheral Protection Controller
+ *        Registers
+ */
+enum ppc_bank_e
+{
+    PPC_SP_DO_NOT_CONFIGURE = -1,
+    PPC_SP_AHB_PPC0 = 0,
+    PPC_SP_RES0,
+    PPC_SP_RES1,
+    PPC_SP_RES2,
+    PPC_SP_AHB_PPC_EXP0,
+    PPC_SP_AHB_PPC_EXP1,
+    PPC_SP_AHB_PPC_EXP2,
+    PPC_SP_AHB_PPC_EXP3,
+    PPC_SP_APB_PPC0,
+    PPC_SP_APB_PPC1,
+    PPC_SP_RES3,
+    PPC_SP_RES4,
+    PPC_SP_APB_PPC_EXP0,
+    PPC_SP_APB_PPC_EXP1,
+    PPC_SP_APB_PPC_EXP2,
+    PPC_SP_APB_PPC_EXP3,
+};
 
 /**
  * \brief Store the addresses of memory regions
@@ -31,6 +60,12 @@ struct memory_region_limits {
     uint32_t non_secure_code_start;
     uint32_t non_secure_partition_base;
     uint32_t non_secure_partition_limit;
+    uint32_t veneer_base;
+    uint32_t veneer_limit;
+#ifdef BL2
+    uint32_t secondary_partition_base;
+    uint32_t secondary_partition_limit;
+#endif /* BL2 */
 };
 
 /**
@@ -45,34 +80,80 @@ struct tfm_spm_partition_platform_data_t
 };
 
 /**
- * \brief Configures the Shared Memory Protection Units.
+ * \brief Configures the Memory Protection Controller.
+ *
+ * \return  Returns error code.
  */
-void smpu_init_cfg(void);
+int32_t mpc_init_cfg(void);
 
 /**
- * \brief Prints out the Shared Memory Protection Units config.
+ * \brief Set to secure the initialized non-secure regions of
+ *        the Memory Protection Controller.
  */
-void smpu_print_config(void);
+void mpc_revert_non_secure_to_secure_cfg(void);
 
 /**
- * \brief Configures the Peripheral Protection Units.
+ * \brief Configures the Peripheral Protection Controller.
+ *
+ * \return  Returns error code.
  */
-void ppu_init_cfg(void);
+int32_t ppc_init_cfg(void);
 
 /**
- * \brief Configure bus masters/Protectoin Contexts.
+ * \brief Restict access to peripheral to secure
  */
-void bus_masters_cfg(void);
+void ppc_configure_to_secure(enum ppc_bank_e bank, uint16_t loc);
 
 /**
- * \brief Performs platform specific hw initialization.
+ * \brief Allow non-secure access to peripheral
  */
-void platform_init(void);
+void ppc_configure_to_non_secure(enum ppc_bank_e bank, uint16_t loc);
+
+/**
+ * \brief Enable secure unprivileged access to peripheral
+ */
+void ppc_en_secure_unpriv(enum ppc_bank_e bank, uint16_t pos);
+
+/**
+ * \brief Clear secure unprivileged access to peripheral
+ */
+void ppc_clr_secure_unpriv(enum ppc_bank_e bank, uint16_t pos);
+
+/**
+ * \brief Clears PPC interrupt.
+ */
+void ppc_clear_irq(void);
+
+/**
+ * \brief Configures SAU and IDAU.
+ */
+void sau_and_idau_cfg(void);
+
+/**
+ * \brief Enables the fault handlers and sets priorities.
+ *
+ * \return Returns values as specified by the \ref tfm_plat_err_t
+ */
+enum tfm_plat_err_t enable_fault_handlers(void);
+
+/**
+ * \brief Configures the system reset request properties
+ *
+ * \return Returns values as specified by the \ref tfm_plat_err_t
+ */
+enum tfm_plat_err_t system_reset_cfg(void);
+
+/**
+ * \brief Configures the system debug properties.
+ *
+ * \return Returns values as specified by the \ref tfm_plat_err_t
+ */
+enum tfm_plat_err_t init_debug(void);
 
 /**
  * \brief Configures all external interrupts to target the
  *        NS state, apart for the ones associated to secure
- *        peripherals.
+ *        peripherals (plus MPC and PPC)
  *
  * \return Returns values as specified by the \ref tfm_plat_err_t
  */
@@ -86,5 +167,9 @@ enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void);
  * \return Returns values as specified by the \ref tfm_plat_err_t
  */
 enum tfm_plat_err_t nvic_interrupt_enable(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __TARGET_CFG_H__ */

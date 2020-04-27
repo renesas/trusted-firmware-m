@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2018 Arm Limited
- * Copyright (c) 2019-2020, Cypress Semiconductor Corporation. All rights reserved.
+ * Copyright (c) 2018-2020 Arm Limited. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +14,14 @@
  * limitations under the License.
  */
 
-#include <assert.h>
-#include <stdio.h> /* for debugging printfs */
-#include "cy_prot.h"
-#include "cycfg.h"
-#include "device_definition.h"
-#include "driver_ppu.h"
-#include "driver_smpu.h"
-#include "pc_config.h"
-#include "platform_description.h"
-#include "region_defs.h"
-#include "RTE_Device.h"
 #include "target_cfg.h"
+#include "Driver_MPC.h"
+#include "Driver_PPC.h"
+#include "platform_description.h"
+#include "device_definition.h"
+#include "region_defs.h"
+#include "tfm_secure_api.h"
 #include "tfm_plat_defs.h"
-
 
 /* Macros to pick linker symbols */
 #define REGION(a, b, c) a##b##c
@@ -37,6 +30,8 @@
 
 /* The section names come from the scatter file */
 REGION_DECLARE(Load$$LR$$, LR_NS_PARTITION, $$Base);
+REGION_DECLARE(Load$$LR$$, LR_VENEER, $$Base);
+REGION_DECLARE(Load$$LR$$, LR_VENEER, $$Limit);
 #ifdef BL2
 REGION_DECLARE(Load$$LR$$, LR_SECONDARY_PARTITION, $$Base);
 #endif /* BL2 */
@@ -52,1148 +47,680 @@ const struct memory_region_limits memory_regions = {
     .non_secure_partition_limit =
         (uint32_t)&REGION_NAME(Load$$LR$$, LR_NS_PARTITION, $$Base) +
         NS_PARTITION_SIZE - 1,
-};
 
+    .veneer_base =
+        (uint32_t)&REGION_NAME(Load$$LR$$, LR_VENEER, $$Base),
+
+    .veneer_limit =
+        (uint32_t)&REGION_NAME(Load$$LR$$, LR_VENEER, $$Limit),
 
 #ifdef BL2
-REGION_DECLARE(Load$$LR$$, LR_SECONDARY_PARTITION, $$Base);
+    .secondary_partition_base =
+        (uint32_t)&REGION_NAME(Load$$LR$$, LR_SECONDARY_PARTITION, $$Base),
+
+    .secondary_partition_limit =
+        (uint32_t)&REGION_NAME(Load$$LR$$, LR_SECONDARY_PARTITION, $$Base) +
+        SECONDARY_PARTITION_SIZE - 1,
 #endif /* BL2 */
+};
+
+/* Allows software, via SAU, to define the code region as a NSC */
+#define NSCCFG_CODENSC  1
+
+/* Import MPC driver */
+extern ARM_DRIVER_MPC Driver_CODE_SRAM_MPC, Driver_EFLASH0_MPC;
+extern ARM_DRIVER_MPC Driver_ISRAM0_MPC, Driver_ISRAM1_MPC;
+extern ARM_DRIVER_MPC Driver_ISRAM2_MPC, Driver_ISRAM3_MPC;
+
+/* Import PPC driver */
+extern ARM_DRIVER_PPC Driver_APB_PPC0, Driver_APB_PPC1;
+extern ARM_DRIVER_PPC Driver_AHB_PPCEXP0;
+extern ARM_DRIVER_PPC Driver_APB_PPCEXP0, Driver_APB_PPCEXP1;
+
+/* Define Peripherals NS address range for the platform */
+#define PERIPHERALS_BASE_NS_START (0x40000000)
+#define PERIPHERALS_BASE_NS_END   (0x4FFFFFFF)
+
+/* Enable system reset request for CPU 0 */
+#define ENABLE_CPU0_SYSTEM_RESET_REQUEST (1U << 4U)
 
 /* To write into AIRCR register, 0x5FA value must be write to the VECTKEY field,
  * otherwise the processor ignores the write.
  */
 #define SCB_AIRCR_WRITE_MASK ((0x5FAUL << SCB_AIRCR_VECTKEY_Pos))
 
+/* Debug configuration MASKS */
+#define DBG_CTRL_MASK_DBGEN   (0x01 << 1)
+#define DBG_CTRL_MASK_NIDEN   (0x01 << 2)
+#define DBG_CTRL_MASK_SPIDEN  (0x01 << 3)
+#define DBG_CTRL_MASK_SPNIDEN (0x01 << 4)
+
+#define DBG_CTRL_ADDR         0x50089E00UL
+
+#define All_SEL_STATUS (SPNIDEN_SEL_STATUS | SPIDEN_SEL_STATUS | \
+                        NIDEN_SEL_STATUS | DBGEN_SEL_STATUS)
+
 struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
-        SCB5_BASE,
-        SCB5_BASE + 0xFFF,
-        -1,
+        MUSCA_B1_UART1_NS_BASE,
+        MUSCA_B1_UART1_NS_BASE + 0xFFF,
+        PPC_SP_DO_NOT_CONFIGURE,
         -1
 };
+
+static ARM_DRIVER_PPC *const ppc_bank_drivers[] = {
+    0,                      /* AHB PPC0 */
+    0,                      /* Reserved */
+    0,                      /* Reserved */
+    0,                      /* Reserved */
+    &Driver_AHB_PPCEXP0,    /* AHB PPCEXP0 */
+    0,                      /* AHB PPCEXP1 */
+    0,                      /* AHB PPCEXP2 */
+    0,                      /* AHB PPCEXP3 */
+    &Driver_APB_PPC0,       /* APB PPC0 */
+    &Driver_APB_PPC1,       /* APB PPC1 */
+    0,                      /* Reserved */
+    0,                      /* Reserved */
+    &Driver_APB_PPCEXP0,    /* APB PPCEXP0 */
+    &Driver_APB_PPCEXP1,    /* APB PPCEXP1 */
+};
+
+#define PPC_BANK_COUNT \
+    (sizeof(ppc_bank_drivers)/sizeof(ppc_bank_drivers[0]))
 
 struct tfm_spm_partition_platform_data_t tfm_peripheral_timer0 = {
-        TCPWM0_BASE,
-        TCPWM0_BASE + (sizeof(TCPWM_Type) - 1),
-        -1,
+        MUSCA_B1_CMSDK_TIMER0_S_BASE,
+        MUSCA_B1_CMSDK_TIMER1_S_BASE - 1,
+        PPC_SP_APB_PPC0,
+        CMSDK_TIMER0_APB_PPC_POS
+};
+
+#ifdef PSA_API_TEST_IPC
+
+/* Below data structure are only used for PSA FF tests, and this pattern is
+ * definitely not to be followed for real life use cases, as it can break
+ * security.
+ */
+
+struct tfm_spm_partition_platform_data_t
+    tfm_peripheral_FF_TEST_UART_REGION = {
+        MUSCA_B1_UART1_NS_BASE,
+        MUSCA_B1_UART1_NS_BASE + 0xFFF,
+        PPC_SP_DO_NOT_CONFIGURE,
         -1
 };
 
-void enable_fault_handlers(void)
+struct tfm_spm_partition_platform_data_t
+    tfm_peripheral_FF_TEST_WATCHDOG_REGION = {
+        MUSCA_B1_CMSDK_WATCHDOG_S_BASE,
+        MUSCA_B1_CMSDK_WATCHDOG_S_BASE + 0xFFF,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+#define FF_TEST_NVMEM_REGION_START            0x3003F800
+#define FF_TEST_NVMEM_REGION_END              0x3003FBFF
+#define FF_TEST_SERVER_PARTITION_MMIO_START   0x3003FC00
+#define FF_TEST_SERVER_PARTITION_MMIO_END     0x3003FD00
+#define FF_TEST_DRIVER_PARTITION_MMIO_START   0x3003FE00
+#define FF_TEST_DRIVER_PARTITION_MMIO_END     0x3003FF00
+
+struct tfm_spm_partition_platform_data_t
+    tfm_peripheral_FF_TEST_NVMEM_REGION = {
+        FF_TEST_NVMEM_REGION_START,
+        FF_TEST_NVMEM_REGION_END,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+struct tfm_spm_partition_platform_data_t
+    tfm_peripheral_FF_TEST_SERVER_PARTITION_MMIO = {
+        FF_TEST_SERVER_PARTITION_MMIO_START,
+        FF_TEST_SERVER_PARTITION_MMIO_END,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+struct tfm_spm_partition_platform_data_t
+    tfm_peripheral_FF_TEST_DRIVER_PARTITION_MMIO = {
+        FF_TEST_DRIVER_PARTITION_MMIO_START,
+        FF_TEST_DRIVER_PARTITION_MMIO_END,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+#endif
+
+enum tfm_plat_err_t enable_fault_handlers(void)
 {
-    /* Fault handles enable registers are not present in Cortex-M0+ */
+    /* Explicitly set secure fault priority to the highest */
+    NVIC_SetPriority(SecureFault_IRQn, 0);
+
+    /* Enables BUS, MEM, USG and Secure faults */
+    SCB->SHCSR |= SCB_SHCSR_USGFAULTENA_Msk
+                  | SCB_SHCSR_BUSFAULTENA_Msk
+                  | SCB_SHCSR_MEMFAULTENA_Msk
+                  | SCB_SHCSR_SECUREFAULTENA_Msk;
+    return TFM_PLAT_ERR_SUCCESS;
 }
 
-void system_reset_cfg(void)
+enum tfm_plat_err_t system_reset_cfg(void)
 {
+    struct sysctrl_t *sysctrl = (struct sysctrl_t *)CMSDK_SYSCTRL_BASE_S;
     uint32_t reg_value = SCB->AIRCR;
+
+    /* Enable system reset request for CPU 0, to be triggered via
+     * NVIC_SystemReset function.
+     */
+    sysctrl->resetmask |= ENABLE_CPU0_SYSTEM_RESET_REQUEST;
 
     /* Clear SCB_AIRCR_VECTKEY value */
     reg_value &= ~(uint32_t)(SCB_AIRCR_VECTKEY_Msk);
 
-    /* Set Access Key (0x05FA must be written to this field) */
-    reg_value |= (uint32_t)(SCB_AIRCR_WRITE_MASK);
+    /* Enable system reset request only to the secure world */
+    reg_value |= (uint32_t)(SCB_AIRCR_WRITE_MASK | SCB_AIRCR_SYSRESETREQS_Msk);
 
     SCB->AIRCR = reg_value;
+
+    return TFM_PLAT_ERR_SUCCESS;
 }
 
-extern void Cy_Platform_Init(void);
-void platform_init(void)
+enum tfm_plat_err_t init_debug(void)
 {
-#ifdef TFM_ENABLE_IRQ_TEST
-    cy_en_sysint_status_t rc;
+
+    volatile uint32_t *dbg_ctrl_p = (uint32_t*)DBG_CTRL_ADDR;
+
+#if defined(DAUTH_NONE)
+
+    *dbg_ctrl_p &= ~(DBG_CTRL_MASK_DBGEN |
+                     DBG_CTRL_MASK_NIDEN |
+                     DBG_CTRL_MASK_SPIDEN |
+                     DBG_CTRL_MASK_SPNIDEN);
+
+#elif defined(DAUTH_NS_ONLY)
+    *dbg_ctrl_p &= ~(DBG_CTRL_MASK_SPIDEN |
+                     DBG_CTRL_MASK_SPNIDEN);
+    *dbg_ctrl_p |= DBG_CTRL_MASK_DBGEN |
+                   DBG_CTRL_MASK_NIDEN;
+
+#elif defined(DAUTH_FULL)
+    *dbg_ctrl_p |= DBG_CTRL_MASK_DBGEN |
+                   DBG_CTRL_MASK_NIDEN |
+                   DBG_CTRL_MASK_SPIDEN |
+                   DBG_CTRL_MASK_SPNIDEN;
+#else
+
+#if !defined(DAUTH_CHIP_DEFAULT)
+#error "No debug authentication setting is provided."
 #endif
-
-    Cy_PDL_Init(CY_DEVICE_CFG);
-
-    init_cycfg_all();
-    Cy_Platform_Init();
-
-#ifdef TFM_ENABLE_IRQ_TEST
-    rc = Cy_SysInt_Init(&CY_TCPWM_NVIC_CFG_S, TFM_TIMER0_IRQ_Handler);
-    if (rc != CY_SYSINT_SUCCESS) {
-        printf("WARNING: Fail to initialize timer interrupt (IRQ TEST might fail)!\n");
-    }
-#endif /* TFM_ENABLE_IRQ_TEST */
-
-    /* make sure CM4 is disabled */
-    if (CY_SYS_CM4_STATUS_ENABLED == Cy_SysGetCM4Status()) {
-        Cy_SysDisableCM4();
-    }
+    /* No need to set any enable bits because the value depends on
+     * input signals.
+     */
+    (void)dbg_ctrl_p;
+#endif
+    return TFM_PLAT_ERR_SUCCESS;
 }
 
+/*----------------- NVIC interrupt target state to NS configuration ----------*/
 enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void)
 {
+    /* Target every interrupt to NS; unimplemented interrupts will be WI */
+    for (uint8_t i=0; i<sizeof(NVIC->ITNS)/sizeof(NVIC->ITNS[0]); i++) {
+        NVIC->ITNS[i] = 0xFFFFFFFF;
+    }
+
+    /* Make sure that MPC and PPC are targeted to S state */
+    NVIC_ClearTargetState(S_MPC_COMBINED_IRQn);
+    NVIC_ClearTargetState(S_PPC_COMBINED_IRQn);
+
     return TFM_PLAT_ERR_SUCCESS;
 }
 
+/*----------------- NVIC interrupt enabling for S peripherals ----------------*/
 enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
-    /* PPU and SMPU don't generate interrupts.
-     * USART and Flash drivers don't export an EnableInterrupt function.
-     * So there's nothing to do here.
+    int32_t ret = ARM_DRIVER_OK;
+
+    /* MPC interrupt enabling */
+    ret = Driver_EFLASH0_MPC.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    ret = Driver_CODE_SRAM_MPC.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    NVIC_EnableIRQ(S_MPC_COMBINED_IRQn);
+
+    /* PPC interrupt enabling */
+    /* Clear pending PPC interrupts */
+    /* In the PPC configuration function, we have used the Non-Secure
+     * Privilege Control Block to grant unprivilged NS access to some
+     * peripherals used by NS. That triggers a PPC0 exception as that
+     * register is meant for NS privileged access only. Clear it here
      */
+    Driver_APB_PPC0.ClearInterrupt();
+
+    /* Enable PPC interrupts */
+    ret = Driver_AHB_PPCEXP0.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    ret = Driver_APB_PPC0.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    ret = Driver_APB_PPC1.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    ret = Driver_APB_PPCEXP0.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    ret = Driver_APB_PPCEXP1.EnableInterrupt();
+    if (ret != ARM_DRIVER_OK) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+    NVIC_EnableIRQ(S_PPC_COMBINED_IRQn);
+
+#ifdef PSA_API_TEST_IPC
+    NVIC_EnableIRQ(FF_TEST_UART_IRQ);
+#endif
+
     return TFM_PLAT_ERR_SUCCESS;
 }
 
-static cy_en_prot_status_t set_bus_master_attr(void)
+/*------------------- SAU/IDAU configuration functions -----------------------*/
+
+void sau_and_idau_cfg(void)
 {
-    cy_en_prot_status_t ret;
+    /* Enables SAU */
+    TZ_SAU_Enable();
 
-    /* Cortex-M4 - PC=6 */
-    ret = Cy_Prot_SetActivePC(CPUSS_MS_ID_CM4, CY_PROT_HOST_DEFAULT);
-    if (ret != CY_PROT_SUCCESS) {
-        return ret;
-    }
+    /* Configures SAU regions to be non-secure */
+    SAU->RNR  = TFM_NS_REGION_CODE;
+    SAU->RBAR = (memory_regions.non_secure_partition_base
+                & SAU_RBAR_BADDR_Msk);
+    SAU->RLAR = (memory_regions.non_secure_partition_limit
+                & SAU_RLAR_LADDR_Msk)
+                | SAU_RLAR_ENABLE_Msk;
 
-    /* Test Controller - PC=7 */
-    ret = Cy_Prot_SetActivePC(CPUSS_MS_ID_TC, CY_PROT_TC);
-    if (ret != CY_PROT_SUCCESS) {
-        return ret;
-    }
+    SAU->RNR  = TFM_NS_REGION_DATA;
+    SAU->RBAR = (NS_DATA_START & SAU_RBAR_BADDR_Msk);
+    SAU->RLAR = (NS_DATA_LIMIT & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
 
-    /* Cortex-M0+ - PC=1 */
-    ret = Cy_Prot_SetActivePC(CPUSS_MS_ID_CM0, CY_PROT_SPM_DEFAULT);
-    if (ret != CY_PROT_SUCCESS) {
-        return ret;
-    }
+    /* Configures veneers region to be non-secure callable */
+    SAU->RNR  = TFM_NS_REGION_VENEER;
+    SAU->RBAR = (memory_regions.veneer_base  & SAU_RBAR_BADDR_Msk);
+    SAU->RLAR = (memory_regions.veneer_limit & SAU_RLAR_LADDR_Msk)
+                | SAU_RLAR_ENABLE_Msk
+                | SAU_RLAR_NSC_Msk;
 
-    return CY_PROT_SUCCESS;
+    /* Configure the peripherals space */
+    SAU->RNR  = TFM_NS_REGION_PERIPH_1;
+    SAU->RBAR = (PERIPHERALS_BASE_NS_START & SAU_RBAR_BADDR_Msk);
+    SAU->RLAR = (PERIPHERALS_BASE_NS_END & SAU_RLAR_LADDR_Msk)
+                | SAU_RLAR_ENABLE_Msk;
+
+#ifdef BL2
+    /* Secondary image partition */
+    SAU->RNR  = TFM_NS_SECONDARY_IMAGE_REGION;
+    SAU->RBAR = (memory_regions.secondary_partition_base  & SAU_RBAR_BADDR_Msk);
+    SAU->RLAR = (memory_regions.secondary_partition_limit & SAU_RLAR_LADDR_Msk)
+                | SAU_RLAR_ENABLE_Msk;
+#endif /* BL2 */
+
+    /* Allows SAU to define the code region as a NSC */
+    struct spctrl_def* spctrl = CMSDK_SPCTRL;
+    spctrl->nsccfg |= NSCCFG_CODENSC;
 }
 
-void bus_masters_cfg(void)
+/*------------------- Memory configuration functions -------------------------*/
+
+int32_t mpc_init_cfg(void)
 {
-    cy_en_prot_status_t ret;
-    ret = set_bus_master_attr();
-    assert(ret == CY_PROT_SUCCESS);
-}
+    int32_t ret = ARM_DRIVER_OK;
 
-const SMPU_Resources *smpu_init_table[] = {
-#if RTE_SMPU0
-    &SMPU0_Resources,
-#endif
+    ARM_DRIVER_MPC* mpc_data_region0 = &Driver_ISRAM0_MPC;
+    ARM_DRIVER_MPC* mpc_data_region1 = &Driver_ISRAM1_MPC;
+    ARM_DRIVER_MPC* mpc_data_region2 = &Driver_ISRAM2_MPC;
+    ARM_DRIVER_MPC* mpc_data_region3 = &Driver_ISRAM3_MPC;
 
-#if RTE_SMPU1
-    &SMPU1_Resources,
-#endif
-
-#if RTE_SMPU2
-    &SMPU2_Resources,
-#endif
-
-#if RTE_SMPU3
-    &SMPU3_Resources,
-#endif
-
-#if RTE_SMPU4
-    &SMPU4_Resources,
-#endif
-
-#if RTE_SMPU5
-    &SMPU5_Resources,
-#endif
-
-#if RTE_SMPU6
-    &SMPU6_Resources,
-#endif
-
-#if RTE_SMPU7
-    &SMPU7_Resources,
-#endif
-
-#if RTE_SMPU8
-    &SMPU8_Resources,
-#endif
-
-#if RTE_SMPU9
-    &SMPU9_Resources,
-#endif
-
-#if RTE_SMPU10
-    &SMPU10_Resources,
-#endif
-
-#if RTE_SMPU11
-    &SMPU11_Resources,
-#endif
-
-#if RTE_SMPU12
-    &SMPU12_Resources,
-#endif
-
-#if RTE_SMPU13
-    &SMPU13_Resources,
-#endif
-};
-
-void smpu_init_cfg(void)
-{
-    cy_en_prot_status_t ret;
-
-    size_t n = sizeof(smpu_init_table)/sizeof(smpu_init_table[0]);
-
-    for (int i = (n - 1); i >= 0; i--)
-    {
-        ret = SMPU_Configure(smpu_init_table[i]);
-        assert(ret == CY_PROT_SUCCESS);
+    ret = Driver_EFLASH0_MPC.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_EFLASH0_MPC.ConfigRegion(
+                                      memory_regions.non_secure_partition_base,
+                                      memory_regions.non_secure_partition_limit,
+                                      ARM_MPC_ATTR_NONSECURE);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
     }
 
-    /* Now protect all unconfigured SMPUs */
-    ret = protect_unconfigured_smpus();
-    assert(ret == CY_PROT_SUCCESS);
+#ifdef BL2
+    /* Secondary image region */
+    ret = Driver_EFLASH0_MPC.ConfigRegion(
+                                       memory_regions.secondary_partition_base,
+                                       memory_regions.secondary_partition_limit,
+                                       ARM_MPC_ATTR_NONSECURE);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+#endif /* BL2 */
 
+    /* SRAM MPC device needs to be initialialized so that the interrupt can be
+     * enabled later. The default (secure only) config is used.
+     */
+    ret = Driver_CODE_SRAM_MPC.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    ret = mpc_data_region0->Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = mpc_data_region0->ConfigRegion(MPC_ISRAM0_RANGE_BASE_S,
+                                   MPC_ISRAM0_RANGE_LIMIT_S,
+                                   ARM_MPC_ATTR_SECURE);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    ret = mpc_data_region1->Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = mpc_data_region1->ConfigRegion(MPC_ISRAM1_RANGE_BASE_S,
+                                   MPC_ISRAM1_RANGE_LIMIT_S,
+                                   ARM_MPC_ATTR_SECURE);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    ret = mpc_data_region2->Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = mpc_data_region2->ConfigRegion(MPC_ISRAM2_RANGE_BASE_NS,
+                                   MPC_ISRAM2_RANGE_LIMIT_NS,
+                                   ARM_MPC_ATTR_NONSECURE);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    ret = mpc_data_region3->Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = mpc_data_region3->ConfigRegion(MPC_ISRAM3_RANGE_BASE_NS,
+                                   MPC_ISRAM3_RANGE_LIMIT_NS,
+                                   ARM_MPC_ATTR_NONSECURE);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    /* Add barriers to assure the MPC configuration is done before continue
+     * the execution.
+     */
+    __DSB();
+    __ISB();
+
+    return ARM_DRIVER_OK;
+}
+
+void mpc_revert_non_secure_to_secure_cfg(void)
+{
+    ARM_DRIVER_MPC* mpc_data_region2 = &Driver_ISRAM2_MPC;
+    ARM_DRIVER_MPC* mpc_data_region3 = &Driver_ISRAM3_MPC;
+
+    Driver_EFLASH0_MPC.ConfigRegion(MPC_EFLASH0_RANGE_BASE_S,
+                                    MPC_EFLASH0_RANGE_LIMIT_S,
+                                    ARM_MPC_ATTR_SECURE);
+
+    mpc_data_region2->ConfigRegion(MPC_ISRAM2_RANGE_BASE_S,
+                                   MPC_ISRAM2_RANGE_LIMIT_S,
+                                   ARM_MPC_ATTR_SECURE);
+
+    mpc_data_region3->ConfigRegion(MPC_ISRAM3_RANGE_BASE_S,
+                                   MPC_ISRAM3_RANGE_LIMIT_S,
+                                   ARM_MPC_ATTR_SECURE);
+
+    /* Add barriers to assure the MPC configuration is done before continue
+     * the execution.
+     */
     __DSB();
     __ISB();
 }
 
-void smpu_print_config(void)
+/*---------------------- PPC configuration functions -------------------------*/
+
+int32_t ppc_init_cfg(void)
 {
-    printf("\nSMPU config:\n");
-    printf("memory_regions.non_secure_code_start = %#x\n", memory_regions.non_secure_code_start);
-    printf("memory_regions.non_secure_partition_base = %#x\n", memory_regions.non_secure_partition_base);
-    printf("memory_regions.non_secure_partition_limit = %#x\n", memory_regions.non_secure_partition_limit);
+    struct spctrl_def* spctrl = CMSDK_SPCTRL;
+    int32_t ret = ARM_DRIVER_OK;
 
-    size_t n = sizeof(smpu_init_table)/sizeof(smpu_init_table[0]);
+    /* No peripherals are configured on AHB PPCEXP0, but device needs to be
+     * initialialized so that the interrupt can be enabled later.
+     */
+    ret = Driver_AHB_PPCEXP0.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
 
-    for (int i = 0; i < n; i++)
-    {
-        SMPU_Print_Config(smpu_init_table[i]);
+    /* Grant non-secure access to peripherals in the APB PPC0
+     * (timer0 and 1, dualtimer, mhu 0 and 1)
+     */
+    ret = Driver_APB_PPC0.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPC0.ConfigPeriph(CMSDK_TIMER0_APB_PPC_POS,
+                                 ARM_PPC_NONSECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPC0.ConfigPeriph(CMSDK_TIMER1_APB_PPC_POS,
+                                 ARM_PPC_NONSECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPC0.ConfigPeriph(CMSDK_DTIMER_APB_PPC_POS,
+                                 ARM_PPC_NONSECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPC0.ConfigPeriph(CMSDK_MHU0_APB_PPC_POS,
+                                 ARM_PPC_NONSECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPC0.ConfigPeriph(CMSDK_MHU1_APB_PPC_POS,
+                                 ARM_PPC_NONSECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    /* No peripherals are configured on APB PPC1, but device needs to be
+     * initialialized so that the interrupt can be enabled later.
+     */
+    ret = Driver_APB_PPC1.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    /* No peripherals are configured on APB PPC EXP0, but device needs to be
+     * initialialized so that the interrupt can be enabled later.
+     */
+    ret = Driver_APB_PPCEXP0.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    /* Grant non-secure access for APB peripherals on EXP1 */
+    ret = Driver_APB_PPCEXP1.Initialize();
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_PWM0_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_PWM1_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_PWM2_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_I2S_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_UART0_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_UART1_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_AND_NONPRIV);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_I2C0_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_I2C1_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_SPI_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_GPTIMER_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_RTC_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_PVT_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_B1_SDIO_APB_PPC_POS,
+                                    ARM_PPC_NONSECURE_ONLY,
+                                    ARM_PPC_PRIV_ONLY);
+    if (ret != ARM_DRIVER_OK) {
+        return ret;
+    }
+
+    /* Configure the response to a security violation as a
+     * bus error instead of RAZ/WI
+     */
+    spctrl->secrespcfg |= 1U;
+
+    return ARM_DRIVER_OK;
+}
+
+void ppc_configure_to_non_secure(enum ppc_bank_e bank, uint16_t pos)
+{
+    /* Setting NS flag for peripheral to enable NS access */
+    ARM_DRIVER_PPC *ppc_driver;
+
+    if (bank >= PPC_BANK_COUNT) {
+        return;
+    }
+
+    ppc_driver = ppc_bank_drivers[bank];
+    if (ppc_driver) {
+        ppc_driver->ConfigPeriph(pos, ARM_PPC_NONSECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
     }
 }
 
-const PPU_Resources *ppu_init_table[] = {
-#if RTE_MS_PPU_PR7
-&PR7_PPU_Resources,
-#endif
-#if RTE_MS_PPU_PERI_MAIN
-    &PERI_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR0_GROUP
-    &PERI_GR0_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR1_GROUP
-    &PERI_GR1_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR2_GROUP
-    &PERI_GR2_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR3_GROUP
-    &PERI_GR3_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR4_GROUP
-    &PERI_GR4_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR6_GROUP
-    &PERI_GR6_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR9_GROUP
-    &PERI_GR9_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_GR10_GROUP
-    &PERI_GR10_GROUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PERI_TR
-    &PERI_TR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CRYPTO_MAIN
-    &CRYPTO_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CRYPTO_CRYPTO
-    &CRYPTO_CRYPTO_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CRYPTO_BOOT
-    &CRYPTO_BOOT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CRYPTO_KEY0
-    &CRYPTO_KEY0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CRYPTO_KEY1
-    &CRYPTO_KEY1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CRYPTO_BUF
-    &CRYPTO_BUF_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CPUSS_CM4
-    &CPUSS_CM4_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CPUSS_CM0
-    &CPUSS_CM0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CPUSS_BOOT
-    &CPUSS_BOOT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CPUSS_CM0_INT
-    &CPUSS_CM0_INT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CPUSS_CM4_INT
-    &CPUSS_CM4_INT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FAULT_STRUCT0_MAIN
-    &FAULT_STRUCT0_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FAULT_STRUCT1_MAIN
-    &FAULT_STRUCT1_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT0_IPC
-    &IPC_STRUCT0_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT1_IPC
-    &IPC_STRUCT1_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT2_IPC
-    &IPC_STRUCT2_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT3_IPC
-    &IPC_STRUCT3_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT4_IPC
-    &IPC_STRUCT4_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT5_IPC
-    &IPC_STRUCT5_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT6_IPC
-    &IPC_STRUCT6_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT7_IPC
-    &IPC_STRUCT7_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT8_IPC
-    &IPC_STRUCT8_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT9_IPC
-    &IPC_STRUCT9_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT10_IPC
-    &IPC_STRUCT10_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT11_IPC
-    &IPC_STRUCT11_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT12_IPC
-    &IPC_STRUCT12_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT13_IPC
-    &IPC_STRUCT13_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT14_IPC
-    &IPC_STRUCT14_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_STRUCT15_IPC
-    &IPC_STRUCT15_IPC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT0_INTR
-    &IPC_INTR_STRUCT0_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT1_INTR
-    &IPC_INTR_STRUCT1_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT2_INTR
-    &IPC_INTR_STRUCT2_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT3_INTR
-    &IPC_INTR_STRUCT3_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT4_INTR
-    &IPC_INTR_STRUCT4_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT5_INTR
-    &IPC_INTR_STRUCT5_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT6_INTR
-    &IPC_INTR_STRUCT6_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT7_INTR
-    &IPC_INTR_STRUCT7_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT8_INTR
-    &IPC_INTR_STRUCT8_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT9_INTR
-    &IPC_INTR_STRUCT9_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT10_INTR
-    &IPC_INTR_STRUCT10_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT11_INTR
-    &IPC_INTR_STRUCT11_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT12_INTR
-    &IPC_INTR_STRUCT12_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT13_INTR
-    &IPC_INTR_STRUCT13_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT14_INTR
-    &IPC_INTR_STRUCT14_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_IPC_INTR_STRUCT15_INTR
-    &IPC_INTR_STRUCT15_INTR_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROT_SMPU_MAIN
-    &PROT_SMPU_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROT_MPU0_MAIN
-    &PROT_MPU0_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROT_MPU5_MAIN
-    &PROT_MPU5_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROT_MPU6_MAIN
-    &PROT_MPU6_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROT_MPU14_MAIN
-    &PROT_MPU14_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROT_MPU15_MAIN
-    &PROT_MPU15_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_MAIN
-    &FLASHC_MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_CMD
-    &FLASHC_CMD_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_DFT
-    &FLASHC_DFT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_CM0
-    &FLASHC_CM0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_CM4
-    &FLASHC_CM4_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_CRYPTO
-    &FLASHC_CRYPTO_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_DW0
-    &FLASHC_DW0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_DW1
-    &FLASHC_DW1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_DMAC
-    &FLASHC_DMAC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_EXT_MS0
-    &FLASHC_EXT_MS0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_EXT_MS1
-    &FLASHC_EXT_MS1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_FLASHC_FM
-    &FLASHC_FM_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN1
-    &SRSS_MAIN1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN2
-    &SRSS_MAIN2_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_WDT
-    &WDT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_MAIN
-    &MAIN_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN3
-    &SRSS_MAIN3_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN4
-    &SRSS_MAIN4_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN5
-    &SRSS_MAIN5_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN6
-    &SRSS_MAIN6_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SRSS_MAIN7
-    &SRSS_MAIN7_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_BACKUP_BACKUP
-    &BACKUP_BACKUP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_DW
-    &DW0_DW_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_DW
-    &DW1_DW_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_DW_CRC
-    &DW0_DW_CRC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_DW_CRC
-    &DW1_DW_CRC_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT0_CH
-    &DW0_CH_STRUCT0_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT1_CH
-    &DW0_CH_STRUCT1_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT2_CH
-    &DW0_CH_STRUCT2_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT3_CH
-    &DW0_CH_STRUCT3_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT4_CH
-    &DW0_CH_STRUCT4_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT5_CH
-    &DW0_CH_STRUCT5_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT6_CH
-    &DW0_CH_STRUCT6_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT7_CH
-    &DW0_CH_STRUCT7_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT8_CH
-    &DW0_CH_STRUCT8_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT9_CH
-    &DW0_CH_STRUCT9_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT10_CH
-    &DW0_CH_STRUCT10_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT11_CH
-    &DW0_CH_STRUCT11_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT12_CH
-    &DW0_CH_STRUCT12_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT13_CH
-    &DW0_CH_STRUCT13_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT14_CH
-    &DW0_CH_STRUCT14_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT15_CH
-    &DW0_CH_STRUCT15_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT16_CH
-    &DW0_CH_STRUCT16_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT17_CH
-    &DW0_CH_STRUCT17_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT18_CH
-    &DW0_CH_STRUCT18_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT19_CH
-    &DW0_CH_STRUCT19_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT20_CH
-    &DW0_CH_STRUCT20_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT21_CH
-    &DW0_CH_STRUCT21_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT22_CH
-    &DW0_CH_STRUCT22_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT23_CH
-    &DW0_CH_STRUCT23_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT24_CH
-    &DW0_CH_STRUCT24_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT25_CH
-    &DW0_CH_STRUCT25_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT26_CH
-    &DW0_CH_STRUCT26_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT27_CH
-    &DW0_CH_STRUCT27_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW0_CH_STRUCT28_CH
-    &DW0_CH_STRUCT28_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT0_CH
-    &DW1_CH_STRUCT0_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT1_CH
-    &DW1_CH_STRUCT1_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT2_CH
-    &DW1_CH_STRUCT2_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT3_CH
-    &DW1_CH_STRUCT3_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT4_CH
-    &DW1_CH_STRUCT4_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT5_CH
-    &DW1_CH_STRUCT5_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT6_CH
-    &DW1_CH_STRUCT6_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT7_CH
-    &DW1_CH_STRUCT7_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT8_CH
-    &DW1_CH_STRUCT8_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT9_CH
-    &DW1_CH_STRUCT9_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT10_CH
-    &DW1_CH_STRUCT10_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT11_CH
-    &DW1_CH_STRUCT11_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT12_CH
-    &DW1_CH_STRUCT12_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT13_CH
-    &DW1_CH_STRUCT13_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT14_CH
-    &DW1_CH_STRUCT14_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT15_CH
-    &DW1_CH_STRUCT15_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT16_CH
-    &DW1_CH_STRUCT16_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT17_CH
-    &DW1_CH_STRUCT17_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT18_CH
-    &DW1_CH_STRUCT18_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT19_CH
-    &DW1_CH_STRUCT19_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT20_CH
-    &DW1_CH_STRUCT20_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT21_CH
-    &DW1_CH_STRUCT21_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT22_CH
-    &DW1_CH_STRUCT22_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT23_CH
-    &DW1_CH_STRUCT23_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT24_CH
-    &DW1_CH_STRUCT24_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT25_CH
-    &DW1_CH_STRUCT25_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT26_CH
-    &DW1_CH_STRUCT26_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT27_CH
-    &DW1_CH_STRUCT27_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DW1_CH_STRUCT28_CH
-    &DW1_CH_STRUCT28_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DMAC_TOP
-    &DMAC_TOP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DMAC_CH0_CH
-    &DMAC_CH0_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DMAC_CH1_CH
-    &DMAC_CH1_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DMAC_CH2_CH
-    &DMAC_CH2_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_DMAC_CH3_CH
-    &DMAC_CH3_CH_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_EFUSE_CTL
-    &EFUSE_CTL_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_EFUSE_DATA
-    &EFUSE_DATA_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PROFILE
-    &PROFILE_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT0_PRT
-    &HSIOM_PRT0_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT1_PRT
-    &HSIOM_PRT1_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT2_PRT
-    &HSIOM_PRT2_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT3_PRT
-    &HSIOM_PRT3_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT4_PRT
-    &HSIOM_PRT4_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT5_PRT
-    &HSIOM_PRT5_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT6_PRT
-    &HSIOM_PRT6_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT7_PRT
-    &HSIOM_PRT7_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT8_PRT
-    &HSIOM_PRT8_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT9_PRT
-    &HSIOM_PRT9_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT10_PRT
-    &HSIOM_PRT10_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT11_PRT
-    &HSIOM_PRT11_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT12_PRT
-    &HSIOM_PRT12_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT13_PRT
-    &HSIOM_PRT13_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_PRT14_PRT
-    &HSIOM_PRT14_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_AMUX
-    &HSIOM_AMUX_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_HSIOM_MON
-    &HSIOM_MON_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT0_PRT
-    &GPIO_PRT0_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT1_PRT
-    &GPIO_PRT1_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT2_PRT
-    &GPIO_PRT2_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT3_PRT
-    &GPIO_PRT3_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT4_PRT
-    &GPIO_PRT4_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT5_PRT
-    &GPIO_PRT5_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT6_PRT
-    &GPIO_PRT6_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT7_PRT
-    &GPIO_PRT7_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT8_PRT
-    &GPIO_PRT8_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT9_PRT
-    &GPIO_PRT9_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT10_PRT
-    &GPIO_PRT10_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT11_PRT
-    &GPIO_PRT11_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT12_PRT
-    &GPIO_PRT12_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT13_PRT
-    &GPIO_PRT13_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT14_PRT
-    &GPIO_PRT14_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT0_CFG
-    &GPIO_PRT0_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT1_CFG
-    &GPIO_PRT1_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT2_CFG
-    &GPIO_PRT2_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT3_CFG
-    &GPIO_PRT3_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT4_CFG
-    &GPIO_PRT4_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT5_CFG
-    &GPIO_PRT5_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT6_CFG
-    &GPIO_PRT6_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT7_CFG
-    &GPIO_PRT7_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT8_CFG
-    &GPIO_PRT8_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT9_CFG
-    &GPIO_PRT9_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT10_CFG
-    &GPIO_PRT10_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT11_CFG
-    &GPIO_PRT11_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT12_CFG
-    &GPIO_PRT12_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT13_CFG
-    &GPIO_PRT13_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_PRT14_CFG
-    &GPIO_PRT14_CFG_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_GPIO
-    &GPIO_GPIO_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_GPIO_TEST
-    &GPIO_TEST_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SMARTIO_PRT8_PRT
-    &SMARTIO_PRT8_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SMARTIO_PRT9_PRT
-    &SMARTIO_PRT9_PRT_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_LPCOMP
-    &LPCOMP_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_CSD0
-    &CSD0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_TCPWM0
-    &TCPWM0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_TCPWM1
-    &TCPWM1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_LCD0
-    &LCD0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_USBFS0
-    &USBFS0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SMIF0
-    &SMIF0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SDHC0
-    &SDHC0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SDHC1
-    &SDHC1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB0
-    &SCB0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB1
-    &SCB1_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB2
-    &SCB2_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB3
-    &SCB3_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB4
-    &SCB4_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB5
-    &SCB5_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB6
-    &SCB6_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB7
-    &SCB7_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB8
-    &SCB8_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB9
-    &SCB9_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB10
-    &SCB10_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB11
-    &SCB11_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_SCB12
-    &SCB12_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_PDM0
-    &PDM0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_I2S0
-    &I2S0_PPU_Resources,
-#endif
-
-#if RTE_MS_PPU_I2S1
-    &I2S1_PPU_Resources,
-#endif
-};
-
-void ppu_init_cfg(void)
+void ppc_configure_to_secure(enum ppc_bank_e bank, uint16_t pos)
 {
-    cy_en_prot_status_t ret;
-    (void)ret;
+    /* Clear NS flag for peripheral to prevent NS access */
+    ARM_DRIVER_PPC *ppc_driver;
 
-    size_t n = sizeof(ppu_init_table)/sizeof(ppu_init_table[0]);
-
-    for (int i = 0; i < n; i++)
-    {
-        ret = PPU_Configure(ppu_init_table[i]);
-        assert(ret == CY_PROT_SUCCESS);
+    if (bank >= PPC_BANK_COUNT) {
+        return;
     }
 
-    __DSB();
-    __ISB();
+    ppc_driver = ppc_bank_drivers[bank];
+    if (ppc_driver) {
+        ppc_driver->ConfigPeriph(pos, ARM_PPC_SECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    }
+}
+
+void ppc_en_secure_unpriv(enum ppc_bank_e bank, uint16_t pos)
+{
+    ARM_DRIVER_PPC *ppc_driver;
+
+    if (bank >= PPC_BANK_COUNT) {
+        return;
+    }
+
+    ppc_driver = ppc_bank_drivers[bank];
+    if (ppc_driver) {
+        ppc_driver->ConfigPeriph(pos, ARM_PPC_SECURE_ONLY,
+                                 ARM_PPC_PRIV_AND_NONPRIV);
+    }
+}
+
+void ppc_clr_secure_unpriv(enum ppc_bank_e bank, uint16_t pos)
+{
+    ARM_DRIVER_PPC *ppc_driver;
+
+    if (bank >= PPC_BANK_COUNT) {
+        return;
+    }
+
+    ppc_driver = ppc_bank_drivers[bank];
+    if (ppc_driver) {
+        ppc_driver->ConfigPeriph(pos, ARM_PPC_SECURE_ONLY,
+                                 ARM_PPC_PRIV_ONLY);
+    }
+}
+
+void ppc_clear_irq(void)
+{
+    Driver_AHB_PPCEXP0.ClearInterrupt();
+    Driver_APB_PPC0.ClearInterrupt();
+    Driver_APB_PPC1.ClearInterrupt();
+    Driver_APB_PPCEXP0.ClearInterrupt();
+    Driver_APB_PPCEXP1.ClearInterrupt();
 }

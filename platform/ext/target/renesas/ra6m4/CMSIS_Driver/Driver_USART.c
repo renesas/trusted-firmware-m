@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2013-2018 ARM Limited. All rights reserved.
- * Copyright (c) 2019-2020 Cypress Semiconductor Corporation. All rights reserved.
+ * Copyright (c) 2013-2019 Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -17,18 +16,10 @@
  * limitations under the License.
  */
 
-/* This is a modified copy of the ref_twincpu version at
- * platform/ext/target/ref_twincpu/CMSIS_Driver/Driver_USART.c
- */
-
 #include "Driver_USART.h"
-#include "cmsis.h"
+
 #include "cmsis_driver_config.h"
 #include "RTE_Device.h"
-
-#include "cycfg.h"
-#include "cy_device.h"
-#include "cy_scb_uart.h"
 
 #ifndef ARG_UNUSED
 #define ARG_UNUSED(arg)  (void)arg
@@ -55,7 +46,9 @@ static const ARM_USART_CAPABILITIES DriverCapabilities = {
     0, /* RTS Flow Control available */
     0, /* CTS Flow Control available */
     0, /* Transmit completed event: \ref ARM_USARTx_EVENT_TX_COMPLETE */
-    0, /* Signal receive character timeout event: \ref ARM_USARTx_EVENT_RX_TIMEOUT */
+    0, /* Signal receive character timeout event:
+        * \ref ARM_USARTx_EVENT_RX_TIMEOUT
+        */
     0, /* RTS Line: 0=not available, 1=available */
     0, /* CTS Line: 0=not available, 1=available */
     0, /* DTR Line: 0=not available, 1=available */
@@ -80,57 +73,29 @@ static ARM_USART_CAPABILITIES ARM_USART_GetCapabilities(void)
 }
 
 typedef struct {
-    CySCB_Type* base;                  /* UART device structure */
+    struct uart_pl011_dev_t* dev;      /* UART device structure */
     uint32_t tx_nbr_bytes;             /* Number of bytes transfered */
     uint32_t rx_nbr_bytes;             /* Number of bytes recevied */
     ARM_USART_SignalEvent_t cb_event;  /* Callback function for events */
 } UARTx_Resources;
 
-static int32_t USARTx_convert_retval(cy_en_scb_uart_status_t val)
-{
-    switch (val) {
-    case CY_SCB_UART_SUCCESS:
-        return ARM_DRIVER_OK;
-    case CY_SCB_UART_BAD_PARAM:
-        return ARM_DRIVER_ERROR_PARAMETER;
-    case CY_SCB_UART_RECEIVE_BUSY:
-    case CY_SCB_UART_TRANSMIT_BUSY:
-        return ARM_DRIVER_ERROR_BUSY;
-    }
-}
-
 static int32_t ARM_USARTx_Initialize(UARTx_Resources* uart_dev)
 {
-    cy_en_scb_uart_status_t retval;
+    /* Initializes generic UART driver */
+    uart_pl011_init(uart_dev->dev, PeripheralClock);
 
-#if CY_SYSTEM_CPU_CM0P
-    cy_stc_scb_uart_config_t config = KITPROG_UART_config;
-
-    /* Assign and configure pins, assign clock divider */
-    retval = Cy_SCB_UART_Init(uart_dev->base, &config, NULL);
-
-    Cy_SCB_UART_ClearRxFifo(uart_dev->base);
-    Cy_SCB_UART_ClearTxFifo(uart_dev->base);
-
-    if (retval == CY_SCB_UART_SUCCESS)
-        Cy_SCB_UART_Enable(uart_dev->base);
-#else
-    // all hw initializations is done on the cm0p side
-    retval = CY_SCB_UART_SUCCESS;
-
-#endif
-    return USARTx_convert_retval(retval);
-}
-
-static uint32_t ARM_USARTx_Uninitialize(UARTx_Resources* uart_dev)
-{
-    Cy_SCB_UART_Disable(uart_dev->base, NULL);
-
-    Cy_SCB_UART_DeInit(uart_dev->base);
+    uart_pl011_enable(uart_dev->dev);
 
     return ARM_DRIVER_OK;
 }
 
+static int32_t ARM_USARTx_Uninitialize(UARTx_Resources* uart_dev)
+{
+    /* Disables and uninitializes generic UART driver */
+    uart_pl011_uninit(uart_dev->dev);
+
+    return ARM_DRIVER_OK;
+}
 
 static int32_t ARM_USARTx_PowerControl(UARTx_Resources* uart_dev,
                                        ARM_POWER_STATE state)
@@ -144,28 +109,38 @@ static int32_t ARM_USARTx_PowerControl(UARTx_Resources* uart_dev,
     case ARM_POWER_FULL:
         /* Nothing to be done */
         return ARM_DRIVER_OK;
-    /* default:  The default is not defined intentionally to force the
-     *           compiler to check that all the enumeration values are
-     *           covered in the switch.*/
+    default:
+        return ARM_DRIVER_ERROR_PARAMETER;
     }
 }
 
 static int32_t ARM_USARTx_Send(UARTx_Resources* uart_dev, const void *data,
                                uint32_t num)
 {
-    void *p_data = (void *)data;
+    const uint8_t* p_data = (const uint8_t*)data;
 
     if ((data == NULL) || (num == 0U)) {
         /* Invalid parameters */
         return ARM_DRIVER_ERROR_PARAMETER;
     }
 
-    Cy_SCB_UART_PutArrayBlocking(uart_dev->base, p_data, num);
+    /* Resets previous TX counter */
+    uart_dev->tx_nbr_bytes = 0;
 
-    while (!Cy_SCB_UART_IsTxComplete(uart_dev->base))
-        ;
+    while(uart_dev->tx_nbr_bytes != num) {
+        /* Waits until UART is ready to transmit */
+        while(!uart_pl011_is_writable(uart_dev->dev)) {};
 
-    uart_dev->tx_nbr_bytes = num;
+        /* As UART is ready to transmit at this point, the write function can
+         * not return any transmit error */
+        (void)uart_pl011_write(uart_dev->dev, *p_data);
+
+        uart_dev->tx_nbr_bytes++;
+        p_data++;
+    }
+
+    /* Waits until character is transmited */
+    while (!uart_pl011_is_writable(uart_dev->dev)){};
 
     return ARM_DRIVER_OK;
 }
@@ -173,28 +148,29 @@ static int32_t ARM_USARTx_Send(UARTx_Resources* uart_dev, const void *data,
 static int32_t ARM_USARTx_Receive(UARTx_Resources* uart_dev,
                                   void *data, uint32_t num)
 {
+    uint8_t* p_data = (uint8_t*)data;
+
     if ((data == NULL) || (num == 0U)) {
         // Invalid parameters
         return ARM_DRIVER_ERROR_PARAMETER;
     }
 
-    Cy_SCB_UART_GetArrayBlocking(uart_dev->base, data, num);
+    /* Resets previous RX counter */
+    uart_dev->rx_nbr_bytes = 0;
 
-    uart_dev->rx_nbr_bytes = num;
+    while(uart_dev->rx_nbr_bytes != num) {
+        /* Waits until one character is received */
+        while (!uart_pl011_is_readable(uart_dev->dev)){};
+
+        /* As UART has received one byte, the read can not
+         * return any receive error at this point */
+        (void)uart_pl011_read(uart_dev->dev, p_data);
+
+        uart_dev->rx_nbr_bytes++;
+        p_data++;
+    }
 
     return ARM_DRIVER_OK;
-}
-
-static int32_t ARM_USARTx_Transfer(UARTx_Resources* uart_dev,
-                                   const void *data_out, void *data_in,
-                                   uint32_t num)
-{
-    ARG_UNUSED(uart_dev);
-    ARG_UNUSED(data_out);
-    ARG_UNUSED(data_in);
-    ARG_UNUSED(num);
-
-    return ARM_DRIVER_ERROR_UNSUPPORTED;
 }
 
 static uint32_t ARM_USARTx_GetTxCount(UARTx_Resources* uart_dev)
@@ -207,297 +183,235 @@ static uint32_t ARM_USARTx_GetRxCount(UARTx_Resources* uart_dev)
     return uart_dev->rx_nbr_bytes;
 }
 
-static uint32_t USARTx_SetDataBits(uint32_t control,
-                                   cy_stc_scb_uart_config_t *config)
-{
-    switch (control & ARM_USART_DATA_BITS_Msk) {
-    case ARM_USART_DATA_BITS_5:
-        config->dataWidth = 5;
-        break;
-
-    case ARM_USART_DATA_BITS_6:
-        config->dataWidth = 6;
-        break;
-
-    case ARM_USART_DATA_BITS_7:
-        config->dataWidth = 7;
-        break;
-
-    case ARM_USART_DATA_BITS_8:
-        config->dataWidth = 8;
-        break;
-
-    case ARM_USART_DATA_BITS_9:
-        config->dataWidth = 9;
-        break;
-
-    default:
-        return ARM_DRIVER_ERROR_UNSUPPORTED;
-    }
-
-    return ARM_DRIVER_OK;
-}
-
-static uint32_t USARTx_SetParity(uint32_t control,
-                                 cy_stc_scb_uart_config_t *config)
-{
-    switch (control & ARM_USART_PARITY_Msk) {
-    case ARM_USART_PARITY_NONE:
-        config->parity = CY_SCB_UART_PARITY_NONE;
-        break;
-
-    case ARM_USART_PARITY_EVEN:
-        config->parity = CY_SCB_UART_PARITY_EVEN;
-        break;
-
-    case ARM_USART_PARITY_ODD:
-        config->parity = CY_SCB_UART_PARITY_ODD;
-        break;
-
-    default:
-        return ARM_DRIVER_ERROR_UNSUPPORTED;
-    }
-
-    return ARM_DRIVER_OK;
-}
-
-static uint32_t USARTx_SetStopBits(uint32_t control,
-                                   cy_stc_scb_uart_config_t *config)
-{
-    switch (control & ARM_USART_STOP_BITS_Msk) {
-    case ARM_USART_STOP_BITS_1:
-        config->stopBits = CY_SCB_UART_STOP_BITS_1;
-        break;
-
-    case ARM_USART_STOP_BITS_2:
-        config->stopBits = CY_SCB_UART_STOP_BITS_2;
-        break;
-
-    case ARM_USART_STOP_BITS_1_5:
-        config->stopBits = CY_SCB_UART_STOP_BITS_1_5;
-        break;
-
-    default:
-        return ARM_DRIVER_ERROR_UNSUPPORTED;
-    }
-
-    return ARM_DRIVER_OK;
-}
-
-static void USARTx_SetFlowControl(uint32_t control,
-                                  cy_stc_scb_uart_config_t *config)
-{
-    /* First, deal with CTS */
-    switch (control & ARM_USART_FLOW_CONTROL_Msk) {
-    case ARM_USART_FLOW_CONTROL_NONE:
-    case ARM_USART_FLOW_CONTROL_RTS:
-        config->enableCts = false;
-        config->ctsPolarity = CY_SCB_UART_ACTIVE_LOW;
-        break;
-
-    case ARM_USART_FLOW_CONTROL_CTS:
-    case ARM_USART_FLOW_CONTROL_RTS_CTS:
-        config->enableCts = true;
-        config->ctsPolarity = CY_SCB_UART_ACTIVE_LOW;
-        break;
-    }
-
-    /* Then RTS */
-    switch (control & ARM_USART_FLOW_CONTROL_Msk) {
-    case ARM_USART_FLOW_CONTROL_NONE:
-    case ARM_USART_FLOW_CONTROL_CTS:
-        config->rtsRxFifoLevel = 0;
-        config->rtsPolarity = CY_SCB_UART_ACTIVE_LOW;
-        break;
-
-    case ARM_USART_FLOW_CONTROL_RTS:
-    case ARM_USART_FLOW_CONTROL_RTS_CTS:
-        config->rtsRxFifoLevel = 8; /* TODO What's a sensible value ? */
-        config->rtsPolarity = CY_SCB_UART_ACTIVE_LOW;
-        break;
-    }
-}
-
 static int32_t ARM_USARTx_Control(UARTx_Resources* uart_dev, uint32_t control,
                                   uint32_t arg)
 {
-    cy_stc_scb_uart_config_t config = KITPROG_UART_config;
-    uint32_t retval;
-
     switch (control & ARM_USART_CONTROL_Msk) {
         case ARM_USART_MODE_ASYNCHRONOUS:
-            /* TODO Default values work for 115200 baud,
-             * but we should set config.oversample to
-             * a value derived from the divider
-             */
+            if(uart_pl011_set_baudrate(uart_dev->dev, arg) !=
+                UART_PL011_ERR_NONE) {
+                return ARM_USART_ERROR_BAUDRATE;
+            }
             break;
         /* Unsupported command */
         default:
             return ARM_DRIVER_ERROR_UNSUPPORTED;
     }
 
-    Cy_SCB_UART_Disable(uart_dev->base, NULL);
-
     /* UART Data bits */
-    retval = USARTx_SetDataBits(control, &config);
-    if (retval != ARM_DRIVER_OK)
-        return retval;
+    if(control & ARM_USART_DATA_BITS_Msk) {
+        /* Data bit is not configurable */
+        return ARM_DRIVER_ERROR_UNSUPPORTED;
+    }
 
     /* UART Parity */
-    retval = USARTx_SetParity(control, &config);
-    if (retval != ARM_DRIVER_OK)
-        return retval;
+    if(control & ARM_USART_PARITY_Msk) {
+        /* Parity is not configurable */
+        return ARM_USART_ERROR_PARITY;
+    }
 
     /* USART Stop bits */
-    retval = USARTx_SetStopBits(control, &config);
-    if (retval != ARM_DRIVER_OK)
-        return retval;
-
-    /* USART Flow Control */
-    USARTx_SetFlowControl(control, &config);
-
-    Cy_SCB_UART_ClearRxFifo(uart_dev->base);
-    Cy_SCB_UART_ClearTxFifo(uart_dev->base);
-
-    Cy_SCB_UART_Enable(uart_dev->base);
+    if(control & ARM_USART_STOP_BITS_Msk) {
+        /* Stop bit is not configurable */
+        return ARM_USART_ERROR_STOP_BITS;
+    }
 
     return ARM_DRIVER_OK;
 }
 
-static ARM_USART_STATUS ARM_USARTx_GetStatus(UARTx_Resources* uart_dev)
+#if (RTE_USART0)
+/* USART0 Driver wrapper functions */
+static UARTx_Resources USART0_DEV = {
+    .dev = &UART0_DEV,
+    .tx_nbr_bytes = 0,
+    .rx_nbr_bytes = 0,
+    .cb_event = NULL,
+};
+
+static int32_t ARM_USART0_Initialize(ARM_USART_SignalEvent_t cb_event)
+{
+    USART0_DEV.cb_event = cb_event;
+
+    musca_b1_scc_set_alt_func(&MUSCA_B1_SCC_DEV, GPIO_ALTFUNC_1, 1<<AHB_GPIO0_0);
+    musca_b1_scc_set_alt_func(&MUSCA_B1_SCC_DEV, GPIO_ALTFUNC_1, 1<<AHB_GPIO0_1);
+
+    return ARM_USARTx_Initialize(&USART0_DEV);
+}
+
+static int32_t ARM_USART0_Uninitialize(void)
+{
+    return ARM_USARTx_Uninitialize(&USART0_DEV);
+}
+
+static int32_t ARM_USART0_PowerControl(ARM_POWER_STATE state)
+{
+    return ARM_USARTx_PowerControl(&USART0_DEV, state);
+}
+
+static int32_t ARM_USART0_Send(const void *data, uint32_t num)
+{
+    return ARM_USARTx_Send(&USART0_DEV, data, num);
+}
+
+static int32_t ARM_USART0_Receive(void *data, uint32_t num)
+{
+    return ARM_USARTx_Receive(&USART0_DEV, data, num);
+}
+
+static int32_t ARM_USART0_Transfer(const void *data_out, void *data_in,
+                                   uint32_t num)
+{
+    ARG_UNUSED(data_out);
+    ARG_UNUSED(data_in);
+    ARG_UNUSED(num);
+
+    return ARM_DRIVER_ERROR_UNSUPPORTED;
+}
+
+static uint32_t ARM_USART0_GetTxCount(void)
+{
+    return ARM_USARTx_GetTxCount(&USART0_DEV);
+}
+
+static uint32_t ARM_USART0_GetRxCount(void)
+{
+    return ARM_USARTx_GetRxCount(&USART0_DEV);
+}
+static int32_t ARM_USART0_Control(uint32_t control, uint32_t arg)
+{
+    return ARM_USARTx_Control(&USART0_DEV, control, arg);
+}
+
+static ARM_USART_STATUS ARM_USART0_GetStatus(void)
 {
     ARM_USART_STATUS status = {0, 0, 0, 0, 0, 0, 0, 0};
     return status;
 }
 
-static int32_t ARM_USARTx_SetModemControl(UARTx_Resources* uart_dev,
-                                          ARM_USART_MODEM_CONTROL control)
+static int32_t ARM_USART0_SetModemControl(ARM_USART_MODEM_CONTROL control)
 {
     ARG_UNUSED(control);
     return ARM_DRIVER_ERROR_UNSUPPORTED;
 }
 
-static ARM_USART_MODEM_STATUS ARM_USARTx_GetModemStatus(UARTx_Resources* uart_dev)
+static ARM_USART_MODEM_STATUS ARM_USART0_GetModemStatus(void)
 {
     ARM_USART_MODEM_STATUS modem_status = {0, 0, 0, 0, 0};
     return modem_status;
 }
 
-/* Per-UART macros */
-#define DEFINE_UARTX(N) static UARTx_Resources USART##N##_DEV = { \
-    .base = SCB##N, \
-    .tx_nbr_bytes = 0, \
-    .rx_nbr_bytes = 0, \
-    .cb_event = NULL, \
-}; \
-\
-static int32_t ARM_USART##N##_Initialize(ARM_USART_SignalEvent_t cb_event) \
-{ \
-    USART##N##_DEV.cb_event = cb_event; \
-    return ARM_USARTx_Initialize(&USART##N##_DEV); \
-} \
-\
-static int32_t ARM_USART##N##_Uninitialize(void) \
-{ \
-    return ARM_USARTx_Uninitialize(&USART##N##_DEV); \
-} \
-\
-static int32_t ARM_USART##N##_PowerControl(ARM_POWER_STATE state) \
-{ \
-    return ARM_USARTx_PowerControl(&USART##N##_DEV, state); \
-} \
- \
-static int32_t ARM_USART##N##_Send(const void *data, uint32_t num) \
-{ \
-    return ARM_USARTx_Send(&USART##N##_DEV, data, num); \
-} \
- \
-static int32_t ARM_USART##N##_Receive(void *data, uint32_t num) \
-{ \
-    return ARM_USARTx_Receive(&USART##N##_DEV, data, num); \
-} \
- \
-static int32_t ARM_USART##N##_Transfer(const void *data_out, void *data_in, \
-                                   uint32_t num) \
-{ \
-    return ARM_USARTx_Transfer(&USART##N##_DEV, data_out, data_in, num); \
-} \
- \
-static uint32_t ARM_USART##N##_GetTxCount(void) \
-{ \
-    return ARM_USARTx_GetTxCount(&USART##N##_DEV); \
-} \
- \
-static uint32_t ARM_USART##N##_GetRxCount(void) \
-{ \
-    return ARM_USARTx_GetRxCount(&USART##N##_DEV); \
-} \
-static int32_t ARM_USART##N##_Control(uint32_t control, uint32_t arg) \
-{ \
-    return ARM_USARTx_Control(&USART##N##_DEV, control, arg); \
-} \
- \
-static ARM_USART_STATUS ARM_USART##N##_GetStatus(void) \
-{ \
-    return ARM_USARTx_GetStatus(&USART##N##_DEV); \
-} \
- \
-static int32_t ARM_USART##N##_SetModemControl(ARM_USART_MODEM_CONTROL control) \
-{ \
-    return ARM_USARTx_SetModemControl(&USART##N##_DEV, control); \
-} \
- \
-static ARM_USART_MODEM_STATUS ARM_USART##N##_GetModemStatus(void) \
-{ \
-    return ARM_USARTx_GetModemStatus(&USART##N##_DEV); \
-} \
- \
-extern ARM_DRIVER_USART Driver_USART##N; \
-ARM_DRIVER_USART Driver_USART##N = { \
-    ARM_USART_GetVersion, \
-    ARM_USART_GetCapabilities, \
-    ARM_USART##N##_Initialize, \
-    ARM_USART##N##_Uninitialize, \
-    ARM_USART##N##_PowerControl, \
-    ARM_USART##N##_Send, \
-    ARM_USART##N##_Receive, \
-    ARM_USART##N##_Transfer, \
-    ARM_USART##N##_GetTxCount, \
-    ARM_USART##N##_GetRxCount, \
-    ARM_USART##N##_Control, \
-    ARM_USART##N##_GetStatus, \
-    ARM_USART##N##_SetModemControl, \
-    ARM_USART##N##_GetModemStatus \
+extern ARM_DRIVER_USART Driver_USART0;
+ARM_DRIVER_USART Driver_USART0 = {
+    ARM_USART_GetVersion,
+    ARM_USART_GetCapabilities,
+    ARM_USART0_Initialize,
+    ARM_USART0_Uninitialize,
+    ARM_USART0_PowerControl,
+    ARM_USART0_Send,
+    ARM_USART0_Receive,
+    ARM_USART0_Transfer,
+    ARM_USART0_GetTxCount,
+    ARM_USART0_GetRxCount,
+    ARM_USART0_Control,
+    ARM_USART0_GetStatus,
+    ARM_USART0_SetModemControl,
+    ARM_USART0_GetModemStatus
 };
-
-#if (RTE_USART0)
-DEFINE_UARTX(0)
-#endif
+#endif /* RTE_USART0 */
 
 #if (RTE_USART1)
-DEFINE_UARTX(1)
-#endif
+/* USART1 Driver wrapper functions */
+static UARTx_Resources USART1_DEV = {
+    .dev = &UART1_DEV,
+    .tx_nbr_bytes = 0,
+    .rx_nbr_bytes = 0,
+    .cb_event = NULL,
+};
 
-#if (RTE_USART2)
-DEFINE_UARTX(2)
-#endif
+static int32_t ARM_USART1_Initialize(ARM_USART_SignalEvent_t cb_event)
+{
+    USART1_DEV.cb_event = cb_event;
 
-#if (RTE_USART3)
-DEFINE_UARTX(3)
-#endif
+    return ARM_USARTx_Initialize(&USART1_DEV);
+}
 
-#if (RTE_USART4)
-DEFINE_UARTX(4)
-#endif
+static int32_t ARM_USART1_Uninitialize(void)
+{
+    return ARM_USARTx_Uninitialize(&USART1_DEV);
+}
 
-#if (RTE_USART5)
-DEFINE_UARTX(5)
-#endif
+static int32_t ARM_USART1_PowerControl(ARM_POWER_STATE state)
+{
+    return ARM_USARTx_PowerControl(&USART1_DEV, state);
+}
 
-#if (RTE_USART6)
-DEFINE_UARTX(6)
-#endif
+static int32_t ARM_USART1_Send(const void *data, uint32_t num)
+{
+    return ARM_USARTx_Send(&USART1_DEV, data, num);
+}
 
-#if (RTE_USART7)
-DEFINE_UARTX(7)
-#endif
+static int32_t ARM_USART1_Receive(void *data, uint32_t num)
+{
+    return ARM_USARTx_Receive(&USART1_DEV, data, num);
+}
+
+static int32_t ARM_USART1_Transfer(const void *data_out, void *data_in,
+                                   uint32_t num)
+{
+    ARG_UNUSED(data_out);
+    ARG_UNUSED(data_in);
+    ARG_UNUSED(num);
+
+    return ARM_DRIVER_ERROR_UNSUPPORTED;
+}
+
+static uint32_t ARM_USART1_GetTxCount(void)
+{
+    return ARM_USARTx_GetTxCount(&USART1_DEV);
+}
+
+static uint32_t ARM_USART1_GetRxCount(void)
+{
+    return ARM_USARTx_GetRxCount(&USART1_DEV);
+}
+static int32_t ARM_USART1_Control(uint32_t control, uint32_t arg)
+{
+    return ARM_USARTx_Control(&USART1_DEV, control, arg);
+}
+
+static ARM_USART_STATUS ARM_USART1_GetStatus(void)
+{
+    ARM_USART_STATUS status = {0, 0, 0, 0, 0, 0, 0, 0};
+    return status;
+}
+
+static int32_t ARM_USART1_SetModemControl(ARM_USART_MODEM_CONTROL control)
+{
+    ARG_UNUSED(control);
+    return ARM_DRIVER_ERROR_UNSUPPORTED;
+}
+
+static ARM_USART_MODEM_STATUS ARM_USART1_GetModemStatus(void)
+{
+    ARM_USART_MODEM_STATUS modem_status = {0, 0, 0, 0, 0};
+    return modem_status;
+}
+
+extern ARM_DRIVER_USART Driver_USART1;
+ARM_DRIVER_USART Driver_USART1 = {
+    ARM_USART_GetVersion,
+    ARM_USART_GetCapabilities,
+    ARM_USART1_Initialize,
+    ARM_USART1_Uninitialize,
+    ARM_USART1_PowerControl,
+    ARM_USART1_Send,
+    ARM_USART1_Receive,
+    ARM_USART1_Transfer,
+    ARM_USART1_GetTxCount,
+    ARM_USART1_GetRxCount,
+    ARM_USART1_Control,
+    ARM_USART1_GetStatus,
+    ARM_USART1_SetModemControl,
+    ARM_USART1_GetModemStatus
+};
+#endif /* RTE_USART1 */

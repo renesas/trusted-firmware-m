@@ -15,8 +15,14 @@
  */
 
 #include "platform/include/tfm_plat_crypto_keys.h"
+#include "platform/include/tfm_attest_hal.h"
 #include <stddef.h>
 #include "psa/crypto_types.h"
+
+#ifdef CRYPTO_HW_ACCELERATOR_OTP_ENABLED
+#include "crypto_hw.h"
+#include "mbedtls_cc_mng_int.h"
+#endif /* CRYPTO_HW_ACCELERATOR_OTP_ENABLED */
 
 /* FIXME: Functions in this file should be implemented by platform vendor. For
  * the security of the storage system, it is critical to use a hardware unique
@@ -26,9 +32,11 @@
 
 #define TFM_KEY_LEN_BYTES  16
 
+#ifndef CRYPTO_HW_ACCELERATOR_OTP_ENABLED
 static const uint8_t sample_tfm_key[TFM_KEY_LEN_BYTES] =
              {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
+#endif /* !CRYPTO_HW_ACCELERATOR_OTP_ENABLED */
 
 extern const psa_ecc_curve_t initial_attestation_curve_type;
 extern const uint8_t  initial_attestation_private_key[];
@@ -37,6 +45,7 @@ extern const uint32_t initial_attestation_private_key_size;
 extern const struct tfm_plat_rotpk_t device_rotpk[];
 extern const uint32_t rotpk_key_cnt;
 
+#ifndef CRYPTO_HW_ACCELERATOR_OTP_ENABLED
 /**
  * \brief Copy the key to the destination buffer
  *
@@ -54,6 +63,7 @@ static inline void copy_key(uint8_t *p_dst, const uint8_t *p_src, size_t size)
         p_dst++;
     }
 }
+#endif /* !CRYPTO_HW_ACCELERATOR_OTP_ENABLED */
 
 enum tfm_plat_err_t tfm_plat_get_huk_derived_key(const uint8_t *label,
                                                  size_t label_size,
@@ -67,12 +77,31 @@ enum tfm_plat_err_t tfm_plat_get_huk_derived_key(const uint8_t *label,
     (void)context;
     (void)context_size;
 
+#ifdef CRYPTO_HW_ACCELERATOR_OTP_ENABLED
+    int rc;
+    uint32_t lcs;
+
+    rc = crypto_hw_accelerator_get_lcs(&lcs);
+    if (rc) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+
+    if (lcs != CC_MNG_LCS_SEC_ENABLED) {
+        return TFM_PLAT_ERR_UNSUPPORTED;
+    }
+
+    rc = crypto_hw_accelerator_huk_derive_key(label, label_size, context,
+                                              context_size, key, key_size);
+    if (rc) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+#else
     if (key_size > TFM_KEY_LEN_BYTES) {
         return TFM_PLAT_ERR_SYSTEM_ERR;
     }
 
-    /* FIXME: Do key derivation */
     copy_key(key, sample_tfm_key, key_size);
+#endif /* CRYPTO_HW_ACCELERATOR_OTP_ENABLED */
 
     return TFM_PLAT_ERR_SUCCESS;
 }
@@ -83,12 +112,10 @@ tfm_plat_get_initial_attest_key(uint8_t          *key_buf,
                                 struct ecc_key_t *ecc_key,
                                 psa_ecc_curve_t  *curve_type)
 {
-    uint8_t *key_dst;
-    const uint8_t *key_src;
-    uint32_t key_size;
-    uint32_t full_key_size = initial_attestation_private_key_size;
+    uint32_t key_size = initial_attestation_private_key_size;
+    int rc;
 
-    if (size < full_key_size) {
+    if (size < key_size) {
         return TFM_PLAT_ERR_SYSTEM_ERR;
     }
 
@@ -96,11 +123,19 @@ tfm_plat_get_initial_attest_key(uint8_t          *key_buf,
     *curve_type = initial_attestation_curve_type;
 
     /* Copy the private key to the buffer, it MUST be present */
-    key_dst  = key_buf;
-    key_src  = initial_attestation_private_key;
-    key_size = initial_attestation_private_key_size;
-    copy_key(key_dst, key_src, key_size);
-    ecc_key->priv_key = key_dst;
+#ifdef CRYPTO_HW_ACCELERATOR_OTP_ENABLED
+    rc = crypto_hw_accelerator_get_attestation_private_key(key_buf, &size);
+    key_size = size;
+#else
+    copy_key(key_buf, initial_attestation_private_key, key_size);
+    rc = 0;
+#endif /* CRYPTO_HW_ACCELERATOR_OTP_ENABLED */
+
+    if (rc) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
+
+    ecc_key->priv_key = key_buf;
     ecc_key->priv_key_size = key_size;
 
     ecc_key->pubx_key = NULL;
@@ -117,7 +152,13 @@ tfm_plat_get_rotpk_hash(uint8_t image_id,
                         uint8_t *rotpk_hash,
                         uint32_t *rotpk_hash_size)
 {
-    if(*rotpk_hash_size < ROTPK_HASH_LEN) {
+    int rc = 0;
+
+#ifdef CRYPTO_HW_ACCELERATOR_OTP_ENABLED
+    rc = crypto_hw_accelerator_get_rotpk_hash(image_id, rotpk_hash,
+                                              rotpk_hash_size);
+#else
+    if (*rotpk_hash_size < ROTPK_HASH_LEN) {
         return TFM_PLAT_ERR_SYSTEM_ERR;
     }
 
@@ -126,8 +167,14 @@ tfm_plat_get_rotpk_hash(uint8_t image_id,
     }
 
     *rotpk_hash_size = ROTPK_HASH_LEN;
+
     copy_key(rotpk_hash, device_rotpk[image_id].key_hash, *rotpk_hash_size);
+#endif /* CRYPTO_HW_ACCELERATOR_OTP_ENABLED */
+
+    if (rc) {
+        return TFM_PLAT_ERR_SYSTEM_ERR;
+    }
 
     return TFM_PLAT_ERR_SUCCESS;
 }
-#endif
+#endif /* BL2 */
