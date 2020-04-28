@@ -47,20 +47,20 @@
 
 /* ----- Configuration of the Cortex-M33 Processor and Core Peripherals ----- */
 /* ----- This configuration can be applied to either of the cores ----------- */
-#define __CM33_REV                0x0002U   /* Core revision r0p2 */
-#define __SAUREGION_PRESENT       1U        /* SAU regions present */
-#define __MPU_PRESENT             1U        /* MPU present */
-#define __VTOR_PRESENT            1U        /* VTOR present */
-#define __NVIC_PRIO_BITS          4U        /* Number of Bits used for the
-                                             * Priority Levels */
-#define __Vendor_SysTickConfig    0U        /* Set to 1 if different SysTick
-                                             * Config is used */
-#define __FPU_PRESENT             1U        /* FPU present */
-#define __DSP_PRESENT             1U        /* DSP extension present */
-
+//#define __CM33_REV                0x0002U   /* Core revision r0p2 */
+//#define __SAUREGION_PRESENT       1U        /* SAU regions present */
+//#define __MPU_PRESENT             1U        /* MPU present */
+//#define __VTOR_PRESENT            1U        /* VTOR present */
+//#define __NVIC_PRIO_BITS          4U        /* Number of Bits used for the
+//                                             * Priority Levels */
+//#define __Vendor_SysTickConfig    0U        /* Set to 1 if different SysTick
+//                                             * Config is used */
+//#define __FPU_PRESENT             1U        /* FPU present */
+//#define __DSP_PRESENT             1U        /* DSP extension present */
+#include "bsp_api.h"
 #include "system_core_init.h"
 #include "platform_irq.h"
-#include <core_cm33.h>    /*!< Arm Cortex-M33 processor and core peripherals */
+//#include <core_cm33.h>    /*!< Arm Cortex-M33 processor and core peripherals */
 
 /* ------ End of section using anonymous unions and disabling warnings ------ */
 #if defined (__CC_ARM)

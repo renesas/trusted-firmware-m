@@ -229,7 +229,7 @@ void MPC_Handler(void)
     /* Clear MPC interrupt flags and pending MPC IRQ */
     Driver_EFLASH0_MPC.ClearInterrupt();
     Driver_CODE_SRAM_MPC.ClearInterrupt();
-    NVIC_ClearPendingIRQ(S_MPC_COMBINED_IRQn);
+//    NVIC_ClearPendingIRQ(S_MPC_COMBINED_IRQn);
 
     /* Print fault message and block execution */
     ERROR_MSG("Oops... MPC fault!!!");
@@ -248,7 +248,7 @@ void PPC_Handler(void)
 
     /* Clear PPC interrupt flag and pending PPC IRQ */
     ppc_clear_irq();
-    NVIC_ClearPendingIRQ(S_PPC_COMBINED_IRQn);
+//    NVIC_ClearPendingIRQ(S_PPC_COMBINED_IRQn);
 
     /* Print fault message*/
     ERROR_MSG("Oops... PPC fault!!!");

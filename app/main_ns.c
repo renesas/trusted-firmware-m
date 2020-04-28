@@ -107,21 +107,21 @@ static void tfm_ns_multi_core_boot(void)
 #endif
 
 /* For UART the CMSIS driver is used */
-extern ARM_DRIVER_USART NS_DRIVER_STDIO;
+//extern ARM_DRIVER_USART NS_DRIVER_STDIO;
 
 int stdio_output_string(const unsigned char *str, uint32_t len)
 {
-    int32_t ret;
+//    int32_t ret;
+//
+//    ret = NS_DRIVER_STDIO.Send(str, len);
+//    if (ret != ARM_DRIVER_OK) {
+//        return 0;
+//    }
+//    /* Add a busy wait after sending. */
+//    while (NS_DRIVER_STDIO.GetStatus().tx_busy)
+//        ;
 
-    ret = NS_DRIVER_STDIO.Send(str, len);
-    if (ret != ARM_DRIVER_OK) {
-        return 0;
-    }
-    /* Add a busy wait after sending. */
-    while (NS_DRIVER_STDIO.GetStatus().tx_busy)
-        ;
-
-    return NS_DRIVER_STDIO.GetTxCount();
+    return 0;//NS_DRIVER_STDIO.GetTxCount();
 }
 
 /**
@@ -132,19 +132,19 @@ int stdio_output_string(const unsigned char *str, uint32_t len)
  */
 __WEAK int32_t tfm_ns_platform_init(void)
 {
-    int32_t ret;
-
-    ret = NS_DRIVER_STDIO.Initialize(NULL);
-    TFM_ASSERT(ret == ARM_DRIVER_OK);
-
-    ret = NS_DRIVER_STDIO.PowerControl(ARM_POWER_FULL);
-    TFM_ASSERT(ret == ARM_DRIVER_OK);
-
-    ret = NS_DRIVER_STDIO.Control(ARM_USART_MODE_ASYNCHRONOUS,
-                                  DEFAULT_UART_BAUDRATE);
-    TFM_ASSERT(ret == ARM_DRIVER_OK);
-
-    (void)NS_DRIVER_STDIO.Control(ARM_USART_CONTROL_TX, 1);
+//    int32_t ret;
+//
+//    ret = NS_DRIVER_STDIO.Initialize(NULL);
+//    TFM_ASSERT(ret == ARM_DRIVER_OK);
+//
+//    ret = NS_DRIVER_STDIO.PowerControl(ARM_POWER_FULL);
+//    TFM_ASSERT(ret == ARM_DRIVER_OK);
+//
+//    ret = NS_DRIVER_STDIO.Control(ARM_USART_MODE_ASYNCHRONOUS,
+//                                  DEFAULT_UART_BAUDRATE);
+//    TFM_ASSERT(ret == ARM_DRIVER_OK);
+//
+//    (void)NS_DRIVER_STDIO.Control(ARM_USART_CONTROL_TX, 1);
 
     return ARM_DRIVER_OK;
 }
@@ -157,12 +157,12 @@ __WEAK int32_t tfm_ns_platform_init(void)
  */
 __WEAK int32_t tfm_ns_platform_uninit(void)
 {
-    int32_t ret;
+//    int32_t ret;
 
-    (void)NS_DRIVER_STDIO.PowerControl(ARM_POWER_OFF);
+//    (void)NS_DRIVER_STDIO.PowerControl(ARM_POWER_OFF);
 
-    ret = NS_DRIVER_STDIO.Uninitialize();
-    TFM_ASSERT(ret == ARM_DRIVER_OK);
+//    ret = NS_DRIVER_STDIO.Uninitialize();
+//    TFM_ASSERT(ret == ARM_DRIVER_OK);
 
     return ARM_DRIVER_OK;
 }

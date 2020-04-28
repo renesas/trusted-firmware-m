@@ -182,7 +182,7 @@ static int32_t ARM_Flashx_ReadData(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
 
     ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_BUSY;
 
-    memcpy(data, addr, cnt);
+    memcpy(data, (const void *)addr, cnt);
 //    err = gfc100_eflash_read(ARM_FLASHx_DEV->dev, addr, data, &cnt);
 
     ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_IDLE;
@@ -199,7 +199,7 @@ static int32_t ARM_Flashx_ProgramData(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
     ARM_FLASHx_DEV->status->error = DRIVER_STATUS_NO_ERROR;
     ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_BUSY;
 
-    err = R_FLASH_HP_Write(ARM_FLASHx_DEV->dev->p_ctrl, data, addr, cnt);
+    err = R_FLASH_HP_Write(ARM_FLASHx_DEV->dev->p_ctrl, (uint32_t)data, addr, cnt);
 
     ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_IDLE;
 
@@ -399,13 +399,9 @@ static ARM_FLASH_INFO ARM_FLASH1_DEV_DATA = {
 };
 
 static ARM_FLASHx_Resources ARM_FLASH1_DEV = {
-    .dev    = &EFLASH1_DEV,
+    .dev    = &CFLASH0_DEV,
     .data   = &ARM_FLASH1_DEV_DATA,
-    .status = {
-       .busy     = DRIVER_STATUS_IDLE,
-       .error    = DRIVER_STATUS_NO_ERROR,
-       .reserved = 0,
-     },
+    .status = &shared_status,
 };
 
 static ARM_DRIVER_VERSION ARM_Flash1_GetVersion(void)
@@ -464,7 +460,7 @@ static ARM_FLASH_INFO * ARM_Flash1_GetInfo(void)
     return ARM_Flashx_GetInfo(&ARM_FLASH1_DEV);
 }
 
-ARM_DRIVER_FLASH Driver_EFLASH1 = {
+ARM_DRIVER_FLASH Driver_CFLASH0 = {
     ARM_Flash1_GetVersion,
     ARM_Flash1_GetCapabilities,
     ARM_Flash1_Initialize,

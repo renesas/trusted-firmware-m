@@ -64,8 +64,8 @@ musca_b1_pin_service(const psa_invec  *in_vec,
 {
     struct tfm_pin_service_args_t *args;
     uint32_t *result;
-    enum gpio_altfunc_t altfunc;
-    enum pinmode_select_t pin_mode;
+//    enum gpio_altfunc_t altfunc;
+//    enum pinmode_select_t pin_mode;
 
 #ifndef TFM_PSA_API
     if (memory_addr_check(in_vec, out_vec) == false) {
@@ -82,24 +82,27 @@ musca_b1_pin_service(const psa_invec  *in_vec,
     result = (uint32_t *)out_vec->base;
     switch (args->type) {
     case TFM_PIN_SERVICE_TYPE_SET_ALTFUNC:
-        altfunc = (enum gpio_altfunc_t)args->u.set_altfunc.alt_func;
-        *result = musca_b1_scc_set_alt_func(&MUSCA_B1_SCC_DEV_S, altfunc,
-                                            args->u.set_altfunc.pin_mask);
+//        altfunc = (enum gpio_altfunc_t)args->u.set_altfunc.alt_func;
+//        *result = musca_b1_scc_set_alt_func(&MUSCA_B1_SCC_DEV_S, altfunc,
+//                                            args->u.set_altfunc.pin_mask);
+        *result = 0;
         break;
     case TFM_PIN_SERVICE_TYPE_SET_DEFAULT_IN:
-        altfunc = (enum gpio_altfunc_t)args->u.set_altfunc.alt_func;
-        *result = musca_b1_scc_set_default_in(&MUSCA_B1_SCC_DEV_S, altfunc,
-                                   args->u.set_default_in.pin_value,
-                                   args->u.set_default_in.default_in_value);
+//        altfunc = (enum gpio_altfunc_t)args->u.set_altfunc.alt_func;
+//        *result = musca_b1_scc_set_default_in(&MUSCA_B1_SCC_DEV_S, altfunc,
+//                                   args->u.set_default_in.pin_value,
+//                                   args->u.set_default_in.default_in_value);
+        *result = 0;
         break;
     case TFM_PIN_SERVICE_TYPE_SET_PIN_MODE:
-        pin_mode = (enum pinmode_select_t)args->u.set_pin_mode.pin_mode;
-        *result = musca_b1_scc_set_pinmode(&MUSCA_B1_SCC_DEV_S,
-                                           args->u.set_pin_mode.pin_mask,
-                                           pin_mode);
+//        pin_mode = (enum pinmode_select_t)args->u.set_pin_mode.pin_mode;
+//        *result = musca_b1_scc_set_pinmode(&MUSCA_B1_SCC_DEV_S,
+//                                           args->u.set_pin_mode.pin_mask,
+//                                           pin_mode);
+        *result = 0;
         break;
      default:
-        *result = SCC_INVALID_ARG;
+        *result = 1;
         break;
     }
 
@@ -112,11 +115,11 @@ tfm_platform_hal_gpio_service(const psa_invec  *in_vec,
 {
     struct tfm_gpio_service_args_t *args;
     struct tfm_gpio_service_out_t *out;
-    enum gpio_cmsdk_direction_t dir;
+//    enum gpio_cmsdk_direction_t dir;
     /* Alternate function is configured through the SCC, this is not used
      * on Musca-B1, the default value is passed to the driver
      */
-    enum gpio_cmsdk_altfunc_t altfunc = GPIO_CMSDK_MAIN_FUNC;
+//    enum gpio_cmsdk_altfunc_t altfunc = GPIO_CMSDK_MAIN_FUNC;
 
 #ifndef TFM_PSA_API
     if (memory_addr_check(in_vec, out_vec) == false) {
@@ -133,49 +136,55 @@ tfm_platform_hal_gpio_service(const psa_invec  *in_vec,
     out = (struct tfm_gpio_service_out_t *)out_vec->base;
     switch (args->type) {
     case TFM_GPIO_SERVICE_TYPE_INIT:
-        gpio_cmsdk_init(&GPIO0_CMSDK_DEV_S);
-        out->u.result = GPIO_CMSDK_ERR_NONE;
+//        gpio_cmsdk_init(&GPIO0_CMSDK_DEV_S);
+        out->u.result = 0;
         break;
     case TFM_GPIO_SERVICE_TYPE_PIN_CONFIG:
-        dir = (enum gpio_cmsdk_direction_t)args->u.gpio_config.direction;
-        out->u.result = gpio_cmsdk_pin_config(
-                                            &GPIO0_CMSDK_DEV_S,
-                                            args->u.gpio_config.pin_num_or_mask,
-                                            dir, altfunc);
+//        dir = (enum gpio_cmsdk_direction_t)args->u.gpio_config.direction;
+//        out->u.result = gpio_cmsdk_pin_config(
+//                                            &GPIO0_CMSDK_DEV_S,
+//                                            args->u.gpio_config.pin_num_or_mask,
+//                                            dir, altfunc);
+        out->u.result = 0;
         break;
     case TFM_GPIO_SERVICE_TYPE_PIN_WRITE:
-        out->u.result = gpio_cmsdk_pin_write(
-                                             &GPIO0_CMSDK_DEV_S,
-                                             args->u.gpio_write.pin_num_or_mask,
-                                             args->u.gpio_write.value);
+//        out->u.result = gpio_cmsdk_pin_write(
+//                                             &GPIO0_CMSDK_DEV_S,
+//                                             args->u.gpio_write.pin_num_or_mask,
+//                                             args->u.gpio_write.value);
+        out->u.result = 0;
         break;
     case TFM_GPIO_SERVICE_TYPE_PIN_READ:
-        out->u.gpio_read_result.result =
-                          gpio_cmsdk_pin_read(&GPIO0_CMSDK_DEV_S,
-                                              args->u.gpio_read.pin_num_or_mask,
-                                              &out->u.gpio_read_result.data);
+//        out->u.gpio_read_result.result =
+//                          gpio_cmsdk_pin_read(&GPIO0_CMSDK_DEV_S,
+//                                              args->u.gpio_read.pin_num_or_mask,
+//                                              &out->u.gpio_read_result.data);
+        out->u.result = 0;
         break;
     case TFM_GPIO_SERVICE_TYPE_PORT_CONFIG:
-        dir = (enum gpio_cmsdk_direction_t)args->u.gpio_config.direction;
-        out->u.result = gpio_cmsdk_port_config(
-                                            &GPIO0_CMSDK_DEV_S,
-                                            args->u.gpio_config.pin_num_or_mask,
-                                            dir, altfunc);
+//        dir = (enum gpio_cmsdk_direction_t)args->u.gpio_config.direction;
+//        out->u.result = gpio_cmsdk_port_config(
+//                                            &GPIO0_CMSDK_DEV_S,
+//                                            args->u.gpio_config.pin_num_or_mask,
+//                                            dir, altfunc);
+        out->u.result = 0;
         break;
     case TFM_GPIO_SERVICE_TYPE_PORT_WRITE:
-        out->u.result = gpio_cmsdk_port_write(
-                                             &GPIO0_CMSDK_DEV_S,
-                                             args->u.gpio_write.pin_num_or_mask,
-                                             args->u.gpio_write.value);
+//        out->u.result = gpio_cmsdk_port_write(
+//                                             &GPIO0_CMSDK_DEV_S,
+//                                             args->u.gpio_write.pin_num_or_mask,
+//                                             args->u.gpio_write.value);
+        out->u.result = 0;
         break;
     case TFM_GPIO_SERVICE_TYPE_PORT_READ:
-        out->u.gpio_read_result.result =
-                         gpio_cmsdk_port_read(&GPIO0_CMSDK_DEV_S,
-                                              args->u.gpio_read.pin_num_or_mask,
-                                              &out->u.gpio_read_result.data);
+//        out->u.gpio_read_result.result =
+//                         gpio_cmsdk_port_read(&GPIO0_CMSDK_DEV_S,
+//                                              args->u.gpio_read.pin_num_or_mask,
+//                                              &out->u.gpio_read_result.data);
+        out->u.result = 0;
         break;
     default:
-        out->u.result = GPIO_CMSDK_ERR_INVALID_ARG;
+        out->u.result = 1;
         break;
     }
 

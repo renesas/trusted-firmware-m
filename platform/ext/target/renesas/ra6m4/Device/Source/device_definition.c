@@ -414,7 +414,7 @@ static flash_cfg_t const flash_cfg =
     .irq            = FSP_INVALID_VECTOR,
 };
 
-static flash_instance_t FLASH0_DEV_S =
+flash_instance_t FLASH0_DEV_S =
 {
  .p_ctrl = &flash_ctrl,
  .p_cfg = &flash_cfg

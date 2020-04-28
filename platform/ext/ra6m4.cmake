@@ -56,6 +56,7 @@ embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/partitio
 embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/services/include" ABSOLUTE)
 embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/Libraries" ABSOLUTE)
 embedded_include_directories(PATH "${PLATFORM_DIR}/../include" ABSOLUTE)
+embedded_include_directories(PATH "${PLATFORM_DIR}/../../../../fsp/inc/api" ABSOLUTE)
 
 # Gather all source files we need.
 if (TFM_PARTITION_PLATFORM)
@@ -164,7 +165,7 @@ elseif (BUILD_TARGET_NV_COUNTERS)
     # NOTE: This non-volatile counters implementation is a dummy
     #       implementation. Platform vendors have to implement the
     #       API ONLY if the target has non-volatile counters.
-    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/common/template/nv_counters.c")
+    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/nv_counters.c")
     set(TARGET_NV_COUNTERS_ENABLE ON)
     # Sets SST_ROLLBACK_PROTECTION flag to compile in the SST services
     # rollback protection code as the target supports nv counters.
@@ -176,7 +177,7 @@ if (NOT DEFINED BUILD_CMSIS_DRIVERS)
 elseif (BUILD_CMSIS_DRIVERS)
     list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_MPC.c"
                             "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_PPC.c")
-    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_USART.c")
+    #list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_USART.c")
     embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/driver" ABSOLUTE)
 endif()

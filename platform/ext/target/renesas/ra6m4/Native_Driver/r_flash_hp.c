@@ -17,7 +17,9 @@
 /***********************************************************************************************************************
  * Macro definitions
  **********************************************************************************************************************/
-
+    #define BSP_ROM_SIZE_BYTES              (1048576)
+    #define BSP_RAM_SIZE_BYTES              (262144)
+    #define BSP_DATA_FLASH_SIZE_BYTES       (32768)
 #define FLASH_HP_FENTRYR_PE_MODE_BITS                   (0x0081U)
 #define FLASH_HP_FSTATR_FLWEERR                         (1U << 6U)
 #define FLASH_HP_FSTATR_PRGERR                          (1U << 12U)
@@ -364,17 +366,17 @@ fsp_err_t R_FLASH_HP_Open (flash_ctrl_t * const p_api_ctrl, flash_cfg_t const * 
     /* Set the parameters struct based on the user supplied settings */
     p_ctrl->p_cfg = p_cfg;
 
-    if (p_cfg->data_flash_bgo)
-    {
-        /* Enable FCU interrupts. */
-        R_FACI_HP->FRDYIE = 1U;
-        R_BSP_IrqCfgEnable(p_cfg->irq, p_cfg->ipl, p_ctrl);
-
-        /* Enable Error interrupts. */
-        R_FACI_HP->FAEINT = FLASH_HP_ERROR_INTERRUPTS_ENABLE;
-        R_BSP_IrqCfgEnable(p_cfg->err_irq, p_cfg->err_ipl, p_ctrl);
-    }
-    else
+//    if (p_cfg->data_flash_bgo)
+//    {
+//        /* Enable FCU interrupts. */
+//        R_FACI_HP->FRDYIE = 1U;
+//        R_BSP_IrqCfgEnable(p_cfg->irq, p_cfg->ipl, p_ctrl);
+//
+//        /* Enable Error interrupts. */
+//        R_FACI_HP->FAEINT = FLASH_HP_ERROR_INTERRUPTS_ENABLE;
+//        R_BSP_IrqCfgEnable(p_cfg->err_irq, p_cfg->err_ipl, p_ctrl);
+//    }
+//    else
     {
         /* Disable Flash Rdy interrupt in the FLASH peripheral. */
         R_FACI_HP->FRDYIE = 0U;
@@ -994,13 +996,13 @@ fsp_err_t R_FLASH_HP_Close (flash_ctrl_t * const p_api_ctrl)
     p_ctrl->opened = FLASH_HP_CLOSE;
 
     /* Disable interrupt in ICU */
-    R_BSP_IrqDisable(p_ctrl->p_cfg->irq);
+//    R_BSP_IrqDisable(p_ctrl->p_cfg->irq);
 
     /* Disable Flash Rdy interrupt in the FLASH peripheral */
     R_FACI_HP->FRDYIE = 0x00U;
 
     /* Disable interrupt in ICU */
-    R_BSP_IrqDisable(p_ctrl->p_cfg->err_irq);
+//    R_BSP_IrqDisable(p_ctrl->p_cfg->err_irq);
 
     /* Disable Flash Error interrupt in the FLASH peripheral */
     R_FACI_HP->FAEINT = 0x00U;
@@ -1773,11 +1775,11 @@ static fsp_err_t flash_hp_pe_mode_exit ()
 static fsp_err_t flash_hp_reset (flash_hp_instance_ctrl_t * p_ctrl)
 {
     /* Disable the FACI interrupts, we don't want the reset itself to generate an interrupt */
-    if (p_ctrl->p_cfg->data_flash_bgo)
-    {
-        R_BSP_IrqDisable(p_ctrl->p_cfg->irq);
-        R_BSP_IrqDisable(p_ctrl->p_cfg->err_irq);
-    }
+//    if (p_ctrl->p_cfg->data_flash_bgo)
+//    {
+//        R_BSP_IrqDisable(p_ctrl->p_cfg->irq);
+//        R_BSP_IrqDisable(p_ctrl->p_cfg->err_irq);
+//    }
 
     /* If not in PE mode enter PE mode. */
     if (R_FACI_HP->FENTRYR == 0x0000U)
@@ -2156,147 +2158,147 @@ static fsp_err_t flash_hp_configuration_area_write (flash_hp_instance_ctrl_t * p
  * callback structure with the FLASH_IRQ_EVENT_ERR_ECC event, and providing a callback routine has been provided, calls
  * the callback function with the event.
  **********************************************************************************************************************/
-void fcu_fiferr_isr (void)
-{
-    /* Save context if RTOS is used */
-    FSP_CONTEXT_SAVE
-    flash_callback_args_t cb_data;
-    IRQn_Type             irq = R_FSP_CurrentIrqGet();
-
-    flash_hp_instance_ctrl_t * p_ctrl = (flash_hp_instance_ctrl_t *) R_FSP_IsrContextGet(irq);
-
-    uint32_t fastat        = R_FACI_HP->FASTAT;
-    uint32_t fstatr_errors = R_FACI_HP->FSTATR & FLASH_HP_FSTATR_ERROR_MASK;
-
-    /* The flash access error interrupt register has fired. */
-    /* Check for the data flash memory access violation flag. */
-    if (fastat & FLASH_HP_FASTAT_DFAE)
-    {
-        cb_data.event = FLASH_EVENT_ERR_DF_ACCESS;
-    }
-    /* Check for the code flash memory access violation flag. */
-    else if (fastat & FLASH_HP_FASTAT_CFAE)
-    {
-        cb_data.event = FLASH_EVENT_ERR_CF_ACCESS;
-    }
-    /* Check if the command Lock bit is set. */
-    else if (fastat & FLASH_HP_FASTAT_CMDLK)
-    {
-        if (fstatr_errors & (FLASH_HP_FSTATR_PRGERR | FLASH_HP_FSTATR_ERSERR))
-        {
-            cb_data.event = FLASH_EVENT_ERR_FAILURE;
-        }
-        else
-        {
-            cb_data.event = FLASH_EVENT_ERR_CMD_LOCKED;
-        }
-    }
-    else
-    {
-        cb_data.event = FLASH_EVENT_ERR_FAILURE;
-    }
-
-    /* Reset the FCU: This will stop any existing processes and exit PE mode*/
-    flash_hp_reset(p_ctrl);
-
-    /* Clear the Error Interrupt. */
-    R_BSP_IrqStatusClear(irq);
-
-    /* Call the user callback. */
-    p_ctrl->p_cfg->p_callback(&cb_data);
-
-    /* Restore context if RTOS is used */
-    FSP_CONTEXT_RESTORE
-}
-
-/*******************************************************************************************************************//**
- * FLASH ready interrupt routine.
- *
- * This function implements the FLASH ready isr. The function clears the interrupt request source on entry populates the
- * callback structure with the relevant event, and providing a callback routine has been provided, calls the callback
- * function with the event.
- **********************************************************************************************************************/
-void fcu_frdyi_isr (void)
-{
-    FSP_CONTEXT_SAVE
-    bool operation_completed = false;
-
-    /*Wait counter used for DBFULL flag*/
-    flash_callback_args_t cb_data;
-
-    IRQn_Type irq = R_FSP_CurrentIrqGet();
-
-    flash_hp_instance_ctrl_t * p_ctrl = (flash_hp_instance_ctrl_t *) R_FSP_IsrContextGet(irq);
-
-    /* Clear the Interrupt Request*/
-    R_BSP_IrqStatusClear(irq);
-
-    /* A reset of the FACI with a BGO operation in progress may still generate a single interrupt
-     * subsequent to the reset. We want to ignore that */
-
-    /* Continue the current operation. If unknown operation set callback event to failure. */
-    if (FLASH_OPERATION_DF_BGO_WRITE == p_ctrl->current_operation)
-    {
-        /* If there are still bytes to write */
-        if (p_ctrl->operations_remaining)
-        {
-            fsp_err_t err = flash_hp_write_data(p_ctrl, BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE, 0);
-
-            if (FSP_SUCCESS != err)
-            {
-                flash_hp_reset(p_ctrl);
-                cb_data.event = FLASH_EVENT_ERR_FAILURE;
-            }
-        }
-        /*Done writing all bytes*/
-        else
-        {
-            cb_data.event       = FLASH_EVENT_WRITE_COMPLETE;
-            operation_completed = true;
-        }
-    }
-    else if ((FLASH_OPERATION_DF_BGO_ERASE == p_ctrl->current_operation))
-    {
-        if (p_ctrl->operations_remaining)
-        {
-            flash_hp_erase_block(p_ctrl, BSP_FEATURE_FLASH_HP_DF_BLOCK_SIZE, 0);
-        }
-        /* If all blocks are erased*/
-        else
-        {
-            cb_data.event       = FLASH_EVENT_ERASE_COMPLETE;
-            operation_completed = true;
-        }
-    }
-    else
-    {
-        /* Blank check is a single operation */
-        operation_completed = true;
-        if (R_FACI_HP->FBCSTAT == 0x01U)
-        {
-            cb_data.event = FLASH_EVENT_NOT_BLANK;
-        }
-        else
-        {
-            cb_data.event = FLASH_EVENT_BLANK;
-        }
-    }
-
-    /* If the current operation has completed exit pe mode, release the software lock and call the user callback if used. */
-    if (operation_completed == true)
-    {
-        /* finished current operation. Exit P/E mode*/
-        flash_hp_pe_mode_exit();
-
-        /* Release lock and Set current state to Idle*/
-        p_ctrl->current_operation = FLASH_OPERATION_NON_BGO;
-
-        /* Set data to identify callback to user, then call user callback. */
-        p_ctrl->p_cfg->p_callback(&cb_data);
-    }
-
-    FSP_CONTEXT_RESTORE
-}
+//void fcu_fiferr_isr (void)
+//{
+//    /* Save context if RTOS is used */
+//    FSP_CONTEXT_SAVE
+//    flash_callback_args_t cb_data;
+//    IRQn_Type             irq = R_FSP_CurrentIrqGet();
+//
+//    flash_hp_instance_ctrl_t * p_ctrl = (flash_hp_instance_ctrl_t *) R_FSP_IsrContextGet(irq);
+//
+//    uint32_t fastat        = R_FACI_HP->FASTAT;
+//    uint32_t fstatr_errors = R_FACI_HP->FSTATR & FLASH_HP_FSTATR_ERROR_MASK;
+//
+//    /* The flash access error interrupt register has fired. */
+//    /* Check for the data flash memory access violation flag. */
+//    if (fastat & FLASH_HP_FASTAT_DFAE)
+//    {
+//        cb_data.event = FLASH_EVENT_ERR_DF_ACCESS;
+//    }
+//    /* Check for the code flash memory access violation flag. */
+//    else if (fastat & FLASH_HP_FASTAT_CFAE)
+//    {
+//        cb_data.event = FLASH_EVENT_ERR_CF_ACCESS;
+//    }
+//    /* Check if the command Lock bit is set. */
+//    else if (fastat & FLASH_HP_FASTAT_CMDLK)
+//    {
+//        if (fstatr_errors & (FLASH_HP_FSTATR_PRGERR | FLASH_HP_FSTATR_ERSERR))
+//        {
+//            cb_data.event = FLASH_EVENT_ERR_FAILURE;
+//        }
+//        else
+//        {
+//            cb_data.event = FLASH_EVENT_ERR_CMD_LOCKED;
+//        }
+//    }
+//    else
+//    {
+//        cb_data.event = FLASH_EVENT_ERR_FAILURE;
+//    }
+//
+//    /* Reset the FCU: This will stop any existing processes and exit PE mode*/
+//    flash_hp_reset(p_ctrl);
+//
+//    /* Clear the Error Interrupt. */
+//    R_BSP_IrqStatusClear(irq);
+//
+//    /* Call the user callback. */
+//    p_ctrl->p_cfg->p_callback(&cb_data);
+//
+//    /* Restore context if RTOS is used */
+//    FSP_CONTEXT_RESTORE
+//}
+//
+///*******************************************************************************************************************//**
+// * FLASH ready interrupt routine.
+// *
+// * This function implements the FLASH ready isr. The function clears the interrupt request source on entry populates the
+// * callback structure with the relevant event, and providing a callback routine has been provided, calls the callback
+// * function with the event.
+// **********************************************************************************************************************/
+//void fcu_frdyi_isr (void)
+//{
+//    FSP_CONTEXT_SAVE
+//    bool operation_completed = false;
+//
+//    /*Wait counter used for DBFULL flag*/
+//    flash_callback_args_t cb_data;
+//
+//    IRQn_Type irq = R_FSP_CurrentIrqGet();
+//
+//    flash_hp_instance_ctrl_t * p_ctrl = (flash_hp_instance_ctrl_t *) R_FSP_IsrContextGet(irq);
+//
+//    /* Clear the Interrupt Request*/
+//    R_BSP_IrqStatusClear(irq);
+//
+//    /* A reset of the FACI with a BGO operation in progress may still generate a single interrupt
+//     * subsequent to the reset. We want to ignore that */
+//
+//    /* Continue the current operation. If unknown operation set callback event to failure. */
+//    if (FLASH_OPERATION_DF_BGO_WRITE == p_ctrl->current_operation)
+//    {
+//        /* If there are still bytes to write */
+//        if (p_ctrl->operations_remaining)
+//        {
+//            fsp_err_t err = flash_hp_write_data(p_ctrl, BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE, 0);
+//
+//            if (FSP_SUCCESS != err)
+//            {
+//                flash_hp_reset(p_ctrl);
+//                cb_data.event = FLASH_EVENT_ERR_FAILURE;
+//            }
+//        }
+//        /*Done writing all bytes*/
+//        else
+//        {
+//            cb_data.event       = FLASH_EVENT_WRITE_COMPLETE;
+//            operation_completed = true;
+//        }
+//    }
+//    else if ((FLASH_OPERATION_DF_BGO_ERASE == p_ctrl->current_operation))
+//    {
+//        if (p_ctrl->operations_remaining)
+//        {
+//            flash_hp_erase_block(p_ctrl, BSP_FEATURE_FLASH_HP_DF_BLOCK_SIZE, 0);
+//        }
+//        /* If all blocks are erased*/
+//        else
+//        {
+//            cb_data.event       = FLASH_EVENT_ERASE_COMPLETE;
+//            operation_completed = true;
+//        }
+//    }
+//    else
+//    {
+//        /* Blank check is a single operation */
+//        operation_completed = true;
+//        if (R_FACI_HP->FBCSTAT == 0x01U)
+//        {
+//            cb_data.event = FLASH_EVENT_NOT_BLANK;
+//        }
+//        else
+//        {
+//            cb_data.event = FLASH_EVENT_BLANK;
+//        }
+//    }
+//
+//    /* If the current operation has completed exit pe mode, release the software lock and call the user callback if used. */
+//    if (operation_completed == true)
+//    {
+//        /* finished current operation. Exit P/E mode*/
+//        flash_hp_pe_mode_exit();
+//
+//        /* Release lock and Set current state to Idle*/
+//        p_ctrl->current_operation = FLASH_OPERATION_NON_BGO;
+//
+//        /* Set data to identify callback to user, then call user callback. */
+//        p_ctrl->p_cfg->p_callback(&cb_data);
+//    }
+//
+//    FSP_CONTEXT_RESTORE
+//}
 
 /*******************************************************************************************************************//**
  * This function switches the peripheral to P/E mode for Data Flash.
@@ -2313,14 +2315,14 @@ static fsp_err_t flash_hp_enter_pe_df_mode (flash_hp_instance_ctrl_t * const p_c
     volatile uint32_t wait_count = FLASH_HP_FRDY_CMD_TIMEOUT;
 
     /* If BGO mode is enabled and interrupts are being used then enable interrupts. */
-    if (p_ctrl->p_cfg->data_flash_bgo == true)
-    {
-        /* We are supporting Flash Rdy interrupts for Data Flash operations. */
-        R_BSP_IrqEnable(p_ctrl->p_cfg->irq);
-
-        /* We are supporting Flash Err interrupts for Data Flash operations. */
-        R_BSP_IrqEnable(p_ctrl->p_cfg->err_irq);
-    }
+//    if (p_ctrl->p_cfg->data_flash_bgo == true)
+//    {
+//        /* We are supporting Flash Rdy interrupts for Data Flash operations. */
+//        R_BSP_IrqEnable(p_ctrl->p_cfg->irq);
+//
+//        /* We are supporting Flash Err interrupts for Data Flash operations. */
+//        R_BSP_IrqEnable(p_ctrl->p_cfg->err_irq);
+//    }
 
     /* Enter Data Flash PE mode. */
     R_FACI_HP->FENTRYR = FLASH_HP_FENTRYR_TRANSITION_TO_DF_PE;
@@ -2363,14 +2365,14 @@ static fsp_err_t flash_hp_enter_pe_cf_mode (flash_hp_instance_ctrl_t * const p_c
     R_BSP_FlashCacheDisable();
 
     /* If interrupts are being used then disable interrupts. */
-    if (p_ctrl->p_cfg->data_flash_bgo == true)
-    {
-        /* We are not supporting Flash Rdy interrupts for Code Flash operations */
-        R_BSP_IrqDisable(p_ctrl->p_cfg->irq);
-
-        /* We are not supporting Flash Err interrupts for Code Flash operations */
-        R_BSP_IrqDisable(p_ctrl->p_cfg->err_irq);
-    }
+//    if (p_ctrl->p_cfg->data_flash_bgo == true)
+//    {
+//        /* We are not supporting Flash Rdy interrupts for Code Flash operations */
+//        R_BSP_IrqDisable(p_ctrl->p_cfg->irq);
+//
+//        /* We are not supporting Flash Err interrupts for Code Flash operations */
+//        R_BSP_IrqDisable(p_ctrl->p_cfg->err_irq);
+//    }
 
  #if BSP_FEATURE_FLASH_HP_HAS_FMEPROT
     R_FACI_HP->FMEPROT = 0xD900;

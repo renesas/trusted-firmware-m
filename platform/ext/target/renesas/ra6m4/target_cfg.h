@@ -16,10 +16,8 @@
 
 #ifndef __TARGET_CFG_H__
 #define __TARGET_CFG_H__
-
-#include "platform/ext/common/uart_stdout.h"
+#include <stdint.h>
 #include "tfm_peripherals_def.h"
-#include "uart_pl011_drv.h"
 
 #ifdef __cplusplus
 extern "C" {

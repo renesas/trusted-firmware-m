@@ -268,8 +268,8 @@ enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void)
     }
 
     /* Make sure that MPC and PPC are targeted to S state */
-    NVIC_ClearTargetState(S_MPC_COMBINED_IRQn);
-    NVIC_ClearTargetState(S_PPC_COMBINED_IRQn);
+//    NVIC_ClearTargetState(S_MPC_COMBINED_IRQn);
+//    NVIC_ClearTargetState(S_PPC_COMBINED_IRQn);
 
     return TFM_PLAT_ERR_SUCCESS;
 }
@@ -277,18 +277,18 @@ enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void)
 /*----------------- NVIC interrupt enabling for S peripherals ----------------*/
 enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
-    int32_t ret = ARM_DRIVER_OK;
+//    int32_t ret = ARM_DRIVER_OK;
 
     /* MPC interrupt enabling */
-    ret = Driver_EFLASH0_MPC.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    ret = Driver_CODE_SRAM_MPC.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    NVIC_EnableIRQ(S_MPC_COMBINED_IRQn);
+//    ret = Driver_EFLASH0_MPC.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    ret = Driver_CODE_SRAM_MPC.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    NVIC_EnableIRQ(S_MPC_COMBINED_IRQn);
 
     /* PPC interrupt enabling */
     /* Clear pending PPC interrupts */
@@ -297,30 +297,30 @@ enum tfm_plat_err_t nvic_interrupt_enable(void)
      * peripherals used by NS. That triggers a PPC0 exception as that
      * register is meant for NS privileged access only. Clear it here
      */
-    Driver_APB_PPC0.ClearInterrupt();
-
-    /* Enable PPC interrupts */
-    ret = Driver_AHB_PPCEXP0.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    ret = Driver_APB_PPC0.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    ret = Driver_APB_PPC1.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    ret = Driver_APB_PPCEXP0.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    ret = Driver_APB_PPCEXP1.EnableInterrupt();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    NVIC_EnableIRQ(S_PPC_COMBINED_IRQn);
+//    Driver_APB_PPC0.ClearInterrupt();
+//
+//    /* Enable PPC interrupts */
+//    ret = Driver_AHB_PPCEXP0.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    ret = Driver_APB_PPC0.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    ret = Driver_APB_PPC1.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    ret = Driver_APB_PPCEXP0.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    ret = Driver_APB_PPCEXP1.EnableInterrupt();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    NVIC_EnableIRQ(S_PPC_COMBINED_IRQn);
 
 #ifdef PSA_API_TEST_IPC
     NVIC_EnableIRQ(FF_TEST_UART_IRQ);
@@ -333,45 +333,7 @@ enum tfm_plat_err_t nvic_interrupt_enable(void)
 
 void sau_and_idau_cfg(void)
 {
-    /* Enables SAU */
-    TZ_SAU_Enable();
-
-    /* Configures SAU regions to be non-secure */
-    SAU->RNR  = TFM_NS_REGION_CODE;
-    SAU->RBAR = (memory_regions.non_secure_partition_base
-                & SAU_RBAR_BADDR_Msk);
-    SAU->RLAR = (memory_regions.non_secure_partition_limit
-                & SAU_RLAR_LADDR_Msk)
-                | SAU_RLAR_ENABLE_Msk;
-
-    SAU->RNR  = TFM_NS_REGION_DATA;
-    SAU->RBAR = (NS_DATA_START & SAU_RBAR_BADDR_Msk);
-    SAU->RLAR = (NS_DATA_LIMIT & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
-
-    /* Configures veneers region to be non-secure callable */
-    SAU->RNR  = TFM_NS_REGION_VENEER;
-    SAU->RBAR = (memory_regions.veneer_base  & SAU_RBAR_BADDR_Msk);
-    SAU->RLAR = (memory_regions.veneer_limit & SAU_RLAR_LADDR_Msk)
-                | SAU_RLAR_ENABLE_Msk
-                | SAU_RLAR_NSC_Msk;
-
-    /* Configure the peripherals space */
-    SAU->RNR  = TFM_NS_REGION_PERIPH_1;
-    SAU->RBAR = (PERIPHERALS_BASE_NS_START & SAU_RBAR_BADDR_Msk);
-    SAU->RLAR = (PERIPHERALS_BASE_NS_END & SAU_RLAR_LADDR_Msk)
-                | SAU_RLAR_ENABLE_Msk;
-
-#ifdef BL2
-    /* Secondary image partition */
-    SAU->RNR  = TFM_NS_SECONDARY_IMAGE_REGION;
-    SAU->RBAR = (memory_regions.secondary_partition_base  & SAU_RBAR_BADDR_Msk);
-    SAU->RLAR = (memory_regions.secondary_partition_limit & SAU_RLAR_LADDR_Msk)
-                | SAU_RLAR_ENABLE_Msk;
-#endif /* BL2 */
-
-    /* Allows SAU to define the code region as a NSC */
-    struct spctrl_def* spctrl = CMSDK_SPCTRL;
-    spctrl->nsccfg |= NSCCFG_CODENSC;
+return;
 }
 
 /*------------------- Memory configuration functions -------------------------*/

@@ -202,15 +202,15 @@
 #define ITS_FLASH_AREA_ADDR     FLASH_ITS_AREA_OFFSET
 /* Dedicated flash area for ITS */
 #define ITS_FLASH_AREA_SIZE     FLASH_ITS_AREA_SIZE
-#define ITS_SECTOR_SIZE         FLASH_AREA_IMAGE_SECTOR_SIZE
+#define ITS_SECTOR_SIZE         DATA_FLASH_AREA_IMAGE_SECTOR_SIZE
 /* Number of ITS_SECTOR_SIZE per block */
-#define ITS_SECTORS_PER_BLOCK   (0x1)
+#define ITS_SECTORS_PER_BLOCK   (0x8)
 /* Specifies the smallest flash programmable unit in bytes */
-#define ITS_FLASH_PROGRAM_UNIT  (0x40)
+#define ITS_FLASH_PROGRAM_UNIT  (4)
 /* The maximum asset size to be stored in the ITS area */
 #define ITS_MAX_ASSET_SIZE      (512)
 /* The maximum number of assets to be stored in the ITS area */
-#define ITS_NUM_ASSETS          (8)
+#define ITS_NUM_ASSETS          (4)
 
 /* NV Counters definitions */
 #define TFM_NV_COUNTERS_AREA_ADDR    FLASH_NV_COUNTERS_AREA_OFFSET
@@ -223,8 +223,8 @@
 #define NS_ROM_ALIAS_BASE (0x00060000)
 
 /* FIXME: Use SRAM2 memory to store RW data */
-#define S_RAM_ALIAS_BASE  (0x20020000)
-#define NS_RAM_ALIAS_BASE (0x20000000)
+#define S_RAM_ALIAS_BASE  (0x20000000)
+#define NS_RAM_ALIAS_BASE (0x20020000)
 
 #define TOTAL_ROM_SIZE FLASH_TOTAL_SIZE
 #define TOTAL_RAM_SIZE (0x40000)     /* 256 KB */

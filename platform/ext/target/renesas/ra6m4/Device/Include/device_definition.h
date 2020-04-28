@@ -175,7 +175,7 @@ extern struct uart_pl011_dev_t UART1_PL011_DEV_NS;
 
 #if defined(DFLASH0_S) || defined(CFLASH0_S)
 #include "r_flash_hp.h"
-extern static flash_instance_t FLASH0_DEV_S;
+extern flash_instance_t FLASH0_DEV_S;
 #endif
 
 /* QSPI Flash Controller driver structures */
