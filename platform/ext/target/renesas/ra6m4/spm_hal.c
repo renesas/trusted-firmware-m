@@ -43,15 +43,15 @@ enum tfm_plat_err_t tfm_spm_hal_init_isolation_hw(void)
 {
     int32_t ret = ARM_DRIVER_OK;
     /* Configures non-secure memory spaces in the target */
-    sau_and_idau_cfg();
-    ret = mpc_init_cfg();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-    ret = ppc_init_cfg();
-    if (ret != ARM_DRIVER_OK) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
+//    sau_and_idau_cfg();
+//    ret = mpc_init_cfg();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
+//    ret = ppc_init_cfg();
+//    if (ret != ARM_DRIVER_OK) {
+//        return TFM_PLAT_ERR_SYSTEM_ERR;
+//    }
     return TFM_PLAT_ERR_SUCCESS;
 }
 
@@ -97,13 +97,13 @@ enum tfm_plat_err_t tfm_spm_hal_configure_default_isolation(
     if (platform_data->periph_ppc_bank != PPC_SP_DO_NOT_CONFIGURE) {
         ppc_configure_to_secure(platform_data->periph_ppc_bank,
                                 platform_data->periph_ppc_loc);
-        if (privileged) {
-            ppc_clr_secure_unpriv(platform_data->periph_ppc_bank,
-                                  platform_data->periph_ppc_loc);
-        } else {
-            ppc_en_secure_unpriv(platform_data->periph_ppc_bank,
-                                 platform_data->periph_ppc_loc);
-        }
+//        if (privileged) {
+//            ppc_clr_secure_unpriv(platform_data->periph_ppc_bank,
+//                                  platform_data->periph_ppc_loc);
+//        } else {
+//            ppc_en_secure_unpriv(platform_data->periph_ppc_bank,
+//                                 platform_data->periph_ppc_loc);
+//        }
     }
     return TFM_PLAT_ERR_SUCCESS;
 }
@@ -224,39 +224,6 @@ enum tfm_plat_err_t tfm_spm_hal_setup_isolation_hw(void)
 }
 #endif /* CONFIG_TFM_ENABLE_MEMORY_PROTECT */
 
-void MPC_Handler(void)
-{
-    /* Clear MPC interrupt flags and pending MPC IRQ */
-    Driver_EFLASH0_MPC.ClearInterrupt();
-    Driver_CODE_SRAM_MPC.ClearInterrupt();
-//    NVIC_ClearPendingIRQ(S_MPC_COMBINED_IRQn);
-
-    /* Print fault message and block execution */
-    ERROR_MSG("Oops... MPC fault!!!");
-
-    /* Inform TF-M core that isolation boundary has been violated */
-    tfm_access_violation_handler();
-}
-
-void PPC_Handler(void)
-{
-    /*
-     * Due to an issue on the FVP, the PPC fault doesn't trigger a
-     * PPC IRQ which is handled by the PPC_handler.
-     * In the FVP execution, this code is not execute.
-     */
-
-    /* Clear PPC interrupt flag and pending PPC IRQ */
-    ppc_clear_irq();
-//    NVIC_ClearPendingIRQ(S_PPC_COMBINED_IRQn);
-
-    /* Print fault message*/
-    ERROR_MSG("Oops... PPC fault!!!");
-
-    /* Inform TF-M core that isolation boundary has been violated */
-    tfm_access_violation_handler();
-}
-
 void NMI_Handler(void)
 {
     /*
@@ -341,7 +308,7 @@ enum tfm_plat_err_t tfm_spm_hal_system_reset_cfg(void)
 void tfm_spm_hal_system_reset(void)
 {
     __disable_irq();
-    mpc_revert_non_secure_to_secure_cfg();
+//    mpc_revert_non_secure_to_secure_cfg();
 
     NVIC->ICPR[0] = UINT32_MAX;         /* Clear all pending interrupts */
     NVIC->ICPR[1] = UINT32_MAX;         /* Clear all pending interrupts */

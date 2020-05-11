@@ -44,7 +44,7 @@ static bool memory_addr_check(const psa_invec *in_vec,
 void tfm_platform_hal_system_reset(void)
 {
     __disable_irq();
-    mpc_revert_non_secure_to_secure_cfg();
+//    mpc_revert_non_secure_to_secure_cfg();
 
     NVIC->ICPR[0] = UINT32_MAX;         /* Clear all pending interrupts */
     NVIC->ICPR[1] = UINT32_MAX;         /* Clear all pending interrupts */
