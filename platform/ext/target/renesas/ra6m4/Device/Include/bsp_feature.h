@@ -158,15 +158,16 @@
 #define BSP_FEATURE_ETHER_FIFO_DEPTH                      (0x0000070FU)
 #define BSP_FEATURE_ETHER_MAX_CHANNELS                    (1U)
 
+#define BSP_FEATURE_FLASH_DATA_FLASH_START                (0x08000000U)
+#define BSP_FEATURE_FLASH_SUPPORTS_ID_CODE                (0) // Feature not available on this MCU
+#define BSP_FEATURE_FLASH_SUPPORTS_ACCESS_WINDOW          (0) // Feature not available on this MCU
 #define BSP_FEATURE_FLASH_HP_CF_REGION0_BLOCK_SIZE        (0x2000U)
 #define BSP_FEATURE_FLASH_HP_CF_REGION0_SIZE              (0x10000U)
 #define BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE        (0x8000U)
 #define BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE                (128U)
 #define BSP_FEATURE_FLASH_HP_DF_BLOCK_SIZE                (64U)
 #define BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE                (4U)
-#define BSP_FEATURE_FLASH_HP_SUPPORTS_ID_CODE             (0)
 #define BSP_FEATURE_FLASH_HP_HAS_FMEPROT                  (1)
-#define BSP_FEATURE_FLASH_HP_SUPPORTS_ACCESS_WINDOW       (0)
 #define BSP_FEATURE_FLASH_HP_VERSION                      (40U)
 #define BSP_FEATURE_FLASH_LP_AWS_FAW_MASK                 (0) // Feature not available on this MCU
 #define BSP_FEATURE_FLASH_LP_AWS_FAW_SHIFT                (0) // Feature not available on this MCU

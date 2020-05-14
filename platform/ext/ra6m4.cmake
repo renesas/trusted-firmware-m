@@ -16,7 +16,7 @@ set(PLATFORM_DIR ${CMAKE_CURRENT_LIST_DIR})
 if (COMPILER STREQUAL "ARMCLANG")
     message(FATAL_ERROR "No startup file is available for compiler '${CMAKE_C_COMPILER_ID}'.")
 elseif (COMPILER STREQUAL "GNUARM")
-    set(S_SCATTER_FILE_NAME   "${PLATFORM_DIR}/common/gcc/tfm_common_s.ld")
+    set(S_SCATTER_FILE_NAME   "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/gcc/ra6m4_s.ld")
     set(BL2_SCATTER_FILE_NAME "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/gcc/ra6m4_bl2.ld")
     set(NS_SCATTER_FILE_NAME  "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/gcc/ra6m4_ns.ld")
     if (DEFINED CMSIS_5_DIR)
@@ -56,7 +56,6 @@ embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/partitio
 embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/services/include" ABSOLUTE)
 embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/Libraries" ABSOLUTE)
 embedded_include_directories(PATH "${PLATFORM_DIR}/../include" ABSOLUTE)
-embedded_include_directories(PATH "${PLATFORM_DIR}/../../../../fsp/inc/api" ABSOLUTE)
 
 # Gather all source files we need.
 if (TFM_PARTITION_PLATFORM)
@@ -72,7 +71,10 @@ endif()
 if (NOT DEFINED BUILD_RETARGET)
     message(FATAL_ERROR "Configuration variable BUILD_RETARGET (true|false) is undefined!")
 elseif (BUILD_RETARGET)
-    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/device_definition.c")
+    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/device_definition.c"
+                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_security.c"
+                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_rom_registers.c"
+                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_register_protection.c")
 endif()
 
 if (NOT DEFINED BUILD_UART_STDOUT)
@@ -92,10 +94,9 @@ endif()
 if (NOT DEFINED BUILD_NATIVE_DRIVERS)
     message(FATAL_ERROR "Configuration variable BUILD_NATIVE_DRIVERS (true|false) is undefined!")
 elseif (BUILD_NATIVE_DRIVERS)
-    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
+#    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
 
-    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/mpc_sie200_drv.c"
-                            "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/ppc_sse200_drv.c")
+    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
 endif()
 
 if (NOT DEFINED BUILD_TIME)
@@ -175,8 +176,8 @@ endif()
 if (NOT DEFINED BUILD_CMSIS_DRIVERS)
     message(FATAL_ERROR "Configuration variable BUILD_CMSIS_DRIVERS (true|false) is undefined!")
 elseif (BUILD_CMSIS_DRIVERS)
-    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_MPC.c"
-                            "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_PPC.c")
+    #list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_MPC.c"
+    #                        "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_PPC.c")
     #list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_USART.c")
     embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/driver" ABSOLUTE)

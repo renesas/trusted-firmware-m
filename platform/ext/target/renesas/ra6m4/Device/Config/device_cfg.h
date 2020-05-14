@@ -27,36 +27,6 @@
  * This is a default device configuration file with all peripherals enabled.
  */
 
-/* ARM SCC */
-//#define MUSCA_B1_SCC_S
-
-/* CMSDK GPIO */
-//#define GPIO0_CMSDK_S
-
-/* ARM Memory Protection Controller (MPC) SIE 200 */
-#define MPC_ISRAM0_S
-#define MPC_ISRAM1_S
-#define MPC_ISRAM2_S
-#define MPC_ISRAM3_S
-#define MPC_CODE_SRAM_S
-#define MPC_QSPI_S
-#define MPC_EFLASH0_S
-#define MPC_EFLASH1_S
-
-/* ARM Peripheral Protection Controllers (PPC) */
-#define AHB_PPC0_S
-#define AHB_PPCEXP0_S
-#define AHB_PPCEXP1_S
-#define AHB_PPCEXP2_S
-#define AHB_PPCEXP3_S
-
-#define APB_PPC0_S
-#define APB_PPC1_S
-#define APB_PPCEXP0_S
-#define APB_PPCEXP1_S
-#define APB_PPCEXP2_S
-#define APB_PPCEXP3_S
-
 ///*ARM UART Controller PL011*/
 //#define UART0_PL011_S
 //#define UART0_PL011_NS
@@ -69,7 +39,7 @@
 //#define CMSDK_TIMER1_S
 //#define CMSDK_TIMER1_NS
 //
-///* GFC-100 EFlash controller */
+///* Flash controller */
 #define DFLASH0_S
 #define CFLASH0_S
 //

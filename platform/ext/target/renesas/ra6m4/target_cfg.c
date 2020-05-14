@@ -15,6 +15,7 @@
  */
 
 #include "target_cfg.h"
+#include "Driver_Common.h"
 #include "platform_description.h"
 #include "device_definition.h"
 #include "region_defs.h"
@@ -70,22 +71,19 @@ const struct memory_region_limits memory_regions = {
 #define All_SEL_STATUS (SPNIDEN_SEL_STATUS | SPIDEN_SEL_STATUS | \
                         NIDEN_SEL_STATUS | DBGEN_SEL_STATUS)
 
-struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
-        MUSCA_B1_UART1_NS_BASE,
-        MUSCA_B1_UART1_NS_BASE + 0xFFF,
-        PPC_SP_DO_NOT_CONFIGURE,
-        -1
-};
+//struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
+//        MUSCA_B1_UART1_NS_BASE,
+//        MUSCA_B1_UART1_NS_BASE + 0xFFF,
+//        PPC_SP_DO_NOT_CONFIGURE,
+//        -1
+//};
 
-#define PPC_BANK_COUNT \
-    (sizeof(ppc_bank_drivers)/sizeof(ppc_bank_drivers[0]))
-
-struct tfm_spm_partition_platform_data_t tfm_peripheral_timer0 = {
-        MUSCA_B1_CMSDK_TIMER0_S_BASE,
-        MUSCA_B1_CMSDK_TIMER1_S_BASE - 1,
-        PPC_SP_APB_PPC0,
-        CMSDK_TIMER0_APB_PPC_POS
-};
+//struct tfm_spm_partition_platform_data_t tfm_peripheral_timer0 = {
+//        MUSCA_B1_CMSDK_TIMER0_S_BASE,
+//        MUSCA_B1_CMSDK_TIMER1_S_BASE - 1,
+//        PPC_SP_APB_PPC0,
+//        CMSDK_TIMER0_APB_PPC_POS
+//};
 
 #ifdef PSA_API_TEST_IPC
 

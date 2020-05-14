@@ -17,9 +17,9 @@
 /***********************************************************************************************************************
  * Macro definitions
  **********************************************************************************************************************/
-    #define BSP_ROM_SIZE_BYTES              (1048576)
-    #define BSP_RAM_SIZE_BYTES              (262144)
-    #define BSP_DATA_FLASH_SIZE_BYTES       (32768)
+//    #define BSP_ROM_SIZE_BYTES              (1048576)
+//    #define BSP_RAM_SIZE_BYTES              (262144)
+//    #define BSP_DATA_FLASH_SIZE_BYTES       (32768)
 #define FLASH_HP_FENTRYR_PE_MODE_BITS                   (0x0081U)
 #define FLASH_HP_FSTATR_FLWEERR                         (1U << 6U)
 #define FLASH_HP_FSTATR_PRGERR                          (1U << 12U)
@@ -2009,8 +2009,8 @@ static fsp_err_t flash_hp_set_startup_area_boot (flash_hp_instance_ctrl_t * p_ct
  #ifndef BSP_FEATURE_FLASH_HP_SUPPORTS_ACCESS_WINDOW
 
         /* Do not call functions with multiple volatile parameters. */
-        uint32_t faws = R_FACI_HP->FAWMON_b.FAWS;
-        uint32_t fawe = R_FACI_HP->FAWMON_b.FAWE;
+//        uint32_t faws = R_FACI_HP->FAWMON_b.FAWS;
+//        uint32_t fawe = R_FACI_HP->FAWMON_b.FAWE;
 
         /* Configure the configuration area to be written. */
         flash_hp_configuration_area_data_setup(~swap_type & 0x1, 0xFFFFFFFF, 0xFFFFFFFF);

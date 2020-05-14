@@ -12,17 +12,14 @@
 #include "spm_db.h"
 #include "tfm_platform_core_api.h"
 #include "target_cfg.h"
-#include "Driver_MPC.h"
+#include "bsp_api.h"
 #include "mpu_armv8m_drv.h"
 #include "region_defs.h"
 #include "secure_utilities.h"
 
-/* Import MPC driver */
-extern ARM_DRIVER_MPC Driver_EFLASH0_MPC;
-extern ARM_DRIVER_MPC Driver_CODE_SRAM_MPC;
-
 /* Get address of memory regions to configure MPU */
 extern const struct memory_region_limits memory_regions;
+extern void R_BSP_SecurityInit(void);
 
 struct mpu_armv8m_dev_t dev_mpu_s = { MPU_BASE };
 
@@ -41,8 +38,9 @@ uint32_t periph_num_count = 0;
 
 enum tfm_plat_err_t tfm_spm_hal_init_isolation_hw(void)
 {
-    int32_t ret = ARM_DRIVER_OK;
+//    int32_t ret = ARM_DRIVER_OK;
     /* Configures non-secure memory spaces in the target */
+    R_BSP_SecurityInit();
 //    sau_and_idau_cfg();
 //    ret = mpc_init_cfg();
 //    if (ret != ARM_DRIVER_OK) {
