@@ -151,7 +151,7 @@ _Static_assert(BOOT_IMAGE_NUMBER > 0, "Invalid value for BOOT_IMAGE_NUMBER");
                      (swap_info) = (image) << SWAP_INFO_IMAGE_NUM_POS          \
                                  | (type);                                     \
                      }
-
+#if BL2_TEMP_DIS
 /*
  * The current flashmap API does not check the amount of space allocated when
  * loading sector data from the flash device, allowing for smaller counts here
@@ -162,7 +162,7 @@ _Static_assert(BOOT_IMAGE_NUMBER > 0, "Invalid value for BOOT_IMAGE_NUMBER");
 #if BOOT_MAX_IMG_SECTORS < 32
 #error "Too few sectors, please increase BOOT_MAX_IMG_SECTORS to at least 32"
 #endif
-
+#endif
 /** Number of image slots in flash; currently limited to two. */
 #define BOOT_NUM_SLOTS                  2
 

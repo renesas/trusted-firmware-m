@@ -60,7 +60,7 @@ extern "C"
 {
 #endif
 
-#include "Driver_Common.h"
+#include <Driver_Common.h>
 
 #define ARM_USART_API_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(2,3)  /* API version */
 
@@ -148,6 +148,7 @@ extern "C"
 #define ARM_USART_ERROR_CPOL                (ARM_DRIVER_ERROR_SPECIFIC - 7)     ///< Specified Clock Polarity not supported
 #define ARM_USART_ERROR_CPHA                (ARM_DRIVER_ERROR_SPECIFIC - 8)     ///< Specified Clock Phase not supported
 
+#define TFM_DRIVER_STDIO    Driver_USART
 
 /**
 \brief USART Status

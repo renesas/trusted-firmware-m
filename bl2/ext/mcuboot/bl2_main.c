@@ -145,15 +145,27 @@ static void do_boot(struct boot_rsp *rsp)
      */
     __set_MSPLIM(0);
 #endif
-
+#if BL2_TEMP_EN
     __set_MSP(vt->msp);
     __DSB();
     __ISB();
 
     boot_jump_to_next_image(vt->reset);
+#else
+    SCB->VTOR = ((int)(&(vt->msp)) & 0x1FFFFF80);
+    __DSB();
+
+    /* Disable MSP monitoring  */
+    R_MPU_SPMON->SP[0].CTL = 0;
+    while(R_MPU_SPMON->SP[0].CTL != 0);
+
+    __set_MSP(vt->msp);
+
+    ((void (*)()) vt->reset)();
+#endif
 }
 
-int main(void)
+int bl2_main(void)
 {
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     uint32_t msp_stack_bottom =
