@@ -1,106 +1,93 @@
-/*
- * Copyright (c) 2017-2019 ARM Limited
+/***********************************************************************************************************************
+ * DISCLAIMER
+ * This software is supplied by Renesas Electronics Corporation and is only intended for use with Renesas products. No
+ * other uses are authorized. This software is owned by Renesas Electronics Corporation and is protected under all
+ * applicable laws, including copyright laws.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND RENESAS MAKES NO WARRANTIES REGARDING
+ * THIS SOFTWARE, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. ALL SUCH WARRANTIES ARE EXPRESSLY DISCLAIMED. TO THE MAXIMUM
+ * EXTENT PERMITTED NOT PROHIBITED BY LAW, NEITHER RENESAS ELECTRONICS CORPORATION NOR ANY OF ITS AFFILIATED COMPANIES
+ * SHALL BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES FOR ANY REASON RELATED TO THIS
+ * SOFTWARE, EVEN IF RENESAS OR ITS AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+ * Renesas reserves the right, without notice, to make changes to this software and to discontinue the availability of
+ * this software. By using this software, you agree to the additional terms and conditions found by accessing the
+ * following link:
+ * http://www.renesas.com/disclaimer
  *
- * Licensed under the Apace License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apace.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ * Copyright (C) 2020 Renesas Electronics Corporation. All rights reserved.
+ ***********************************************************************************************************************/
 
 #include "uart_stdout.h"
 
 #include <assert.h>
-#include <stdio.h>
+#include <Driver_USART.h>
 #include <stdint.h>
-#include "Driver_USART.h"
-#include "target_cfg.h"
-#include "device_cfg.h"
+#include <string.h>
+#include "hal_data.h"
 
-#define ASSERT_HIGH(X)  assert(X == ARM_DRIVER_OK)
+// #include "target_cfg.h"
+
+#define ASSERT_HIGH(X)    assert(X == ARM_DRIVER_OK)
 
 /* Imports USART driver */
-extern ARM_DRIVER_USART TFM_DRIVER_STDIO;
+extern ARM_DRIVER_USART Driver_USART;
 
-int stdio_output_string(const unsigned char *str, uint32_t len)
+int _write(int fd, char * str, int len);
+
+static void uart_putc (unsigned char c)
 {
-    int32_t ret;
+    int32_t ret = ARM_DRIVER_OK;
 
-    ret = TFM_DRIVER_STDIO.Send(str, len);
-    if (ret != ARM_DRIVER_OK) {
-        return 0;
-    }
-    /* Add a busy wait after sending. */
-    while (TFM_DRIVER_STDIO.GetStatus().tx_busy);
-
-    return TFM_DRIVER_STDIO.GetTxCount();
+    ret = Driver_USART.Send(&c, 1);
+    ASSERT_HIGH(ret);
 }
 
 /* Redirects printf to TFM_DRIVER_STDIO in case of ARMCLANG*/
 #if defined(__ARMCC_VERSION)
-/* Struct FILE is implemented in stdio.h. Used to redirect printf to
- * TFM_DRIVER_STDIO
- */
-FILE __stdout;
+
 /* __ARMCC_VERSION is only defined starting from Arm compiler version 6 */
-int fputc(int ch, FILE *f)
+int fputc (int ch, FILE * f)
 {
-    (void)f;
-
     /* Send byte to USART */
-    (void)stdio_output_string((const unsigned char *)&ch, 1);
+    uart_putc(ch);
 
     /* Return character written */
     return ch;
 }
+
 #elif defined(__GNUC__)
+
 /* Redirects printf to TFM_DRIVER_STDIO in case of GNUARM */
-int _write(int fd, char *str, int len)
-{
-    (void)fd;
 
-    /* Send string and return the number of characters written */
-    return stdio_output_string((const unsigned char *)str, (uint32_t)len);
-}
-#elif defined(__ICCARM__)
-int putchar(int ch)
-{
-    /* Send byte to USART */
-    (void)stdio_output_string((const unsigned char *)&ch, 1);
+// int _write (int fd, char * str, int len)
+// {
+// int i;
+// (void) fd;                         /* Not used, avoid warning */
 
-    /* Return character written */
-    return ch;
-}
+// for (i = 0; i < len; i++)
+// {
+///* Send byte to USART */
+// uart_putc((unsigned char) str[i]);
+// }
+
+///* Return the number of characters written */
+// return len;
+// }
+
 #endif
 
-void stdio_init(void)
+void stdio_init (void)
 {
-    int32_t ret;
-    ret = TFM_DRIVER_STDIO.Initialize(NULL);
-    ASSERT_HIGH(ret);
+    int32_t ret = ARM_DRIVER_OK;
 
-    ret = TFM_DRIVER_STDIO.PowerControl(ARM_POWER_FULL);
+    ret = Driver_USART.Initialize(NULL);
     ASSERT_HIGH(ret);
-
-    ret = TFM_DRIVER_STDIO.Control(ARM_USART_MODE_ASYNCHRONOUS,
-                                   DEFAULT_UART_BAUDRATE);
-    ASSERT_HIGH(ret);
-
-    (void)TFM_DRIVER_STDIO.Control(ARM_USART_CONTROL_TX, 1);
 }
 
-void stdio_uninit(void)
+void stdio_uninit (void)
 {
-    int32_t ret;
+    int32_t ret = ARM_DRIVER_OK;
 
-    (void)TFM_DRIVER_STDIO.PowerControl(ARM_POWER_OFF);
-
-    ret = TFM_DRIVER_STDIO.Uninitialize();
+    ret = Driver_USART.Uninitialize();
     ASSERT_HIGH(ret);
 }
