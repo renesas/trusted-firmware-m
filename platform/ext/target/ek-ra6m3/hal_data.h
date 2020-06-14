@@ -9,6 +9,12 @@
 #include "r_flash_hp.h"
 #include "r_flash_api.h"
 FSP_HEADER
+
+#define VECTOR_NUMBER_SCI7_RXI ((IRQn_Type)0) /* SCI7 RXI (Receive data full) */
+#define VECTOR_NUMBER_SCI7_TXI ((IRQn_Type)1) /* SCI7 TXI (Transmit data empty) */
+#define VECTOR_NUMBER_SCI7_TEI ((IRQn_Type)2) /* SCI7 TEI (Transmit end) */
+#define VECTOR_NUMBER_SCI7_ERI ((IRQn_Type)3) /* SCI7 ERI (Receive error) */
+
 /** UART on SCI Instance. */
 extern const uart_instance_t g_uart;
 
