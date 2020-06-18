@@ -44,7 +44,6 @@
 extern "C"
 {
 #endif
-#include "hal_data.h"
 #include <Driver_Common.h>
 
 #define ARM_FLASH_API_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(2,1)  /* API version */
