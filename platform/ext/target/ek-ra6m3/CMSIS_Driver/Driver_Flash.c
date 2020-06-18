@@ -1,40 +1,41 @@
 /***********************************************************************************************************************
-* File Name    : driver_flash.c
-* Description  : This file contains flash driver specific API implementation.
-* ***********************************************************************************************************************/
+ * File Name    : driver_flash.c
+ * Description  : This file contains flash driver specific API implementation.
+ * ***********************************************************************************************************************/
 
 /***********************************************************************************************************************
-* DISCLAIMER
-* This software is supplied by Renesas Electronics Corporation and is only intended for use with Renesas products. No
-* other uses are authorized. This software is owned by Renesas Electronics Corporation and is protected under all
-* applicable laws, including copyright laws.
-* THIS SOFTWARE IS PROVIDED "AS IS" AND RENESAS MAKES NO WARRANTIES REGARDING
-* THIS SOFTWARE, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. ALL SUCH WARRANTIES ARE EXPRESSLY DISCLAIMED. TO THE MAXIMUM
-* EXTENT PERMITTED NOT PROHIBITED BY LAW, NEITHER RENESAS ELECTRONICS CORPORATION NOR ANY OF ITS AFFILIATED COMPANIES
-* SHALL BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES FOR ANY REASON RELATED TO THIS
-* SOFTWARE, EVEN IF RENESAS OR ITS AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
-* Renesas reserves the right, without notice, to make changes to this software and to discontinue the availability of
-* this software. By using this software, you agree to the additional terms and conditions found by accessing the
-* following link:
-* http://www.renesas.com/disclaimer
-*
-* Copyright (C) 2019 Renesas Electronics Corporation. All rights reserved.
-***********************************************************************************************************************/
+ * DISCLAIMER
+ * This software is supplied by Renesas Electronics Corporation and is only intended for use with Renesas products. No
+ * other uses are authorized. This software is owned by Renesas Electronics Corporation and is protected under all
+ * applicable laws, including copyright laws.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND RENESAS MAKES NO WARRANTIES REGARDING
+ * THIS SOFTWARE, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. ALL SUCH WARRANTIES ARE EXPRESSLY DISCLAIMED. TO THE MAXIMUM
+ * EXTENT PERMITTED NOT PROHIBITED BY LAW, NEITHER RENESAS ELECTRONICS CORPORATION NOR ANY OF ITS AFFILIATED COMPANIES
+ * SHALL BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES FOR ANY REASON RELATED TO THIS
+ * SOFTWARE, EVEN IF RENESAS OR ITS AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+ * Renesas reserves the right, without notice, to make changes to this software and to discontinue the availability of
+ * this software. By using this software, you agree to the additional terms and conditions found by accessing the
+ * following link:
+ * http://www.renesas.com/disclaimer
+ *
+ * Copyright (C) 2019 Renesas Electronics Corporation. All rights reserved.
+ ***********************************************************************************************************************/
 
 #include <Driver_Flash.h>
 #include <string.h>
 #include <stdint.h>
-#include "hal_data.h"
+#include "r_flash_hp.h"
+#include "r_flash_api.h"
 
 #ifndef ARG_UNUSED
-#define ARG_UNUSED(arg)  ((void)arg)
+ #define ARG_UNUSED(arg)    ((void) arg)
 #endif
 
 /* Driver version */
 #define ARM_FLASH_DRV_VERSION    ARM_DRIVER_VERSION_MAJOR_MINOR(1, 0)
 
-#define NUM_OF_CF_BLOCKS(x)     ((x) / FLASH0_SECTOR_SIZE)
+#define NUM_OF_CF_BLOCKS(x)    ((x) / FLASH0_SECTOR_SIZE)
 
 /* Code Flash */
 #define FLASH0_BASE_S         0x0
@@ -50,7 +51,9 @@
 #define FLASH1_PAGE_SIZE      0x4       /* 4 bytes */
 #define FLASH1_PROGRAM_UNIT   0x4       /* 4 bytes */
 
-
+/* FSP structures required by uart and flash drivers */
+extern flash_hp_instance_ctrl_t g_tfm_fsp_flash_ctrl;
+extern const flash_cfg_t        g_tfm_fsp_flash_cfg;
 
 /*
  * ARM FLASH device structure
@@ -168,12 +171,12 @@ static ARM_DRIVER_VERSION ARM_Flash_GetVersion(void)
     return DriverVersion;
 }
 
-static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
+static int32_t ARM_Flash_Initialize (ARM_Flash_SignalEvent_t cb_event)
 {
     ARG_UNUSED(cb_event);
-    fsp_err_t  fsp_err = FSP_SUCCESS;
+    fsp_err_t fsp_err = FSP_SUCCESS;
 
-    fsp_err = R_FLASH_HP_Open(&g_flash_ctrl, &g_flash_cfg);
+    fsp_err = R_FLASH_HP_Open(&g_tfm_fsp_flash_ctrl, &g_tfm_fsp_flash_cfg);
     if(FSP_SUCCESS != fsp_err)
         return ARM_DRIVER_ERROR;
     else
@@ -182,9 +185,9 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
 
 static int32_t ARM_Flash_Uninitialize(void)
 {
-    fsp_err_t  fsp_err = FSP_SUCCESS;
+    fsp_err_t fsp_err = FSP_SUCCESS;
 
-    fsp_err = R_FLASH_HP_Close(&g_flash_ctrl);
+    fsp_err = R_FLASH_HP_Close(&g_tfm_fsp_flash_ctrl);
     if(FSP_SUCCESS != fsp_err)
         return ARM_DRIVER_ERROR;
     else
@@ -210,7 +213,7 @@ static int32_t ARM_Flash_PowerControl(ARM_POWER_STATE state)
     return ret;
 }
 
-static int32_t ARM_Flash_ReadData(uint32_t addr, void *data, uint32_t cnt)
+static int32_t ARM_Flash_ReadData (uint32_t addr, void * data, uint32_t cnt)
 {
     int32_t rc = 0;
 
@@ -234,7 +237,7 @@ static int32_t ARM_Flash_ReadData(uint32_t addr, void *data, uint32_t cnt)
         }
     }
 
-    memcpy(data, (void *)addr, cnt);
+    memcpy(data, (void *) addr, cnt);
 
     return ARM_DRIVER_OK;
 }
@@ -272,9 +275,9 @@ static int32_t ARM_Flash_ProgramData(uint32_t addr, const void *data,
         }
     }
 
-    while(cnt > 0)
+    while (cnt > 0)
     {
-        if(cnt > FLASH0_DEV->data->page_size)
+        if (cnt > FLASH0_DEV->data->page_size)
         {
             copy_size = FLASH0_DEV->data->page_size;
         }
@@ -287,7 +290,7 @@ static int32_t ARM_Flash_ProgramData(uint32_t addr, const void *data,
 
         FSP_CRITICAL_SECTION_ENTER;
 
-        fsp_err = R_FLASH_HP_Write(&g_flash_ctrl, (uint32_t)buf, addr, copy_size);
+        fsp_err = R_FLASH_HP_Write(&g_tfm_fsp_flash_ctrl, (uint32_t) buf, addr, copy_size);
 
         FSP_CRITICAL_SECTION_EXIT;
 
@@ -310,7 +313,7 @@ static int32_t ARM_Flash_ProgramData(uint32_t addr, const void *data,
     return ARM_DRIVER_OK;
 }
 
-static int32_t ARM_Flash_EraseSector(uint32_t addr)
+static int32_t ARM_Flash_EraseSector (uint32_t addr)
 {
     int32_t rc = 0;
     fsp_err_t fsp_err = FSP_SUCCESS;
@@ -336,7 +339,7 @@ static int32_t ARM_Flash_EraseSector(uint32_t addr)
 
     FSP_CRITICAL_SECTION_ENTER;
 
-    fsp_err = R_FLASH_HP_Erase(&g_flash_ctrl, addr, 1);
+    fsp_err = R_FLASH_HP_Erase(&g_tfm_fsp_flash_ctrl, addr, 1);
 
     FSP_CRITICAL_SECTION_EXIT;
 

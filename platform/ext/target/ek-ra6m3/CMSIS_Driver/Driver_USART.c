@@ -25,8 +25,8 @@
 #include <Driver_USART.h>
 #include <string.h>
 #include <stdint.h>
-#include "hal_data.h"
-
+#include "r_sci_uart.h"
+#include "r_uart_api.h"
 
 #ifndef ARG_UNUSED
 #define ARG_UNUSED(arg)  ((void)arg)
@@ -71,10 +71,14 @@ static ARM_USART_CAPABILITIES DriverCapabilities = {
         0  /* Reserved */
 };
 
-static ARM_DRIVER_VERSION ARM_USART_GetVersion(void)
+/* FSP structures required by uart and flash drivers */
+extern sci_uart_instance_ctrl_t g_tfm_fsp_uart_ctrl;
+extern const uart_cfg_t         g_tfm_fsp_uart_cfg;
+
+static ARM_DRIVER_VERSION ARM_USART_GetVersion (void)
 {
     fsp_version_t ver;
-    fsp_err_t fsp_err = FSP_SUCCESS;
+    fsp_err_t     fsp_err = FSP_SUCCESS;
 
     fsp_err = R_SCI_UART_VersionGet(&ver);
     if(FSP_SUCCESS != fsp_err)
@@ -90,7 +94,7 @@ static ARM_DRIVER_VERSION ARM_USART_GetVersion(void)
     return DriverVersion;
 }
 
-static ARM_USART_CAPABILITIES ARM_USART_GetCapabilities(void)
+static ARM_USART_CAPABILITIES ARM_USART_GetCapabilities (void)
 {
     return DriverCapabilities;
 }
@@ -98,34 +102,34 @@ static ARM_USART_CAPABILITIES ARM_USART_GetCapabilities(void)
 static int32_t ARM_USART_Initialize(ARM_USART_SignalEvent_t cb_event)
 {
     ARG_UNUSED(cb_event);
-    fsp_err_t  fsp_err = FSP_SUCCESS;
+    fsp_err_t fsp_err = FSP_SUCCESS;
 
-    fsp_err = R_SCI_UART_Open(&g_uart_ctrl, &g_uart_cfg);
+    fsp_err = R_SCI_UART_Open(&g_tfm_fsp_uart_ctrl, &g_tfm_fsp_uart_cfg);
     if(FSP_SUCCESS != fsp_err)
         return ARM_DRIVER_ERROR;
 
     return ARM_DRIVER_OK;
 }
 
-static int32_t ARM_USART_Uninitialize(void)
+static int32_t ARM_USART_Uninitialize (void)
 {
     fsp_err_t fsp_err = FSP_SUCCESS;
 
-    fsp_err = R_SCI_UART_Close(&g_uart_ctrl);
+    fsp_err = R_SCI_UART_Close(&g_tfm_fsp_uart_ctrl);
     if(FSP_SUCCESS != fsp_err)
         return ARM_DRIVER_ERROR;
 
     return ARM_DRIVER_OK;
 }
 
-static int32_t ARM_USART_PowerControl(ARM_POWER_STATE state)
+static int32_t ARM_USART_PowerControl (ARM_POWER_STATE state)
 {
     (void)state; /* Not used, avoid warning */
     /* Nothing to be done */
     return ARM_DRIVER_ERROR_UNSUPPORTED;
 }
 
-static int32_t ARM_USART_Send(const void *data, uint32_t num)
+static int32_t ARM_USART_Send (const void * data, uint32_t num)
 {
     fsp_err_t fsp_err = FSP_SUCCESS;
 
@@ -134,8 +138,8 @@ static int32_t ARM_USART_Send(const void *data, uint32_t num)
 
     g_uart_evt = 0;
 
-    fsp_err = R_SCI_UART_Write(&g_uart_ctrl, data, num);
-    if(FSP_SUCCESS != fsp_err)
+    fsp_err = R_SCI_UART_Write(&g_tfm_fsp_uart_ctrl, data, num);
+    if (FSP_SUCCESS != fsp_err)
     {
         return ARM_DRIVER_ERROR;
     }
@@ -149,7 +153,7 @@ static int32_t ARM_USART_Send(const void *data, uint32_t num)
     return ARM_DRIVER_OK;
 }
 
-static int32_t ARM_USART_Receive(void *data, uint32_t num)
+static int32_t ARM_USART_Receive (void * data, uint32_t num)
 {
     fsp_err_t fsp_err = FSP_SUCCESS;
 
@@ -158,7 +162,7 @@ static int32_t ARM_USART_Receive(void *data, uint32_t num)
 
     g_uart_evt = 0;
 
-    fsp_err = R_SCI_UART_Read(&g_uart_ctrl, data, num);
+    fsp_err = R_SCI_UART_Read(&g_tfm_fsp_uart_ctrl, data, num);
     if(FSP_SUCCESS != fsp_err)
         return ARM_DRIVER_ERROR;
 
@@ -171,7 +175,7 @@ static int32_t ARM_USART_Receive(void *data, uint32_t num)
     return ARM_DRIVER_OK;
 }
 
-void user_uart_callback(uart_callback_args_t  *p_args)
+void user_uart_callback (uart_callback_args_t * p_args)
 {
     g_uart_evt = p_args->event;
 }

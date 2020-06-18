@@ -10,6 +10,9 @@
 #include "flash_layout.h"
 #include "bootutil/bootutil_log.h"
 
+#include "r_flash_hp.h"
+#include "r_flash_api.h"
+
 #if defined(__ARMCC_VERSION)
 __attribute__((naked)) void boot_clear_bl2_ram_area (void)
 {
@@ -37,6 +40,10 @@ __attribute__((naked)) void boot_clear_bl2_ram_area (void)
 /* Flash device name must be specified by target */
 extern ARM_DRIVER_FLASH FLASH_DEV_NAME;
 
+/* FSP structures required by uart and flash drivers */
+extern flash_hp_instance_ctrl_t g_tfm_fsp_flash_ctrl;
+extern const flash_cfg_t        g_tfm_fsp_flash_cfg;
+
 static void flash_FAW_Set (uint32_t start_addr, uint32_t end_addr)
 {
     int ret_val = 0;
@@ -47,10 +54,12 @@ static void flash_FAW_Set (uint32_t start_addr, uint32_t end_addr)
     if (faws == fawe)
     {
         BOOT_LOG_INF("Configuring FAW settings");
-        FSP_CRITICAL_SECTION_DEFINE;
-        FSP_CRITICAL_SECTION_ENTER;
-        ret_val = R_FLASH_HP_AccessWindowSet(&g_flash_ctrl, start_addr, end_addr);
-        FSP_CRITICAL_SECTION_EXIT;
+
+        // FSP_CRITICAL_SECTION_DEFINE;  // No need to do this since the bootloader is the only thing running here
+        // FSP_CRITICAL_SECTION_ENTER;
+        ret_val = R_FLASH_HP_AccessWindowSet(&g_tfm_fsp_flash_ctrl, start_addr, end_addr);
+
+        // FSP_CRITICAL_SECTION_EXIT;
         if (ret_val)
         {
             BOOT_LOG_ERR("Failed to set Flash Access Window: 0x%x", ret_val);

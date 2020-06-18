@@ -23,7 +23,6 @@
 #include <Driver_USART.h>
 #include <stdint.h>
 #include <string.h>
-#include "hal_data.h"
 
 // #include "target_cfg.h"
 
@@ -66,11 +65,11 @@ int fputc (int ch, FILE * f)
 
 // for (i = 0; i < len; i++)
 // {
-///* Send byte to USART */
+/// * Send byte to USART */
 // uart_putc((unsigned char) str[i]);
 // }
 
-///* Return the number of characters written */
+/// * Return the number of characters written */
 // return len;
 // }
 

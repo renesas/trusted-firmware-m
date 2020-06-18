@@ -40,7 +40,7 @@
 #ifndef DRIVER_FLASH_H_
 #define DRIVER_FLASH_H_
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 extern "C"
 {
 #endif
