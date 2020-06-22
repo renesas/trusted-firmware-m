@@ -25,6 +25,7 @@
  */
 
 #include <bootutil/sign_key.h>
+#include "bl2_config.h"
 
 #if !defined(MCUBOOT_HW_KEY)
 #if defined(MCUBOOT_SIGN_RSA)

@@ -22,6 +22,10 @@
 * Copyright (C) 2019 Renesas Electronics Corporation. All rights reserved.
 ***********************************************************************************************************************/
 
+#include "bl2_config.h"
+
+#if BL2_CFG_UART_DEBUG_ENABLE
+
 #include <Driver_USART.h>
 #include <string.h>
 #include <stdint.h>
@@ -197,3 +201,5 @@ ARM_DRIVER_USART Driver_USART = {
     NULL,
     NULL
 };
+
+#endif // BL2_CFG_UART_DEBUG_ENABLE
