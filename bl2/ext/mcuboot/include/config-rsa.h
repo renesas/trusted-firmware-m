@@ -36,6 +36,8 @@
 #ifndef MCUBOOT_MBEDTLS_CONFIG_RSA
 #define MCUBOOT_MBEDTLS_CONFIG_RSA
 
+#include "bl2_config.h"
+
 /* System support */
 #define MBEDTLS_PLATFORM_C
 #define MBEDTLS_PLATFORM_MEMORY
