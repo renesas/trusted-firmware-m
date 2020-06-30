@@ -31,22 +31,22 @@
  *   Section                            Offset              Size
  *
  *   BL2                                0x0000_0000          64KB
- *   Primary Image Area                 0x0001_0000         960KB
- *   Secondary Image Area               0x0010_0000         960KB
- *   Scratch Area                       0x001F_0000          32KB
+ *   Primary Image Area                 0x0001_0000         448KB
+ *   Secondary Image Area               0x0008_0000         448KB
+ *   Scratch Area                       0x000F_8000          32KB
  */
 
 #define MAX(X,Y)                       ((X) > (Y) ? (X) : (Y))
 
 /* Size of a Secure and of a Non-secure image */
 #define FLASH_S_PARTITION_SIZE              (0)
-#define FLASH_NS_PARTITION_SIZE             (0xF0000) /* 30 * 32KB block = 960KB */
+#define FLASH_NS_PARTITION_SIZE             (0x70000) /* 14 * 32KB block = 448KB */
 #define FLASH_MAX_PARTITION_SIZE            ((FLASH_S_PARTITION_SIZE >   \
                                              FLASH_NS_PARTITION_SIZE) ? \
                                              FLASH_S_PARTITION_SIZE :    \
                                              FLASH_NS_PARTITION_SIZE)
 
-#define FLASH_TOTAL_SIZE                    (0x00200000)    /*  2MB  */
+#define FLASH_TOTAL_SIZE                    (0x00100000)    /*  1MB  */
 
 /* Sector size of the flash hardware; same as FLASH0_SECTOR_SIZE */
 #define FLASH_AREA_IMAGE_SECTOR_SIZE        (0x8000)    /* 32 KB */
