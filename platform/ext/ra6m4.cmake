@@ -167,10 +167,10 @@ elseif (BUILD_TARGET_NV_COUNTERS)
     #       implementation. Platform vendors have to implement the
     #       API ONLY if the target has non-volatile counters.
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/nv_counters.c")
-    set(TARGET_NV_COUNTERS_ENABLE ON)
+    set(TARGET_NV_COUNTERS_ENABLE OFF)
     # Sets SST_ROLLBACK_PROTECTION flag to compile in the SST services
     # rollback protection code as the target supports nv counters.
-    set(SST_ROLLBACK_PROTECTION ON)
+    set(SST_ROLLBACK_PROTECTION OFF)
 endif()
 
 if (NOT DEFINED BUILD_CMSIS_DRIVERS)
@@ -192,8 +192,9 @@ elseif (BUILD_FLASH)
     # SST_CREATE_FLASH_LAYOUT to be sure the SST service knows that when it
     # starts the SST area does not contain any valid SST flash layout and it
     # needs to create one. The same for ITS.
-    set(SST_CREATE_FLASH_LAYOUT ON)
+    set(SST_CREATE_FLASH_LAYOUT OFF)
     set(ITS_CREATE_FLASH_LAYOUT ON)
+    set(SST_ENCRYPTION OFF)
     embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/driver" ABSOLUTE)
 endif()

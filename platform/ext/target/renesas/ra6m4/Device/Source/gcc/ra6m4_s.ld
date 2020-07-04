@@ -24,10 +24,6 @@
 
 #include "region_defs.h"
 
-FLASH_START = 0;
-FLASH_LENGTH = 0x80000;
-RAM_START = 0x20000000;
-RAM_LENGTH = 0x0020000;
 DATA_FLASH_START = 0x08000000;
 DATA_FLASH_LENGTH = 0x0001000;
 QSPI_FLASH_START = 0x60000000;
@@ -38,8 +34,6 @@ OPTION_SETTING_START = 0x0100A100;
 OPTION_SETTING_LENGTH  = 0x100;
 OPTION_SETTING_S_START = 0x0100A200;
 OPTION_SETTING_S_LENGTH  = 0x100;
-ID_CODE_START = 0x01010018;
-ID_CODE_LENGTH = 0x0;
 
 FLASH_NSC_START = 0x7F800;
 FLASH_NS_START = 0x80000;
@@ -62,9 +56,9 @@ MEMORY
   VENEERS  (rx)  : ORIGIN = CMSE_VENEER_REGION_START, LENGTH = CMSE_VENEER_REGION_SIZE
 #endif
 
+  DATA_FLASH (rx) : ORIGIN = DATA_FLASH_START, LENGTH = DATA_FLASH_LENGTH
   OPTION_SETTING (r): ORIGIN = OPTION_SETTING_START, LENGTH = OPTION_SETTING_LENGTH
   OPTION_SETTING_S (r): ORIGIN = OPTION_SETTING_S_START, LENGTH = OPTION_SETTING_S_LENGTH
-  ID_CODE (rx)    : ORIGIN = ID_CODE_START, LENGTH = ID_CODE_LENGTH
 }
 
 __heap_size__  = S_HEAP_SIZE;
@@ -78,18 +72,6 @@ ENTRY(Reset_Handler)
 
 SECTIONS
 {
-    /* Note: There are no secure/non-secure boundaries for ID_CODE.  These symbols are provided for the RA configuration tool. */
-    __tz_ID_CODE_S = ORIGIN(ID_CODE);
-
-    .id_code :
-    {
-        __ID_Code_Start = .;
-        KEEP(*(.id_code*))
-        __ID_Code_End = .;
-    } > ID_CODE
-
-	/* Note: There are no secure/non-secure boundaries for ID_CODE.  These symbols are provided for the RA configuration tool. */
-    __tz_ID_CODE_N = __ID_Code_End;
 
     /* This is a non-secure project if the OPTION_SETTING region is non-zero and it does not start at the base address for
      * secure option settings (meaning the secure option settings were already allocated in the secure project). */

@@ -19,13 +19,13 @@
 
 /* Flash layout on Musca-B1 with BL2(single image boot, boot from eFlash 0):
  *
- * 0x0A00_0000 BL2 - MCUBoot (128 KB)
- * 0x0A02_0000 Primary image area (896 KB):
- *    0x0A02_0000 Secure     image primary (384 KB)
- *    0x0A08_0000 Non-secure image primary (512 KB)
- * 0x0A10_0000 Secondary image area (896 KB):
- *    0x0A10_0000 Secure     image secondary (384 KB)
- *    0x0A16_0000 Non-secure image secondary (512 KB)
+ * 0x0000_0000 BL2 - MCUBoot (128 KB)
+ * 0x0002_0000 Primary image area (448 KB):
+ *    0x0002_0000 Secure     image primary (192 KB)
+ *    0x0005_0000 Non-secure image primary (256 KB)
+ * 0x0009_0000 Secondary image area (448 KB):
+ *    0x0009_0000 Secure     image secondary (192 KB)
+ *    0x000C_0000 Non-secure image secondary (256 KB)
  * 0x0A1E_0000 Internal Trusted Storage Area (32 KB)
  * 0x0A1E_8000 NV counters area (16 KB)
  *
@@ -48,8 +48,8 @@
  */
 
 /* Size of a Secure and of a Non-secure image */
-#define FLASH_S_PARTITION_SIZE          (0x60000) /* S partition: 384 KB */
-#define FLASH_NS_PARTITION_SIZE         (0x80000) /* NS partition: 512 KB */
+#define FLASH_S_PARTITION_SIZE          (0x30800) /* S partition: 384 KB */
+#define FLASH_NS_PARTITION_SIZE         (0x40000) /* NS partition: 512 KB */
 #define FLASH_MAX_PARTITION_SIZE        ((FLASH_S_PARTITION_SIZE >   \
                                           FLASH_NS_PARTITION_SIZE) ? \
                                          FLASH_S_PARTITION_SIZE :    \
@@ -57,7 +57,7 @@
 
 /* Sector size of the embedded flash hardware */
 #define FLASH_AREA_IMAGE_SECTOR_SIZE    (0x8000)   /* 32 KB */
-#define FLASH_TOTAL_SIZE                (0x100000) /* 2 MB */
+#define FLASH_TOTAL_SIZE                (0x100000) /* 1 MB */
 
 /* Sector size of the data flash hardware */
 #define DATA_FLASH_AREA_IMAGE_SECTOR_SIZE    (0x40)   /* 64 B */
@@ -79,7 +79,7 @@
  * swapping.
  */
 #define FLASH_AREA_BL2_OFFSET      (0x0)
-#define FLASH_AREA_BL2_SIZE        (0x00000) /* 128 KB */
+#define FLASH_AREA_BL2_SIZE        (0x20000) /* 128 KB */
 
 #if !defined(MCUBOOT_IMAGE_NUMBER) || (MCUBOOT_IMAGE_NUMBER == 1)
 /* Secure + Non-secure image primary slot */
@@ -220,11 +220,11 @@
 
 /* Use eFlash 0 memory to store Code data */
 #define S_ROM_ALIAS_BASE  (0x00000000)
-#define NS_ROM_ALIAS_BASE (0x00060000)
+#define NS_ROM_ALIAS_BASE (0x00000000)
 
 /* FIXME: Use SRAM2 memory to store RW data */
 #define S_RAM_ALIAS_BASE  (0x20000000)
-#define NS_RAM_ALIAS_BASE (0x20020000)
+#define NS_RAM_ALIAS_BASE (0x20000000)
 
 #define TOTAL_ROM_SIZE FLASH_TOTAL_SIZE
 #define TOTAL_RAM_SIZE (0x40000)     /* 256 KB */

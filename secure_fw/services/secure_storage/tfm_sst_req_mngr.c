@@ -397,9 +397,9 @@ psa_status_t tfm_sst_req_mngr_init(void)
 #ifdef TFM_PSA_API
     psa_signal_t signals = 0;
 
-    if (tfm_sst_init() != PSA_SUCCESS) {
-        tfm_abort();
-    }
+//    if (tfm_sst_init() != PSA_SUCCESS) {
+//        tfm_abort();
+//    }
 
     while (1) {
         signals = psa_wait(PSA_WAIT_ANY, PSA_BLOCK);
