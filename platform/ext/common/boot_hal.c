@@ -13,6 +13,8 @@
 #include "r_flash_hp.h"
 #include "r_flash_api.h"
 
+#include "psa/crypto.h"
+
 #if defined(__ARMCC_VERSION)
 __attribute__((naked)) void boot_clear_bl2_ram_area (void)
 {

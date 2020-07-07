@@ -58,20 +58,20 @@ int fputc (int ch, FILE * f)
 
 /* Redirects printf to TFM_DRIVER_STDIO in case of GNUARM */
 
-// int _write (int fd, char * str, int len)
-// {
-// int i;
-// (void) fd;                         /* Not used, avoid warning */
+int _write (int fd, char * str, int len)
+{
+    int i;
+    (void) fd;                         /* Not used, avoid warning */
 
-// for (i = 0; i < len; i++)
-// {
-/// * Send byte to USART */
-// uart_putc((unsigned char) str[i]);
-// }
+    for (i = 0; i < len; i++)
+    {
+/* Send byte to USART */
+        uart_putc((unsigned char) str[i]);
+    }
 
-/// * Return the number of characters written */
-// return len;
-// }
+/* Return the number of characters written */
+    return len;
+}
 
 #endif
 

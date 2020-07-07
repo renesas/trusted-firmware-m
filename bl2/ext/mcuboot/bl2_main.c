@@ -165,6 +165,7 @@ static void do_boot (struct boot_rsp * rsp)
 #else
     SCB->VTOR = ((int) (&(vt->msp)) & 0x1FFFFF80);
     __DSB();
+ #if !defined(BSP_MCU_GROUP_RA6M4)
 
     /* Disable MSP monitoring  */
     R_MPU_SPMON->SP[0].CTL = 0;
@@ -172,7 +173,7 @@ static void do_boot (struct boot_rsp * rsp)
     {
         ;
     }
-
+ #endif
     __set_MSP(vt->msp);
 
     ((void (*)())vt->reset)();
