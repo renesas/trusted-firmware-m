@@ -39,8 +39,8 @@
 #define MAX(X,Y)                       ((X) > (Y) ? (X) : (Y))
 
 /* Size of a Secure and of a Non-secure image */
-#define FLASH_S_PARTITION_SIZE              (0)
-#define FLASH_NS_PARTITION_SIZE             (0x70000) /* 14 * 32KB block = 448KB */
+#define FLASH_S_PARTITION_SIZE              (0x20000)
+#define FLASH_NS_PARTITION_SIZE             (0x20000)
 #define FLASH_MAX_PARTITION_SIZE            ((FLASH_S_PARTITION_SIZE >   \
                                              FLASH_NS_PARTITION_SIZE) ? \
                                              FLASH_S_PARTITION_SIZE :    \
@@ -110,7 +110,31 @@
 
 
 #elif (MCUBOOT_IMAGE_NUMBER == 2)
-
+/* Secure image primary slot */
+#define FLASH_AREA_0_ID            (1)
+#define FLASH_AREA_0_OFFSET        (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)
+#define FLASH_AREA_0_SIZE          (FLASH_S_PARTITION_SIZE)
+/* Non-secure image primary slot */
+#define FLASH_AREA_1_ID            (FLASH_AREA_0_ID + 1)
+#define FLASH_AREA_1_OFFSET        (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)
+#define FLASH_AREA_1_SIZE          (FLASH_NS_PARTITION_SIZE)
+/* Secure image secondary slot */
+#define FLASH_AREA_2_ID            (FLASH_AREA_1_ID + 1)
+#define FLASH_AREA_2_OFFSET        (FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE)
+#define FLASH_AREA_2_SIZE          (FLASH_S_PARTITION_SIZE)
+/* Non-secure image secondary slot */
+#define FLASH_AREA_3_ID            (FLASH_AREA_2_ID + 1)
+#define FLASH_AREA_3_OFFSET        (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)
+#define FLASH_AREA_3_SIZE          (FLASH_NS_PARTITION_SIZE)
+/* Not used, only the Non-swapping firmware upgrade operation
+ * is supported on Musca-B1.
+ */
+#define FLASH_AREA_SCRATCH_ID      (FLASH_AREA_3_ID + 1)
+#define FLASH_AREA_SCRATCH_OFFSET  (FLASH_AREA_3_OFFSET + FLASH_AREA_3_SIZE)
+#define FLASH_AREA_SCRATCH_SIZE    (0)
+/* Maximum number of image sectors supported by the bootloader. */
+#define MCUBOOT_MAX_IMG_SECTORS    (FLASH_MAX_PARTITION_SIZE / \
+                                    FLASH_AREA_IMAGE_SECTOR_SIZE)
 #else
 #error "Only MCUBOOT_IMAGE_NUMBER 1 and 2 are supported!"
 #endif
