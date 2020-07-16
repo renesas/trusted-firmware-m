@@ -23,6 +23,7 @@
 #ifndef __FLASH_LAYOUT_H__
 #define __FLASH_LAYOUT_H__
 
+#include "bsp_api.h"
 #include "bl2_config.h"
 
 /*
@@ -39,14 +40,14 @@
 #define MAX(X,Y)                       ((X) > (Y) ? (X) : (Y))
 
 /* Size of a Secure and of a Non-secure image */
-#define FLASH_S_PARTITION_SIZE              (0x20000)
-#define FLASH_NS_PARTITION_SIZE             (0x20000)
+#define FLASH_S_PARTITION_SIZE              (BL2_CFG_FLASH_S_PARTITION_SIZE)
+#define FLASH_NS_PARTITION_SIZE             (BL2_CFG_FLASH_NS_PARTITION_SIZE)
 #define FLASH_MAX_PARTITION_SIZE            ((FLASH_S_PARTITION_SIZE >   \
                                              FLASH_NS_PARTITION_SIZE) ? \
                                              FLASH_S_PARTITION_SIZE :    \
                                              FLASH_NS_PARTITION_SIZE)
 
-#define FLASH_TOTAL_SIZE                    (0x00100000)    /*  1MB  */
+#define FLASH_TOTAL_SIZE                    (BSP_ROM_SIZE_BYTES)  
 
 /* Sector size of the flash hardware; same as FLASH0_SECTOR_SIZE */
 #define FLASH_AREA_IMAGE_SECTOR_SIZE        (0x8000)    /* 32 KB */
@@ -150,12 +151,12 @@
 
 /* NV Counters definitions */
 #define TFM_NV_COUNTERS_AREA_ADDR    FLASH_NV_COUNTERS_AREA_OFFSET
-#define TFM_NV_COUNTERS_AREA_SIZE    (0x40) /* 64 bytes */
+#define TFM_NV_COUNTERS_AREA_SIZE    (FLASH_NV_COUNTERS_AREA_SIZE)
 #define TFM_NV_COUNTERS_SECTOR_ADDR  FLASH_NV_COUNTERS_AREA_OFFSET
 #define TFM_NV_COUNTERS_SECTOR_SIZE  FLASH_NV_COUNTERS_AREA_SIZE
 
 #define TOTAL_ROM_SIZE               FLASH_TOTAL_SIZE
-#define TOTAL_RAM_SIZE               (0xA0000)      /* 640 KB */
+#define TOTAL_RAM_SIZE               (BSP_RAM_SIZE_BYTES) 
 
 
 #endif /* __FLASH_LAYOUT_H__ */
