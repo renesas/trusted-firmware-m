@@ -11,7 +11,7 @@
 #ifdef CMSIS_device_header
 #include CMSIS_device_header
 #else
-//#include "cmsis.h"
+#include "cmsis.h"
 #endif
 
 #endif /* __TFM_HAL_DEVICE_HEADER_H__ */

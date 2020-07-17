@@ -40,11 +40,11 @@
 #ifndef DRIVER_FLASH_H_
 #define DRIVER_FLASH_H_
 
-#ifdef __cplusplus
+#ifdef  __cplusplus
 extern "C"
 {
 #endif
-#include <Driver_Common.h>
+#include "Driver_Common.h"
 
 #define ARM_FLASH_API_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(2,1)  /* API version */
 
@@ -145,11 +145,6 @@ typedef volatile struct _ARM_FLASH_STATUS {
   \fn          int32_t ARM_Flash_EraseChip (void)
   \brief       Erase complete Flash.
                Optional function for faster full chip erase.
-  \return      \ref execution_status
-*/
-/**
-  \fn          int32_t ARM_Flash_Configure(void)
-  \brief       Configure Flash parameters.
   \return      \ref execution_status
 */
 /**

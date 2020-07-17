@@ -64,7 +64,9 @@
  * swapping.
  */
 #define FLASH_AREA_BL2_OFFSET               (0x0)
-#define FLASH_AREA_BL2_SIZE                 (8 * FLASH_BOOT_SECTOR_SIZE)
+/*This is fized to (8 * FLASH_BOOT_SECTOR_SIZE) so that all the 8K blocks are used by the bootloader
+ * since FLASH_AREA_IMAGE_SECTOR_SIZE does not allow mixing sector sizes easily.*/
+#define FLASH_AREA_BL2_SIZE                  (BL2_CFG_FLASH_AREA_BL2_SIZE) 
 
 #ifndef MCUBOOT_OVERWRITE_ONLY
 #define FLASH_AREA_SCRATCH_SIZE             (FLASH_AREA_IMAGE_SECTOR_SIZE)
