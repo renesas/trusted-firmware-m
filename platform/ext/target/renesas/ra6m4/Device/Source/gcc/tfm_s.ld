@@ -20,7 +20,6 @@ MEMORY
 {
   FLASH (rx) : ORIGIN = (((0x00000000) + (((0x0) + (0x0))))), LENGTH = (((0x30800) - (0x0) - (0x800)) - (0x400))
   RAM (rwx) : ORIGIN = (((0x20000000) + (0x0))), LENGTH = ((0x40000) / 2)
-  CODE_RAM (rwx) : ORIGIN = (0x00058000), LENGTH = (0x00040000)
   VENEERS (rx) : ORIGIN = (((((0x00000000) + (((0x0) + (0x0))))) + (((0x30800) - (0x0) - (0x800)) - (0x400)) - 1) + 1), LENGTH = (0x400)
   DATA_FLASH (rx) : ORIGIN = DATA_FLASH_START, LENGTH = DATA_FLASH_LENGTH
   OPTION_SETTING (r): ORIGIN = OPTION_SETTING_START, LENGTH = OPTION_SETTING_LENGTH
@@ -96,9 +95,6 @@ SECTIONS
         LONG (LOADADDR(.TFM_UNPRIV_DATA))
         LONG (ADDR(.TFM_UNPRIV_DATA))
         LONG (SIZEOF(.TFM_UNPRIV_DATA))
-        LONG (LOADADDR(.TFM_SP_STORAGE_LINKER_DATA))
-        LONG (ADDR(.TFM_SP_STORAGE_LINKER_DATA))
-        LONG (SIZEOF(.TFM_SP_STORAGE_LINKER_DATA))
         LONG (LOADADDR(.TFM_SP_ITS_LINKER_DATA))
         LONG (ADDR(.TFM_SP_ITS_LINKER_DATA))
         LONG (SIZEOF(.TFM_SP_ITS_LINKER_DATA))
@@ -111,9 +107,6 @@ SECTIONS
         LONG (LOADADDR(.TFM_SP_INITIAL_ATTESTATION_LINKER_DATA))
         LONG (ADDR(.TFM_SP_INITIAL_ATTESTATION_LINKER_DATA))
         LONG (SIZEOF(.TFM_SP_INITIAL_ATTESTATION_LINKER_DATA))
-        LONG (LOADADDR(.ER_CODE_SRAM))
-        LONG (ADDR(.ER_CODE_SRAM))
-        LONG (SIZEOF(.ER_CODE_SRAM))
         __copy_table_end__ = .;
     } > FLASH
     .zero.table : ALIGN(4)
@@ -121,10 +114,6 @@ SECTIONS
         __zero_table_start__ = .;
         LONG (ADDR(.TFM_BSS))
         LONG (SIZEOF(.TFM_BSS))
-        LONG (ADDR(.TFM_SP_STORAGE_LINKER_BSS))
-        LONG (SIZEOF(.TFM_SP_STORAGE_LINKER_BSS))
-        LONG (ADDR(.TFM_SP_STORAGE_LINKER_STACK))
-        LONG (SIZEOF(.TFM_SP_STORAGE_LINKER_STACK))
         LONG (ADDR(.TFM_SP_ITS_LINKER_BSS))
         LONG (SIZEOF(.TFM_SP_ITS_LINKER_BSS))
         LONG (ADDR(.TFM_SP_ITS_LINKER_STACK))
@@ -163,17 +152,6 @@ SECTIONS
     Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.TFM_UNPRIV_CODE);
     Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.TFM_UNPRIV_CODE) + SIZEOF(.TFM_UNPRIV_CODE);
     Image$$TFM_PSA_CODE_START$$Base = .;
-    .TFM_SP_STORAGE_LINKER : ALIGN(32)
-    {
-        *tfm_storage*:*(.text*)
-        *tfm_storage*:*(.rodata*)
-        *(TFM_SP_STORAGE_ATTR_FN)
-        . = ALIGN(32);
-    } > FLASH
-    Image$$TFM_SP_STORAGE_LINKER$$RO$$Base = ADDR(.TFM_SP_STORAGE_LINKER);
-    Image$$TFM_SP_STORAGE_LINKER$$RO$$Limit = ADDR(.TFM_SP_STORAGE_LINKER) + SIZEOF(.TFM_SP_STORAGE_LINKER);
-    Image$$TFM_SP_STORAGE_LINKER$$Base = ADDR(.TFM_SP_STORAGE_LINKER);
-    Image$$TFM_SP_STORAGE_LINKER$$Limit = ADDR(.TFM_SP_STORAGE_LINKER) + SIZEOF(.TFM_SP_STORAGE_LINKER);
     .TFM_SP_ITS_LINKER : ALIGN(32)
     {
         *tfm_internal_trusted_storage*:*(.text*)
@@ -221,20 +199,6 @@ SECTIONS
     Image$$TFM_PSA_CODE_END$$Base = .;
     Image$$TFM_APP_CODE_START$$Base = .;
     Image$$TFM_APP_CODE_END$$Base = .;
-    .ER_CODE_SRAM : ALIGN(4)
-    {
-        *Driver_GFC100_EFlash.o(.text*)
-        *Driver_GFC100_EFlash.o(.rodata*)
-        *gfc100_eflash_drv.o(.text*)
-        *gfc100_eflash_drv.o(.rodata*)
-        *musca_b1_eflash_drv.o(.text*)
-        *musca_b1_eflash_drv.o(.rodata*)
-        . = ALIGN(4);
-    } > CODE_RAM AT > FLASH
-    Image$$ER_CODE_SRAM$$RO$$Base = ADDR(.ER_CODE_SRAM);
-    Image$$ER_CODE_SRAM$$RO$$Limit = ADDR(.ER_CODE_SRAM) + SIZEOF(.ER_CODE_SRAM);
-    Image$$ER_CODE_SRAM$$Base = ADDR(.ER_CODE_SRAM);
-    Image$$ER_CODE_SRAM$$Limit = ADDR(.ER_CODE_SRAM) + SIZEOF(.ER_CODE_SRAM);
     .ARM.extab :
     {
         *(.ARM.extab* .gnu.linkonce.armextab.*)
@@ -316,31 +280,6 @@ SECTIONS
         __heap_limit = .;
     } > RAM AT> RAM
     Image$$TFM_PSA_RW_STACK_START$$Base = .;
-    .TFM_SP_STORAGE_LINKER_DATA : ALIGN(32)
-    {
-        *tfm_storage*:*(.data*)
-        *(TFM_SP_STORAGE_ATTR_RW)
-        . = ALIGN(32);
-    } > RAM AT> FLASH
-    Image$$TFM_SP_STORAGE_LINKER_DATA$$RW$$Base = ADDR(.TFM_SP_STORAGE_LINKER_DATA);
-    Image$$TFM_SP_STORAGE_LINKER_DATA$$RW$$Limit = ADDR(.TFM_SP_STORAGE_LINKER_DATA) + SIZEOF(.TFM_SP_STORAGE_LINKER_DATA);
-    .TFM_SP_STORAGE_LINKER_BSS : ALIGN(32)
-    {
-        start_of_TFM_SP_STORAGE_LINKER = .;
-        *tfm_storage*:*(.bss*)
-        *tfm_storage*:*(COMMON)
-        *(TFM_SP_STORAGE_ATTR_ZI)
-        . += (. - start_of_TFM_SP_STORAGE_LINKER) ? 0 : 4;
-        . = ALIGN(32);
-    } > RAM AT> RAM
-    Image$$TFM_SP_STORAGE_LINKER_DATA$$ZI$$Base = ADDR(.TFM_SP_STORAGE_LINKER_BSS);
-    Image$$TFM_SP_STORAGE_LINKER_DATA$$ZI$$Limit = ADDR(.TFM_SP_STORAGE_LINKER_BSS) + SIZEOF(.TFM_SP_STORAGE_LINKER_BSS);
-    .TFM_SP_STORAGE_LINKER_STACK : ALIGN(128)
-    {
-        . += 0x600;
-    } > RAM
-    Image$$TFM_SP_STORAGE_LINKER_STACK$$ZI$$Base = ADDR(.TFM_SP_STORAGE_LINKER_STACK);
-    Image$$TFM_SP_STORAGE_LINKER_STACK$$ZI$$Limit = ADDR(.TFM_SP_STORAGE_LINKER_STACK) + SIZEOF(.TFM_SP_STORAGE_LINKER_STACK);
     .TFM_SP_ITS_LINKER_DATA : ALIGN(32)
     {
         *tfm_internal_trusted_storage*:*(.data*)

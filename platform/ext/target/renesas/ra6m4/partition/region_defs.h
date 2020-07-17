@@ -129,9 +129,9 @@
                                   FLASH_NS_PARTITION_SIZE)
 
 /* Code SRAM area */
-#define TOTAL_CODE_SRAM_SIZE     (0x00040000) /* 256 KB */
-#define S_CODE_SRAM_ALIAS_BASE   (0x00058000)
-#define NS_CODE_SRAM_ALIAS_BASE  (0x000D8000)
+//#define TOTAL_CODE_SRAM_SIZE     (0x00040000) /* 256 KB */
+//#define S_CODE_SRAM_ALIAS_BASE   (0x00058000)
+//#define NS_CODE_SRAM_ALIAS_BASE  (0x000D8000)
 
 #ifdef BL2
 /* Bootloader regions */

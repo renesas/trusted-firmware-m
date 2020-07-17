@@ -118,7 +118,8 @@ static int32_t ARM_Flashx_Initialize(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
 {
     ARG_UNUSED(cb_event);
 
-    if (FSP_SUCCESS != R_FLASH_HP_Open(ARM_FLASHx_DEV->dev->p_ctrl, ARM_FLASHx_DEV->dev->p_cfg))
+    fsp_err_t err = R_FLASH_HP_Open(ARM_FLASHx_DEV->dev->p_ctrl, ARM_FLASHx_DEV->dev->p_cfg);
+    if (FSP_SUCCESS != err && FSP_ERR_ALREADY_OPEN != err)
     {
         return ARM_DRIVER_ERROR;
     }
