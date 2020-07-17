@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2019, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
 
+#include "target_cfg.h"
 // #include "cmsis.h"
 #include "Driver_Flash.h"
 #include "flash_layout.h"
