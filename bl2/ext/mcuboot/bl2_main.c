@@ -246,7 +246,7 @@ int bl2_main (void)
 #endif /* CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING */
 
     BOOT_LOG_INF("Bootloader chainload address offset: 0x%x",
-                rsp.br_image_off);
+                 rsp.br_image_off);
     BOOT_LOG_INF("Jumping to the first image slot");
     do_boot(&rsp);
 

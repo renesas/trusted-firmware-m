@@ -60,7 +60,7 @@ extern "C"
 {
 #endif
 
-#include <Driver_Common.h>
+#include "Driver_Common.h"
 
 #define ARM_USART_API_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(2,3)  /* API version */
 
