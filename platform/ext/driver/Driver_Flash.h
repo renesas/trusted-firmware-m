@@ -44,6 +44,7 @@
 extern "C"
 {
 #endif
+
 #include "Driver_Common.h"
 
 #define ARM_FLASH_API_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(2,1)  /* API version */
@@ -148,7 +149,6 @@ typedef volatile struct _ARM_FLASH_STATUS {
   \return      \ref execution_status
 */
 /**
-
   \fn          ARM_FLASH_STATUS ARM_Flash_GetStatus (void)
   \brief       Get Flash status.
   \return      Flash status \ref ARM_FLASH_STATUS
