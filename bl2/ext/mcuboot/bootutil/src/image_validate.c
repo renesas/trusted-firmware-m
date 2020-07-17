@@ -34,7 +34,7 @@
 #include "bootutil/sha256.h"
 #include "bootutil/sign_key.h"
 #include "security_cnt.h"
-#include "bl2_config.h"
+#include "rm_bl2_cfg.h"
 
 #if defined(MCUBOOT_SIGN_RSA)
 #include "mbedtls/rsa.h"

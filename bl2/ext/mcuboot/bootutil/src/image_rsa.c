@@ -25,7 +25,7 @@
  */
 
 #include <string.h>
-#include "bl2_config.h"
+#include "rm_bl2_cfg.h"
 
 #ifdef MCUBOOT_SIGN_RSA
 #include "bootutil/sign_key.h"

@@ -22,7 +22,7 @@
 * Copyright (C) 2019 Renesas Electronics Corporation. All rights reserved.
 ***********************************************************************************************************************/
 
-#include "bl2_config.h"
+#include "rm_bl2_cfg.h"
 
 #if BL2_CFG_UART_DEBUG_ENABLE
 

@@ -24,7 +24,7 @@
 #define __FLASH_LAYOUT_H__
 
 #include "bsp_api.h"
-#include "bl2_config.h"
+#include "rm_bl2_cfg.h"
 
 /*
  *   Flash layout on Renesas RA6M3 devices in case of MCUBOOT_OVERWRITE_ONLY use case:
