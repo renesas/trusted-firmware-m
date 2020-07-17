@@ -44,7 +44,6 @@ __asm("  .global __ARM_use_no_argv\n");
 #endif
 
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
-
 /* Macros to pick linker symbols */
 #define REGION(a, b, c) a##b##c
 #define REGION_NAME(a, b, c) REGION(a, b, c)
@@ -216,7 +215,8 @@ int bl2_main (void)
     rc = boot_go(&rsp);
     if (rc != 0) {
         BOOT_LOG_ERR("Unable to find bootable image");
-        while (1);
+        while (1)
+            ;
     }
 
 #ifdef CRYPTO_HW_ACCELERATOR
@@ -245,12 +245,12 @@ int bl2_main (void)
     }
 #endif /* CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING */
 
-    BOOT_LOG_INF("Bootloader chainload address offset: 0x%x", 
-                  rsp.br_image_off);
+    BOOT_LOG_INF("Bootloader chainload address offset: 0x%x",
+                rsp.br_image_off);
     BOOT_LOG_INF("Jumping to the first image slot");
     do_boot(&rsp);
 
     BOOT_LOG_ERR("Never should get here");
     while (1)
-         ;
+        ;
 }
