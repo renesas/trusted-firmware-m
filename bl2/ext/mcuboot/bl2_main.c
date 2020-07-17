@@ -46,9 +46,9 @@ __asm("  .global __ARM_use_no_argv\n");
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
 
 /* Macros to pick linker symbols */
- #define REGION(a, b, c) a##b##c
- #define REGION_NAME(a, b, c) REGION(a, b, c)
- #define REGION_DECLARE(a, b, c) extern uint32_t REGION_NAME(a, b, c)
+#define REGION(a, b, c) a##b##c
+#define REGION_NAME(a, b, c) REGION(a, b, c)
+#define REGION_DECLARE(a, b, c) extern uint32_t REGION_NAME(a, b, c)
 
 REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
 #endif
@@ -57,11 +57,10 @@ REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
 extern ARM_DRIVER_FLASH FLASH_DEV_NAME;
 
 #define BL2_MBEDTLS_MEM_BUF_LEN 0x2000
-
 /* Static buffer to be used by mbedtls for memory allocation */
 static uint8_t mbedtls_mem_buf[BL2_MBEDTLS_MEM_BUF_LEN];
 
-struct arm_vector_table{
+struct arm_vector_table {
     uint32_t msp;
     uint32_t reset;
 };
@@ -121,11 +120,11 @@ static void do_boot(struct boot_rsp *rsp)
     assert(rc == 0);
 
     if (rsp->br_hdr->ih_flags & IMAGE_F_RAM_LOAD) {
-        /* The image has been copied to SRAM, find the vector table
-         * at the load address instead of image's address in flash
-         */
-        vt = (struct arm_vector_table *) (rsp->br_hdr->ih_load_addr +
-                                          rsp->br_hdr->ih_hdr_size);
+       /* The image has been copied to SRAM, find the vector table
+        * at the load address instead of image's address in flash
+        */
+        vt = (struct arm_vector_table *)(rsp->br_hdr->ih_load_addr +
+                                         rsp->br_hdr->ih_hdr_size);
     } else {
         /* Using the flash address as not executing in SRAM */
         vt = (struct arm_vector_table *)(flash_base +
@@ -134,7 +133,7 @@ static void do_boot(struct boot_rsp *rsp)
     }
 
     rc = FLASH_DEV_NAME.Uninitialize();
-    if (rc != ARM_DRIVER_OK) {
+    if(rc != ARM_DRIVER_OK) {
         BOOT_LOG_ERR("Error while uninitializing Flash Interface");
     }
 
@@ -143,7 +142,6 @@ static void do_boot(struct boot_rsp *rsp)
 #endif
 
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
-
     /* Restore the Main Stack Pointer Limit register's reset value
      * before passing execution to runtime firmware to make the
      * bootloader transparent to it.
@@ -159,17 +157,7 @@ static void do_boot(struct boot_rsp *rsp)
 #else
     SCB->VTOR = ((int) (&(vt->msp)) & 0x1FFFFF80);
     __DSB();
- #if !defined(BSP_MCU_GROUP_RA6M4)
-
-    /* Disable MSP monitoring  */
-    R_MPU_SPMON->SP[0].CTL = 0;
-    while (R_MPU_SPMON->SP[0].CTL != 0)
-    {
-        ;
-    }
- #endif
     __set_MSP(vt->msp);
-
     ((void (*)())vt->reset)();
 #endif
 }
@@ -179,7 +167,7 @@ int bl2_main (void)
 #if BL2_TEMP_DIS 
  #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     uint32_t msp_stack_bottom =
-        (uint32_t) &REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Base);
+            (uint32_t) &REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Base);
  #endif
 #endif
     struct boot_rsp rsp;
@@ -218,13 +206,10 @@ int bl2_main (void)
 
 #ifndef MCUBOOT_USE_UPSTREAM
     rc = boot_nv_security_counter_init();
-    if (rc != 0)
-    {
+    if (rc != 0) {
         BOOT_LOG_ERR("Error while initializing the security counter");
         while (1)
-        {
             ;
-        }
     }
 #endif /* !MCUBOOT_USE_UPSTREAM */
 
@@ -236,13 +221,9 @@ int bl2_main (void)
 
 #ifdef CRYPTO_HW_ACCELERATOR
     rc = crypto_hw_accelerator_finish();
-    if (rc)
-    {
+    if (rc) {
         BOOT_LOG_ERR("Error while uninitializing cryptographic accelerator.");
-        while (1)
-        {
-            ;
-        }
+        while (1);
     }
 #endif /* CRYPTO_HW_ACCELERATOR */
 
@@ -256,9 +237,7 @@ int bl2_main (void)
     if (rc) {
         BOOT_LOG_ERR("OTP provisioning FAILED: 0x%X", rc);
         while (1);
-    }
-    else
-    {
+    } else {
         BOOT_LOG_INF("OTP provisioning succeeded. TF-M won't be loaded.");
 
         /* We don't need to boot - the only aim is provisioning. */
@@ -266,10 +245,12 @@ int bl2_main (void)
     }
 #endif /* CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING */
 
-    BOOT_LOG_INF("Bootloader chainload address offset: 0x%x", rsp.br_image_off);
+    BOOT_LOG_INF("Bootloader chainload address offset: 0x%x", 
+                  rsp.br_image_off);
     BOOT_LOG_INF("Jumping to the first image slot");
     do_boot(&rsp);
 
     BOOT_LOG_ERR("Never should get here");
-    while (1);
+    while (1)
+         ;
 }
