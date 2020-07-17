@@ -18,7 +18,6 @@
 #include <assert.h>
 #include "bl2_util.h"
 #include "target.h"
-
 // #include "tfm_hal_device_header.h"
 #include "bsp_api.h"
 #include "Driver_Flash.h"
@@ -32,24 +31,24 @@
 #include "boot_hal.h"
 #include "memory_buffer_alloc.h"
 #if MCUBOOT_LOG_LEVEL > MCUBOOT_LOG_LEVEL_OFF
- #include "uart_stdout.h"
+#include "uart_stdout.h"
 #endif
 #if defined(CRYPTO_HW_ACCELERATOR) || \
     defined(CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING)
- #include "crypto_hw.h"
+#include "crypto_hw.h"
 #endif
 
 /* Avoids the semihosting issue */
-#if defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
+#if defined (__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
 __asm("  .global __ARM_use_no_argv\n");
 #endif
 
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
 
 /* Macros to pick linker symbols */
- #define REGION(a, b, c)            a ## b ## c
- #define REGION_NAME(a, b, c)       REGION(a, b, c)
- #define REGION_DECLARE(a, b, c)    extern uint32_t REGION_NAME(a, b, c)
+ #define REGION(a, b, c) a##b##c
+ #define REGION_NAME(a, b, c) REGION(a, b, c)
+ #define REGION_DECLARE(a, b, c) extern uint32_t REGION_NAME(a, b, c)
 
 REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
 #endif
@@ -57,13 +56,12 @@ REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
 /* Flash device name must be specified by target */
 extern ARM_DRIVER_FLASH FLASH_DEV_NAME;
 
-#define BL2_MBEDTLS_MEM_BUF_LEN    0x2000
+#define BL2_MBEDTLS_MEM_BUF_LEN 0x2000
 
 /* Static buffer to be used by mbedtls for memory allocation */
 static uint8_t mbedtls_mem_buf[BL2_MBEDTLS_MEM_BUF_LEN];
 
-struct arm_vector_table
-{
+struct arm_vector_table{
     uint32_t msp;
     uint32_t reset;
 };
@@ -80,9 +78,9 @@ struct arm_vector_table
  *  - There are secrets in the memory: KDF parameter, symmetric key,
  *    manufacturer sensitive code/data, etc.
  */
-__attribute__((naked)) void boot_jump_to_next_image (uint32_t reset_handler_addr)
+__attribute__((naked)) void boot_jump_to_next_image(uint32_t reset_handler_addr)
 {
-    __ASM volatile (
+    __ASM volatile(
         ".syntax unified                 \n"
         "mov     r7, r0                  \n"
         "bl      boot_clear_bl2_ram_area \n" /* Clear RAM before jump */
@@ -100,19 +98,19 @@ __attribute__((naked)) void boot_jump_to_next_image (uint32_t reset_handler_addr
         "mov     r12, r0                 \n"
         "mov     lr,  r0                 \n"
         "bx      r7                      \n" /* Jump to Reset_handler */
-        );
+    );
 }
 
-static void do_boot (struct boot_rsp * rsp)
+static void do_boot(struct boot_rsp *rsp)
 {
     /* Clang at O0, stores variables on the stack with SP relative addressing.
      * When manually set the SP then the place of reset vector is lost.
      * Static variables are stored in 'data' or 'bss' section, change of SP has
      * no effect on them.
      */
-    static struct arm_vector_table * vt;
+    static struct arm_vector_table *vt;
     uintptr_t flash_base;
-    int       rc;
+    int rc;
 
     /* The beginning of the image is the ARM vector table, containing
      * the initial stack pointer address and the reset vector
@@ -122,25 +120,21 @@ static void do_boot (struct boot_rsp * rsp)
     rc = flash_device_base(rsp->br_flash_dev_id, &flash_base);
     assert(rc == 0);
 
-    if (rsp->br_hdr->ih_flags & IMAGE_F_RAM_LOAD)
-    {
+    if (rsp->br_hdr->ih_flags & IMAGE_F_RAM_LOAD) {
         /* The image has been copied to SRAM, find the vector table
          * at the load address instead of image's address in flash
          */
         vt = (struct arm_vector_table *) (rsp->br_hdr->ih_load_addr +
                                           rsp->br_hdr->ih_hdr_size);
-    }
-    else
-    {
+    } else {
         /* Using the flash address as not executing in SRAM */
-        vt = (struct arm_vector_table *) (flash_base +
-                                          rsp->br_image_off +
-                                          rsp->br_hdr->ih_hdr_size);
+        vt = (struct arm_vector_table *)(flash_base +
+                                         rsp->br_image_off +
+                                         rsp->br_hdr->ih_hdr_size);
     }
 
     rc = FLASH_DEV_NAME.Uninitialize();
-    if (rc != ARM_DRIVER_OK)
-    {
+    if (rc != ARM_DRIVER_OK) {
         BOOT_LOG_ERR("Error while uninitializing Flash Interface");
     }
 
@@ -189,7 +183,7 @@ int bl2_main (void)
  #endif
 #endif
     struct boot_rsp rsp;
-    int             rc;
+    int rc;
 
 #if BL2_TEMP_DIS
  #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
@@ -198,12 +192,9 @@ int bl2_main (void)
 #endif 
 
     /* Perform platform specific initialization */
-    if (boot_platform_init() != 0)
-    {
+    if (boot_platform_init() != 0) {
         while (1)
-        {
             ;
-        }
     }
 
 #if MCUBOOT_LOG_LEVEL > MCUBOOT_LOG_LEVEL_OFF
@@ -219,15 +210,11 @@ int bl2_main (void)
 
 #ifdef CRYPTO_HW_ACCELERATOR
     rc = crypto_hw_accelerator_init();
-    if (rc)
-    {
+    if (rc) {
         BOOT_LOG_ERR("Error while initializing cryptographic accelerator.");
-        while (1)
-        {
-            ;
-        }
+        while (1);
     }
-#endif                                 /* CRYPTO_HW_ACCELERATOR */
+#endif /* CRYPTO_HW_ACCELERATOR */
 
 #ifndef MCUBOOT_USE_UPSTREAM
     rc = boot_nv_security_counter_init();
@@ -239,16 +226,12 @@ int bl2_main (void)
             ;
         }
     }
-#endif                                 /* !MCUBOOT_USE_UPSTREAM */
+#endif /* !MCUBOOT_USE_UPSTREAM */
 
     rc = boot_go(&rsp);
-    if (rc != 0)
-    {
+    if (rc != 0) {
         BOOT_LOG_ERR("Unable to find bootable image");
-        while (1)
-        {
-            ;
-        }
+        while (1);
     }
 
 #ifdef CRYPTO_HW_ACCELERATOR
@@ -261,7 +244,7 @@ int bl2_main (void)
             ;
         }
     }
-#endif                                 /* CRYPTO_HW_ACCELERATOR */
+#endif /* CRYPTO_HW_ACCELERATOR */
 
 /* This is a workaround to program the TF-M related cryptographic keys
  * to CC312 OTP memory. This functionality is independent from secure boot,
@@ -270,33 +253,23 @@ int bl2_main (void)
 #ifdef CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING
     BOOT_LOG_INF("OTP provisioning started.");
     rc = crypto_hw_accelerator_otp_provisioning();
-    if (rc)
-    {
+    if (rc) {
         BOOT_LOG_ERR("OTP provisioning FAILED: 0x%X", rc);
-        while (1)
-        {
-            ;
-        }
+        while (1);
     }
     else
     {
         BOOT_LOG_INF("OTP provisioning succeeded. TF-M won't be loaded.");
 
         /* We don't need to boot - the only aim is provisioning. */
-        while (1)
-        {
-            ;
-        }
+        while (1);
     }
-#endif                                 /* CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING */
+#endif /* CRYPTO_HW_ACCELERATOR_OTP_PROVISIONING */
 
     BOOT_LOG_INF("Bootloader chainload address offset: 0x%x", rsp.br_image_off);
     BOOT_LOG_INF("Jumping to the first image slot");
     do_boot(&rsp);
 
     BOOT_LOG_ERR("Never should get here");
-    while (1)
-    {
-        ;
-    }
+    while (1);
 }
