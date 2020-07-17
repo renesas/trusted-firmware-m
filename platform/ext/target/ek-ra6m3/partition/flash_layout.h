@@ -66,19 +66,6 @@
 #define FLASH_AREA_BL2_OFFSET               (0x0)
 #define FLASH_AREA_BL2_SIZE                 (8 * FLASH_BOOT_SECTOR_SIZE)
 
-#if !defined(MCUBOOT_IMAGE_NUMBER) || (MCUBOOT_IMAGE_NUMBER == 1)
-#define FLASH_AREA_0_ID                     (1)
-#define FLASH_AREA_0_OFFSET                 (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)
-#define FLASH_AREA_0_SIZE                   (FLASH_NS_PARTITION_SIZE)
-
-#define FLASH_AREA_2_ID                     (FLASH_AREA_0_ID + 1)
-#define FLASH_AREA_2_OFFSET                 (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)
-#define FLASH_AREA_2_SIZE                   (FLASH_NS_PARTITION_SIZE)
-
-/* Scratch area */
-#define FLASH_AREA_SCRATCH_ID               (FLASH_AREA_2_ID + 1)
-#define FLASH_AREA_SCRATCH_OFFSET           (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)
-
 #ifndef MCUBOOT_OVERWRITE_ONLY
 #define FLASH_AREA_SCRATCH_SIZE             (FLASH_AREA_IMAGE_SECTOR_SIZE)
 
@@ -103,6 +90,18 @@
 
 #endif
 
+#if !defined(MCUBOOT_IMAGE_NUMBER) || (MCUBOOT_IMAGE_NUMBER == 1)
+#define FLASH_AREA_0_ID                     (1)
+#define FLASH_AREA_0_OFFSET                 (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)
+#define FLASH_AREA_0_SIZE                   (FLASH_NS_PARTITION_SIZE)
+
+#define FLASH_AREA_2_ID                     (FLASH_AREA_0_ID + 1)
+#define FLASH_AREA_2_OFFSET                 (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)
+#define FLASH_AREA_2_SIZE                   (FLASH_NS_PARTITION_SIZE)
+
+/* Scratch area */
+#define FLASH_AREA_SCRATCH_ID               (FLASH_AREA_2_ID + 1)
+#define FLASH_AREA_SCRATCH_OFFSET           (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)
 
 /* Maximum number of image sectors supported by the bootloader. */
 #define MCUBOOT_MAX_IMG_SECTORS       (( FLASH_S_PARTITION_SIZE +  \
