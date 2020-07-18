@@ -25,26 +25,27 @@
 #define ASSERT_HIGH(X)  assert(X == ARM_DRIVER_OK)
 
 /* Imports USART driver */
-#if DOMAIN_NS == 1U
-extern ARM_DRIVER_USART NS_DRIVER_STDIO;
-#define STDIO_DRIVER    NS_DRIVER_STDIO
-#else
-extern ARM_DRIVER_USART TFM_DRIVER_STDIO;
-#define STDIO_DRIVER    TFM_DRIVER_STDIO
-#endif
+//#if DOMAIN_NS == 1U
+//extern ARM_DRIVER_USART NS_DRIVER_STDIO;
+//#define STDIO_DRIVER    NS_DRIVER_STDIO
+//#else
+//extern ARM_DRIVER_USART TFM_DRIVER_STDIO;
+//#define STDIO_DRIVER    TFM_DRIVER_STDIO
+//#endif
 
 int stdio_output_string(const unsigned char *str, uint32_t len)
 {
-    int32_t ret;
-
-    ret = STDIO_DRIVER.Send(str, len);
-    if (ret != ARM_DRIVER_OK) {
-        return 0;
-    }
-    /* Add a busy wait after sending. */
-    while (STDIO_DRIVER.GetStatus().tx_busy);
-
-    return STDIO_DRIVER.GetTxCount();
+//    int32_t ret;
+//
+//    ret = STDIO_DRIVER.Send(str, len);
+//    if (ret != ARM_DRIVER_OK) {
+//        return 0;
+//    }
+//    /* Add a busy wait after sending. */
+//    while (STDIO_DRIVER.GetStatus().tx_busy);
+//
+//    return STDIO_DRIVER.GetTxCount();
+    return len;
 }
 
 /* Redirects printf to STDIO_DRIVER in case of ARMCLANG*/
@@ -86,28 +87,28 @@ int putchar(int ch)
 
 void stdio_init(void)
 {
-    int32_t ret;
-    ret = STDIO_DRIVER.Initialize(NULL);
-    ASSERT_HIGH(ret);
-
-    ret = STDIO_DRIVER.PowerControl(ARM_POWER_FULL);
-    ASSERT_HIGH(ret);
-
-    ret = STDIO_DRIVER.Control(ARM_USART_MODE_ASYNCHRONOUS,
-                               DEFAULT_UART_BAUDRATE);
-    ASSERT_HIGH(ret);
-    (void)ret;
-
-    (void)STDIO_DRIVER.Control(ARM_USART_CONTROL_TX, 1);
+//    int32_t ret;
+//    ret = STDIO_DRIVER.Initialize(NULL);
+//    ASSERT_HIGH(ret);
+//
+//    ret = STDIO_DRIVER.PowerControl(ARM_POWER_FULL);
+//    ASSERT_HIGH(ret);
+//
+//    ret = STDIO_DRIVER.Control(ARM_USART_MODE_ASYNCHRONOUS,
+//                               DEFAULT_UART_BAUDRATE);
+//    ASSERT_HIGH(ret);
+//    (void)ret;
+//
+//    (void)STDIO_DRIVER.Control(ARM_USART_CONTROL_TX, 1);
 }
 
 void stdio_uninit(void)
 {
-    int32_t ret;
-
-    (void)STDIO_DRIVER.PowerControl(ARM_POWER_OFF);
-
-    ret = STDIO_DRIVER.Uninitialize();
-    ASSERT_HIGH(ret);
-    (void)ret;
+//    int32_t ret;
+//
+//    (void)STDIO_DRIVER.PowerControl(ARM_POWER_OFF);
+//
+//    ret = STDIO_DRIVER.Uninitialize();
+//    ASSERT_HIGH(ret);
+//    (void)ret;
 }

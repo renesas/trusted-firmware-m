@@ -7,6 +7,12 @@
  * Includes   <System Includes> , "Project Includes"
  **********************************************************************************************************************/
 
+#if __DOMAIN_NS == 1
+#define _RA_TZ_NONSECURE 1
+#else
+#define _RA_TZ_SECURE 1
+#endif
+
 /* FSP Common Includes. */
 #include "fsp_common_api.h"
 

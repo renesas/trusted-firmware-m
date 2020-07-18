@@ -21,8 +21,6 @@
 #define BSP_VECTOR_TABLE_MAX_ENTRIES           (112U)
 #define BSP_MCU_VBATT_SUPPORT                  (1)
 
-#define _RA_TZ_SECURE 1
-
 #if defined(_RA_TZ_SECURE)
 #define BSP_TZ_CFG_SECURE_BUILD           (1)
 #define BSP_TZ_CFG_NONSECURE_BUILD        (0)
