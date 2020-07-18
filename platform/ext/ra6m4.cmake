@@ -19,9 +19,9 @@ elseif (COMPILER STREQUAL "GNUARM")
     set(S_SCATTER_FILE_NAME   "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/gcc/ra6m4_s.ld")
     set(BL2_SCATTER_FILE_NAME "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/gcc/ra6m4_bl2.ld")
     set(NS_SCATTER_FILE_NAME  "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/gcc/ra6m4_ns.ld")
-    if (DEFINED CMSIS_5_DIR)
-        # Not all projects define CMSIS_5_DIR, only the ones that use it.
-        set(RTX_LIB_PATH "${CMSIS_5_DIR}/CMSIS/RTOS2/RTX/Library/GCC/libRTX_V8MMN.a")
+    if (DEFINED CMSIS_DIR)
+        # Not all projects define CMSIS_DIR, only the ones that use it.
+        set(RTX_LIB_PATH "${CMSIS_DIR}/RTOS2/RTX/Library/GCC/libRTX_V8MMN.a")
     endif()
 else()
     message(FATAL_ERROR "No startup file is available for compiler '${CMAKE_C_COMPILER_ID}'.")
@@ -124,6 +124,9 @@ elseif (BUILD_STARTUP)
     endif()
 endif()
 
+#Enable the checks of attestation claims against hard-coded values.
+set(ATTEST_CLAIM_VALUE_CHECK ON)
+
 if (NOT DEFINED BUILD_TARGET_CFG)
     message(FATAL_ERROR "Configuration variable BUILD_TARGET_CFG (true|false) is undefined!")
 elseif (BUILD_TARGET_CFG)
@@ -157,7 +160,12 @@ if (NOT DEFINED BUILD_TARGET_HARDWARE_KEYS)
 elseif (BUILD_TARGET_HARDWARE_KEYS)
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/common/template/tfm_initial_attestation_key_material.c")
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/common/template/tfm_rotpk.c")
-    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/dummy_crypto_keys.c")
+    
+    if (CRYPTO_HW_ACCELERATOR_OTP_STATE STREQUAL "ENABLED")
+      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/musca_b1/crypto_keys.c")
+    else()
+      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/common/template/crypto_keys.c")
+    endif()
 endif()
 
 if (NOT DEFINED BUILD_TARGET_NV_COUNTERS)
@@ -168,9 +176,9 @@ elseif (BUILD_TARGET_NV_COUNTERS)
     #       API ONLY if the target has non-volatile counters.
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/nv_counters.c")
     set(TARGET_NV_COUNTERS_ENABLE OFF)
-    # Sets SST_ROLLBACK_PROTECTION flag to compile in the SST services
+    # Sets PS_ROLLBACK_PROTECTION flag to compile in the PS services
     # rollback protection code as the target supports nv counters.
-    set(SST_ROLLBACK_PROTECTION OFF)
+    set(PS_ROLLBACK_PROTECTION OFF)
 endif()
 
 if (NOT DEFINED BUILD_CMSIS_DRIVERS)
@@ -188,13 +196,13 @@ if (NOT DEFINED BUILD_FLASH)
 elseif (BUILD_FLASH)
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_QSPI_Flash.c")
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_Flash.c")
-    # As the SST area is going to be in RAM, it is required to set
-    # SST_CREATE_FLASH_LAYOUT to be sure the SST service knows that when it
-    # starts the SST area does not contain any valid SST flash layout and it
+    # As the PS area is going to be in RAM, it is required to set
+    # PS_CREATE_FLASH_LAYOUT to be sure the PS service knows that when it
+    # starts the PS area does not contain any valid PS flash layout and it
     # needs to create one. The same for ITS.
-    set(SST_CREATE_FLASH_LAYOUT OFF)
+    set(PS_CREATE_FLASH_LAYOUT OFF)
     set(ITS_CREATE_FLASH_LAYOUT ON)
-    set(SST_ENCRYPTION OFF)
+    set(PS_ENCRYPTION OFF)
     embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/driver" ABSOLUTE)
 endif()
@@ -220,7 +228,7 @@ if (CRYPTO_HW_ACCELERATOR_OTP_STATE STREQUAL "PROVISIONING")
     add_definitions("-DCC_IOT")
     string(APPEND CC312_INC_DIR " ${CC312_SOURCE_DIR}/shared/hw/include/ra6m4")
     embedded_include_directories(PATH "${CC312_SOURCE_DIR}/shared/hw/include/ra6m4" ABSOLUTE)
-    embedded_include_directories(PATH "${CMAKE_CURRENT_BINARY_DIR}/services/crypto/cryptocell/install/include" ABSOLUTE)
+    embedded_include_directories(PATH "${CMAKE_CURRENT_BINARY_DIR}/partitions/crypto/cryptocell/install/include" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/common/cc312/" ABSOLUTE)
 elseif (CRYPTO_HW_ACCELERATOR_OTP_STATE STREQUAL "ENABLED")
     set(CRYPTO_HW_ACCELERATOR ON)
@@ -246,9 +254,7 @@ if (CRYPTO_HW_ACCELERATOR)
     #require setting multiple times.
     string(APPEND CC312_INC_DIR " ${CC312_SOURCE_DIR}/shared/hw/include/ra6m4")
     embedded_include_directories(PATH "${CC312_SOURCE_DIR}/shared/hw/include/ra6m4" ABSOLUTE)
-    embedded_include_directories(PATH "${CMAKE_CURRENT_BINARY_DIR}/services/crypto/cryptocell/install/include" ABSOLUTE)
+    embedded_include_directories(PATH "${CMAKE_CURRENT_BINARY_DIR}/partitions/crypto/cryptocell/install/include" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/common/cc312/" ABSOLUTE)
 
-    #Compiling this file requires to disable warning: -Wunused-local-typedefs
-    set_source_files_properties("${PLATFORM_DIR}/target/renesas/ra6m4/dummy_crypto_keys.c" PROPERTIES COMPILE_FLAGS -Wno-unused-local-typedefs)
 endif()
