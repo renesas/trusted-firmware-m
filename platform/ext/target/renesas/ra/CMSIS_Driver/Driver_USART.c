@@ -136,7 +136,7 @@ static int32_t ARM_USART_PowerControl (ARM_POWER_STATE state)
     (void) state;                      /* Not used, avoid warning */
 
     /* Nothing to be done */
-    return ARM_DRIVER_ERROR_UNSUPPORTED;
+    return ARM_DRIVER_OK;
 }
 
 static uint32_t ARM_USART_GetTxCount (void)
