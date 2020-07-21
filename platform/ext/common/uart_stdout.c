@@ -17,73 +17,90 @@
 #include "uart_stdout.h"
 
 #include <assert.h>
-#include "Driver_USART.h"
+#include <stdio.h>
 #include <stdint.h>
-#include <string.h>
+#include "Driver_USART.h"
 #include "target_cfg.h"
 #include "device_cfg.h"
 
-#define ASSERT_HIGH(X)    assert(X == ARM_DRIVER_OK)
+#define ASSERT_HIGH(X)  assert(X == ARM_DRIVER_OK)
 
 /* Imports USART driver */
-extern ARM_DRIVER_USART Driver_USART;
+extern ARM_DRIVER_USART TFM_DRIVER_STDIO;
 
-int _write(int fd, char * str, int len);
-
-static void uart_putc (unsigned char c)
+int stdio_output_string(const unsigned char *str, uint32_t len)
 {
-    int32_t ret = ARM_DRIVER_OK;
+    int32_t ret;
 
-    ret = Driver_USART.Send(&c, 1);
-    ASSERT_HIGH(ret);
+    ret = TFM_DRIVER_STDIO.Send(str, len);
+    if (ret != ARM_DRIVER_OK) {
+        return 0;
+    }
+    /* Add a busy wait after sending. */
+    while (TFM_DRIVER_STDIO.GetStatus().tx_busy);
+
+    return TFM_DRIVER_STDIO.GetTxCount();
 }
 
 /* Redirects printf to TFM_DRIVER_STDIO in case of ARMCLANG*/
 #if defined(__ARMCC_VERSION)
-
+/* Struct FILE is implemented in stdio.h. Used to redirect printf to
+ * TFM_DRIVER_STDIO
+ */
+FILE __stdout;
 /* __ARMCC_VERSION is only defined starting from Arm compiler version 6 */
-int fputc (int ch, FILE * f)
+int fputc(int ch, FILE *f)
 {
+    (void)f;
+
     /* Send byte to USART */
-    uart_putc(ch);
+    (void)stdio_output_string((const unsigned char *)&ch, 1);
 
     /* Return character written */
     return ch;
 }
-
 #elif defined(__GNUC__)
-
 /* Redirects printf to TFM_DRIVER_STDIO in case of GNUARM */
-
-int _write (int fd, char * str, int len)
+int _write(int fd, char *str, int len)
 {
-    int i;
-    (void) fd;                         /* Not used, avoid warning */
+    (void)fd;
 
-    for (i = 0; i < len; i++)
-    {
-/* Send byte to USART */
-        uart_putc((unsigned char) str[i]);
-    }
-
-/* Return the number of characters written */
-    return len;
+    /* Send string and return the number of characters written */
+    return stdio_output_string((const unsigned char *)str, (uint32_t)len);
 }
+#elif defined(__ICCARM__)
+int putchar(int ch)
+{
+    /* Send byte to USART */
+    (void)stdio_output_string((const unsigned char *)&ch, 1);
 
+    /* Return character written */
+    return ch;
+}
 #endif
 
-void stdio_init (void)
+void stdio_init(void)
 {
-    int32_t ret = ARM_DRIVER_OK;
-
-    ret = Driver_USART.Initialize(NULL);
+    int32_t ret;
+    ret = TFM_DRIVER_STDIO.Initialize(NULL);
     ASSERT_HIGH(ret);
+
+    ret = TFM_DRIVER_STDIO.PowerControl(ARM_POWER_FULL);
+    ASSERT_HIGH(ret);
+
+    ret = TFM_DRIVER_STDIO.Control(ARM_USART_MODE_ASYNCHRONOUS,
+                                   DEFAULT_UART_BAUDRATE);
+    ASSERT_HIGH(ret);
+
+    (void)TFM_DRIVER_STDIO.Control(ARM_USART_CONTROL_TX, 1);
 }
 
-void stdio_uninit (void)
+void stdio_uninit(void)
 {
-    int32_t ret = ARM_DRIVER_OK;
+    int32_t ret;
 
-    ret = Driver_USART.Uninitialize();
+    (void)TFM_DRIVER_STDIO.PowerControl(ARM_POWER_OFF);
+
+    ret = TFM_DRIVER_STDIO.Uninitialize();
     ASSERT_HIGH(ret);
 }

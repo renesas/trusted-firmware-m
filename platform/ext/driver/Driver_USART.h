@@ -148,7 +148,6 @@ extern "C"
 #define ARM_USART_ERROR_CPOL                (ARM_DRIVER_ERROR_SPECIFIC - 7)     ///< Specified Clock Polarity not supported
 #define ARM_USART_ERROR_CPHA                (ARM_DRIVER_ERROR_SPECIFIC - 8)     ///< Specified Clock Phase not supported
 
-#define TFM_DRIVER_STDIO    Driver_USART
 
 /**
 \brief USART Status

@@ -21,5 +21,6 @@
 #include "bsp_api.h"
 #include "platform/ext/common/uart_stdout.h"
 
+#define TFM_DRIVER_STDIO    Driver_USART
 
 #endif /* __TARGET_CFG_H__ */
