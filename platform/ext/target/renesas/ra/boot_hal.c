@@ -58,11 +58,11 @@ static void flash_FAW_Set (uint32_t start_addr, uint32_t end_addr)
     {
         BOOT_LOG_INF("Configuring FAW settings");
 
-        // FSP_CRITICAL_SECTION_DEFINE;  // No need to do this since the bootloader is the only thing running here
-        // FSP_CRITICAL_SECTION_ENTER;
+        FSP_CRITICAL_SECTION_DEFINE;
+        FSP_CRITICAL_SECTION_ENTER;
         ret_val = R_FLASH_HP_AccessWindowSet(&g_tfm_fsp_flash_ctrl, start_addr, end_addr);
 
-        // FSP_CRITICAL_SECTION_EXIT;
+        FSP_CRITICAL_SECTION_EXIT;
         if (ret_val)
         {
             BOOT_LOG_ERR("Failed to set Flash Access Window: 0x%x", ret_val);
@@ -78,11 +78,7 @@ int32_t boot_platform_init (void)
     result = FLASH_DEV_NAME.Initialize(NULL);
     if (ARM_DRIVER_OK != result)
     {
-        BOOT_LOG_ERR("");
-        while (1)
-        {
-            ;
-        }
+        BOOT_LOG_ERR("Flash driver initialization failed!!!");
     }
 
     /* Set the FAW to lock the Secure code and data region */
@@ -93,20 +89,12 @@ int32_t boot_platform_init (void)
     if (result != 0)
     {
         BOOT_LOG_ERR("mbedtls_platform_setup failed!!!");
-        while (1)
-        {
-            ;
-        }
     }
 
     result = psa_crypto_init();
     if (result != 0)
     {
         BOOT_LOG_ERR("psa_crypto_init failed!!!");
-        while (1)
-        {
-            ;
-        }
     }
 
     return result;

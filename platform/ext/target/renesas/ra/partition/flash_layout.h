@@ -26,17 +26,6 @@
 #include "bsp_api.h"
 #include "rm_bl2_cfg.h"
 
-/*
- *   Flash layout on Renesas RA6M3 devices in case of MCUBOOT_OVERWRITE_ONLY use case:
- *
- *   Section                            Offset              Size
- *
- *   BL2                                0x0000_0000          64KB
- *   Primary Image Area                 0x0001_0000         448KB
- *   Secondary Image Area               0x0008_0000         448KB
- *   Scratch Area                       0x000F_8000          32KB
- */
-
 #define MAX(X,Y)                       ((X) > (Y) ? (X) : (Y))
 
 /* Size of a Secure and of a Non-secure image */
@@ -142,8 +131,8 @@
 #endif
 
 /*  NV Counters definitions */
-#define FLASH_NV_COUNTERS_AREA_OFFSET       (0x40100000)
-#define FLASH_NV_COUNTERS_AREA_SIZE         (0x40)   /* 64 bytes */
+#define FLASH_NV_COUNTERS_AREA_OFFSET       (BL2_CFG_DATA_FLASH_NV_COUNTERS_AREA_OFFSET)
+#define FLASH_NV_COUNTERS_AREA_SIZE         (BL2_CFG_DATA_FLASH_NV_COUNTERS_AREA_SIZE) 
 
 /* Flash device name used by BL2
  * Name is defined in flash driver file: Driver_Flash.c

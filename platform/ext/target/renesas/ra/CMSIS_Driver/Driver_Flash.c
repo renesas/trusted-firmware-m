@@ -39,17 +39,20 @@
 
 /* Code Flash */
 #define FLASH0_BASE_S         0x0
-#define FLASH0_SIZE           0x00200000 /* 2 MB */
-#define FLASH0_SECTOR_SIZE    0x00008000 /* 32 kB */
-#define FLASH0_PAGE_SIZE      0x00000080 /* 128 bytes */
-#define FLASH0_PROGRAM_UNIT   0x80       /* Minimum write size */
+#define FLASH0_SIZE           BSP_ROM_SIZE_BYTES
+/*The assumption made here is that the bootloader will take up the initial 8 2K blocks
+and the application will use the remaining 32K blocks. Since the bootloader will only erase/program 
+the application, the sector sizes are set to 32K. */ 
+#define FLASH0_SECTOR_SIZE    BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE 
+#define FLASH0_PAGE_SIZE      BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE 
+#define FLASH0_PROGRAM_UNIT   BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE       
 
 /* Data Flash */
-#define FLASH1_BASE_S         0x40100000
-#define FLASH1_SIZE           0x10000   /* 64 KB */
-#define FLASH1_SECTOR_SIZE    0x40      /* 64 bytes */
-#define FLASH1_PAGE_SIZE      0x4       /* 4 bytes */
-#define FLASH1_PROGRAM_UNIT   0x4       /* 4 bytes */
+#define FLASH1_BASE_S         BSP_FEATURE_FLASH_DATA_FLASH_START
+#define FLASH1_SIZE           BSP_DATA_FLASH_SIZE_BYTES   
+#define FLASH1_SECTOR_SIZE    BSP_FEATURE_FLASH_HP_DF_BLOCK_SIZE      
+#define FLASH1_PAGE_SIZE      BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE      
+#define FLASH1_PROGRAM_UNIT   BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE      
 
 /* FSP structures required by uart and flash drivers */
 extern flash_hp_instance_ctrl_t g_tfm_fsp_flash_ctrl;

@@ -155,9 +155,8 @@ static int32_t ARM_USART_Control (uint32_t control, uint32_t arg)
     return ARM_DRIVER_OK;
 }
 
-static ARM_USART_STATUS ARM_USART_GetStatus (ARM_POWER_STATE state)
+static ARM_USART_STATUS ARM_USART_GetStatus (void)
 {
-    (void) state;                      /* Not used, avoid warning */
     /* Nothing to be done */
     ARM_USART_STATUS status = {0, 0, 0, 0, 0, 0, 0, 0};
 
