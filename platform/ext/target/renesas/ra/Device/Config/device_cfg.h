@@ -25,6 +25,9 @@
  *          definitions to select which peripherals are available in the build.
  *
  * This is a default device configuration file with all peripherals enabled.
+ * \note This define is present here only to prevent compile warning since the 
+ * uart_stdout.c uses this macro. The actual baud rate config is done via
+ * the UART instance configuration structure.  
  */
 
 #define DEFAULT_UART_BAUDRATE  115200
