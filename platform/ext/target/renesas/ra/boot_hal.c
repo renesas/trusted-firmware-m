@@ -35,6 +35,24 @@ __attribute__((naked)) void boot_clear_bl2_ram_area (void)
         );
 }
 
+#elif defined(__GNUC__)
+__attribute__((naked)) void boot_clear_bl2_ram_area (void)
+{
+    __asm volatile (
+        ".syntax unified                             \n"
+        "mov     r0, #0                              \n"
+        "ldr     r1, =__data_start__                 \n"
+        "ldr     r2, =__HeapLimit                    \n"
+        "subs    r2, r2, r1                          \n"
+        "Loop:                                       \n"
+        "subs    r2, #4                              \n"
+        "itt     ge                                  \n"
+        "strge   r0, [r1, r2]                        \n"
+        "bge     Loop                                \n"
+        "bx      lr                                  \n"
+        : : : "r0", "r1", "r2", "memory"
+        );
+}
 #endif
 
 #define FAW_START_ADDR    (0xFFFC)

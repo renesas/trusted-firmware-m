@@ -145,18 +145,11 @@ static void do_boot(struct boot_rsp *rsp)
      */
     __set_MSPLIM(0);
 #endif
-#if BL2_TEMP_DIS
     __set_MSP(vt->msp);
     __DSB();
     __ISB();
 
     boot_jump_to_next_image(vt->reset);
-#else
-    SCB->VTOR = ((int) (&(vt->msp)) & 0x1FFFFF80);
-    __DSB();
-    __set_MSP(vt->msp);
-    ((void (*)())vt->reset)();
-#endif
 }
 
 int bl2_main (void)
