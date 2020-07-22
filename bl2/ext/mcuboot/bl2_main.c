@@ -145,6 +145,7 @@ static void do_boot(struct boot_rsp *rsp)
      */
     __set_MSPLIM(0);
 #endif
+
     __set_MSP(vt->msp);
     __DSB();
     __ISB();
