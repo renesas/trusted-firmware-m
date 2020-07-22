@@ -28,12 +28,6 @@
 #endif /* !LINK_TO_SECONDARY_PARTITION */
 
 
-
-
-#define BL2_HEAP_SIZE           (0x0001000)
-#define BL2_MSP_STACK_SIZE      (0x0001800)
-
-
 /* This size of buffer is big enough to store an attestation
  * token produced by initial attestation service
  */

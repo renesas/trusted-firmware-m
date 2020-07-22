@@ -232,7 +232,10 @@ static int32_t ARM_USART_Receive (void * data, uint32_t num)
 
 void user_uart_callback (uart_callback_args_t * p_args)
 {
-    g_uart_evt = p_args->event;
+    if (NULL != p_args)
+    {
+        g_uart_evt = p_args->event;
+    }
 }
 
 extern ARM_DRIVER_USART Driver_USART;
