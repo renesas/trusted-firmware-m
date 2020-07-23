@@ -21,6 +21,9 @@
 #include <stdint.h>
 #include "system_core_init.h"
 #include "platform_description.h"
+#include "bsp_api.h"
+#include "psa/crypto.h"
+#include "platform.h"
 
 /*----------------------------------------------------------------------------
   Define clocks
@@ -70,4 +73,8 @@ void SystemInit (void)
 #endif
 
   SystemCoreClock = SYSTEM_CLOCK;
+
+  mbedtls_platform_context ctx = {0};
+  mbedtls_platform_setup(&ctx);
+
 }
