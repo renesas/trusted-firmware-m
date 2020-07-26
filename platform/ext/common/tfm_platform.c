@@ -12,6 +12,7 @@
 /* platform-specific hw initialization */
 __WEAK enum tfm_plat_err_t tfm_spm_hal_post_init_platform(void)
 {
+    bsp_clock_init();
     return TFM_PLAT_ERR_SUCCESS;
 }
 

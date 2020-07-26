@@ -40,18 +40,18 @@
   System Core Clock Variable
  *----------------------------------------------------------------------------*/
 uint32_t SystemCoreClock = SYSTEM_CLOCK;
-uint32_t PeripheralClock = SYSTEM_CLOCK;
-uint32_t RefClock        = SYSTEM_REFCLK;
-
-/*----------------------------------------------------------------------------
-  System Core Clock update function
- *----------------------------------------------------------------------------*/
-void SystemCoreClockUpdate (void)
-{
-  SystemCoreClock = SYSTEM_CLOCK;
-  PeripheralClock = SYSTEM_CLOCK;
-  RefClock        = SYSTEM_REFCLK;
-}
+//uint32_t PeripheralClock = SYSTEM_CLOCK;
+//uint32_t RefClock        = SYSTEM_REFCLK;
+//
+///*----------------------------------------------------------------------------
+//  System Core Clock update function
+// *----------------------------------------------------------------------------*/
+//void SystemCoreClockUpdate (void)
+//{
+//  SystemCoreClock = SYSTEM_CLOCK;
+//  PeripheralClock = SYSTEM_CLOCK;
+//  RefClock        = SYSTEM_REFCLK;
+//}
 
 /*----------------------------------------------------------------------------
   System initialization function
@@ -72,7 +72,7 @@ void SystemInit (void)
   SCB->CCR |= SCB_CCR_UNALIGN_TRP_Msk;
 #endif
 
-  SystemCoreClock = SYSTEM_CLOCK;
+//  SystemCoreClock = SYSTEM_CLOCK;
 
   mbedtls_platform_context ctx = {0};
   mbedtls_platform_setup(&ctx);

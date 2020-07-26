@@ -5,8 +5,8 @@ MEMORY
   RAM (rwx) : ORIGIN = (((0x20000000) + ((0x40000) / 2))), LENGTH = ((0x40000) / 2)
 }
 __heap_size__ = (0x0001000);
-__psp_stack_size__ = (0x0000C00);
-__msp_stack_size__ = (0x0000400);
+__psp_stack_size__ = (0x0001000);
+__msp_stack_size__ = (0x0001000);
 GROUP(libgcc.a libc.a libm.a libnosys.a)
 ENTRY(Reset_Handler)
 SECTIONS
@@ -103,6 +103,7 @@ SECTIONS
     {
         . += __msp_stack_size__;
     } > RAM
+    Image$$ARM_LIB_STACK_MSP$$ZI$$Base = ADDR(.msp_stack);
     Image$$ARM_LIB_STACK_MSP$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
     .psp_stack : ALIGN(32)
     {
