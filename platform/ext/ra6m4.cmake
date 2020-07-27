@@ -56,6 +56,8 @@ embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/partitio
 embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/services/include" ABSOLUTE)
 embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/Libraries" ABSOLUTE)
 embedded_include_directories(PATH "${PLATFORM_DIR}/../include" ABSOLUTE)
+#embedded_include_directories(PATH "${PLATFORM_DIR}/../../../mbed-crypto/include" ABSOLUTE)
+#embedded_include_directories(PATH "${PLATFORM_DIR}/../../../mbed-crypto/include/mbedtls" ABSOLUTE)
 
 # Gather all source files we need.
 if (TFM_PARTITION_PLATFORM)
@@ -74,7 +76,8 @@ elseif (BUILD_RETARGET)
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/device_definition.c"
                           "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_security.c"
                           "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_rom_registers.c"
-                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_register_protection.c")
+                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_register_protection.c"
+                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_clock.c")
 endif()
 
 if (NOT DEFINED BUILD_UART_STDOUT)
