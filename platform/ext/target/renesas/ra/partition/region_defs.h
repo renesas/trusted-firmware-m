@@ -151,15 +151,13 @@
 #define BL2_DATA_LIMIT    (BL2_DATA_START + BL2_DATA_SIZE - 1)
 #endif /* BL2 */
 
-#ifdef __ARM_ARCH_8M_MAIN__
 /* Shared data area between bootloader and runtime firmware.
  * Shared data area is allocated at the beginning of the RAM, it is overlapping
  * with TF-M Secure code's MSP stack
  */
-#define BOOT_TFM_SHARED_DATA_BASE S_RAM_ALIAS_BASE
-#define BOOT_TFM_SHARED_DATA_SIZE (0x400)
+#define BOOT_TFM_SHARED_DATA_BASE BL2_CFG_SHARED_RAM_AREA_ADDRESS
+#define BOOT_TFM_SHARED_DATA_SIZE (BL2_CFG_SHARED_RAM_AREA_SIZE)
 #define BOOT_TFM_SHARED_DATA_LIMIT (BOOT_TFM_SHARED_DATA_BASE + \
                                     BOOT_TFM_SHARED_DATA_SIZE - 1)
-#endif
 
 #endif /* __REGION_DEFS_H__ */

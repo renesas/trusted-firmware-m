@@ -148,6 +148,13 @@
 #define TOTAL_ROM_SIZE               FLASH_TOTAL_SIZE
 #define TOTAL_RAM_SIZE               (BSP_RAM_SIZE_BYTES) 
 
+/* Use Flash to store Code data */
+#define S_ROM_ALIAS_BASE  (0x00000000)
+#define NS_ROM_ALIAS_BASE (0x00000000)
+
+/* Use SRAM to store RW data */
+#define S_RAM_ALIAS_BASE  (0x20000000)
+#define NS_RAM_ALIAS_BASE (0x20000000)
 
 #endif /* __FLASH_LAYOUT_H__ */
 
