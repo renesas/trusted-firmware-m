@@ -7,6 +7,7 @@
 
 #include "target_cfg.h"
 #include "cmsis.h"
+#include "boot_hal.h"
 #include "Driver_Flash.h"
 #include "flash_layout.h"
 #include "bootutil/bootutil_log.h"
@@ -22,7 +23,7 @@ __attribute__((naked)) void boot_clear_bl2_ram_area (void)
     __asm volatile (
         ".syntax unified                             \n"
         "mov     r0, #0                              \n"
-        "ldr     r1, =Image$$ER_DATA$$Base           \n"
+        "ldr     r1, =Image$$DATA$$Base           \n"
         "ldr     r2, =Image$$ARM_LIB_HEAP$$ZI$$Limit \n"
         "subs    r2, r2, r1                          \n"
         "Loop:                                       \n"
@@ -43,6 +44,25 @@ __attribute__((naked)) void boot_clear_bl2_ram_area (void)
         "mov     r0, #0                              \n"
         "ldr     r1, =__data_start__                 \n"
         "ldr     r2, =__HeapLimit                    \n"
+        "subs    r2, r2, r1                          \n"
+        "Loop:                                       \n"
+        "subs    r2, #4                              \n"
+        "itt     ge                                  \n"
+        "strge   r0, [r1, r2]                        \n"
+        "bge     Loop                                \n"
+        "bx      lr                                  \n"
+        : : : "r0", "r1", "r2", "memory"
+        );
+}
+#elif defined(__ICCARM__)
+extern uint32_t HEAP$$Limit;
+extern uint32_t data$$Base;
+__attribute__((naked)) void boot_clear_bl2_ram_area (void)
+{
+    __asm volatile (
+        "mov     r0, #0                              \n"
+        "ldr     r1, = data$$Base                    \n"
+        "ldr     r2, = HEAP$$Limit                   \n"
         "subs    r2, r2, r1                          \n"
         "Loop:                                       \n"
         "subs    r2, #4                              \n"
@@ -116,4 +136,28 @@ int32_t boot_platform_init (void)
     }
 
     return result;
+}
+
+void boot_platform_quit(struct boot_arm_vector_table *vt)
+{
+    /* Clang at O0, stores variables on the stack with SP relative addressing.
+     * When manually set the SP then the place of reset vector is lost.
+     * Static variables are stored in 'data' or 'bss' section, change of SP has
+     * no effect on them.
+     */
+    static struct boot_arm_vector_table *vt_cpy;
+
+    vt_cpy = vt;
+#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
+    /* Restore the Main Stack Pointer Limit register's reset value
+     * before passing execution to runtime firmware to make the
+     * bootloader transparent to it.
+     */
+    __set_MSPLIM(0);
+#endif
+    __set_MSP(vt->msp);
+    __DSB();
+    __ISB();
+
+    boot_jump_to_next_image(vt_cpy->reset);
 }
