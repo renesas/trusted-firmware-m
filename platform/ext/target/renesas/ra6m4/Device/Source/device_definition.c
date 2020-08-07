@@ -402,7 +402,7 @@ struct timer_cmsdk_dev_t CMSDK_TIMER1_DEV_NS = {&(CMSDK_TIMER1_DEV_CFG_NS),
 
 /** Flash driver structures */
 #if defined(DFLASH0_S) || defined(CFLASH0_S)
-static flash_hp_instance_ctrl_t flash_ctrl;
+static flash_hp_instance_ctrl_t flash_ctrl = {0};
 
 static flash_cfg_t const flash_cfg =
 {

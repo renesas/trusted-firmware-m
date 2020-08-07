@@ -29,6 +29,10 @@
 #include "uart_stdout.h"
 #include "region.h"
 
+#include "bsp_feature.h"
+#include "renesas.h"
+#include "platform_base_address.h"
+
 /**
  * \brief Modified table template for user defined SVC functions
  *
@@ -166,6 +170,11 @@ int main(void)
 #if defined(TEST_FRAMEWORK_NS)
     thread_func = test_app;
 #elif defined(PSA_API_TEST_NS)
+    R_ICU->IELSR[0] = (uint32_t) (384);
+    R_ICU->IELSR[1] = (uint32_t) (385);
+    R_ICU->IELSR[2] = (uint32_t) (386);
+    R_ICU->IELSR[3] = (uint32_t) (387);
+
     thread_func = psa_api_test;
 #endif
 
