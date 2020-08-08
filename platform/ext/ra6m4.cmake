@@ -77,7 +77,10 @@ elseif (BUILD_RETARGET)
                           "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_security.c"
                           "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_rom_registers.c"
                           "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_register_protection.c"
-                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_clock.c")
+                          "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/bsp_clock.c"
+						  "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/SEGGER_RTT_Syscalls_GCC.c"
+						  "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/SEGGER_RTT.c"
+						  "${PLATFORM_DIR}/target/renesas/ra6m4/Device/Source/SEGGER_RTT_printf.c")
 endif()
 
 if (NOT DEFINED BUILD_UART_STDOUT)

@@ -23,7 +23,7 @@
 #include "device_cfg.h"
 
 #define ASSERT_HIGH(X)  assert(X == ARM_DRIVER_OK)
-
+int SEGGER_RTT_printf (unsigned BufferIndex, const char * sFormat, ...);
 /* Imports USART driver */
 //#if DOMAIN_NS == 1U
 //extern ARM_DRIVER_USART NS_DRIVER_STDIO;
@@ -45,6 +45,7 @@ int stdio_output_string(const unsigned char *str, uint32_t len)
 //    while (STDIO_DRIVER.GetStatus().tx_busy);
 //
 //    return STDIO_DRIVER.GetTxCount();
+    SEGGER_RTT_printf(0,"%s",str);
     return len;
 }
 
@@ -65,15 +66,15 @@ int fputc(int ch, FILE *f)
     /* Return character written */
     return ch;
 }
-#elif defined(__GNUC__)
-/* Redirects printf to STDIO_DRIVER in case of GNUARM */
-int _write(int fd, char *str, int len)
-{
-    (void)fd;
-
-    /* Send string and return the number of characters written */
-    return stdio_output_string((const unsigned char *)str, (uint32_t)len);
-}
+//#elif defined(__GNUC__)
+///* Redirects printf to STDIO_DRIVER in case of GNUARM */
+//int _write(int fd, char *str, int len)
+//{
+//    (void)fd;
+//
+//    /* Send string and return the number of characters written */
+//    return stdio_output_string((const unsigned char *)str, (uint32_t)len);
+//}
 #elif defined(__ICCARM__)
 int putchar(int ch)
 {

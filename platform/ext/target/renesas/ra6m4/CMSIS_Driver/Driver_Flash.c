@@ -118,8 +118,9 @@ static int32_t ARM_Flashx_Initialize(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
 {
     ARG_UNUSED(cb_event);
 
+    R_FLASH_HP_Close(ARM_FLASHx_DEV->dev->p_ctrl);
     fsp_err_t err = R_FLASH_HP_Open(ARM_FLASHx_DEV->dev->p_ctrl, ARM_FLASHx_DEV->dev->p_cfg);
-    if (FSP_SUCCESS != err && FSP_ERR_ALREADY_OPEN != err)
+    if (FSP_SUCCESS != err)
     {
         return ARM_DRIVER_ERROR;
     }
@@ -130,7 +131,7 @@ static int32_t ARM_Flashx_Initialize(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
         R_FLASH_HP_Close(ARM_FLASHx_DEV->dev->p_ctrl);
         return ARM_DRIVER_ERROR;
     }
-    uint32_t flash_size = info.data_flash.p_block_array[0].block_section_end_addr - info.data_flash.p_block_array[0].block_section_st_addr + 1U;
+    uint32_t flash_size = (info.data_flash.p_block_array[0].block_section_end_addr - info.data_flash.p_block_array[0].block_section_st_addr + 1U)/2U;
     uint32_t page_size = info.data_flash.p_block_array[0].block_size;
 
     /* Validate hardcoded parameters of the flash */
@@ -172,19 +173,47 @@ static int32_t ARM_Flashx_PowerControl(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
 static int32_t ARM_Flashx_ReadData(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
                                    uint32_t addr, void *data, uint32_t cnt)
 {
+    fsp_err_t err = FSP_SUCCESS;
+    flash_result_t blank_check_result = FLASH_RESULT_BLANK;
 
     ARM_FLASHx_DEV->status->error = DRIVER_STATUS_NO_ERROR;
 
+    flash_info_t info;
+    if (FSP_SUCCESS != R_FLASH_HP_InfoGet (ARM_FLASHx_DEV->dev->p_ctrl, &info))
+    {
+        R_FLASH_HP_Close(ARM_FLASHx_DEV->dev->p_ctrl);
+        return ARM_DRIVER_ERROR;
+    }
+
     /* Check if range is valid */
-/*    if ((addr + cnt) > flash_size) {
-        ARM_FLASHx_DEV->status.error = DRIVER_STATUS_ERROR;
+    if ((addr + cnt) > ((info.data_flash.p_block_array->block_section_st_addr)+(ARM_FLASHx_DEV->data->sector_size * ARM_FLASHx_DEV->data->sector_count))) {
+        ARM_FLASHx_DEV->status->error = DRIVER_STATUS_ERROR;
         return ARM_DRIVER_ERROR_PARAMETER;
-    }*/
+    }
 
     ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_BUSY;
 
-    memcpy(data, (const void *)addr, cnt);
-//    err = gfc100_eflash_read(ARM_FLASHx_DEV->dev, addr, data, &cnt);
+    err = R_FLASH_HP_BlankCheck(ARM_FLASHx_DEV->dev->p_ctrl, addr, cnt, &blank_check_result);
+    if(err != FSP_SUCCESS) {
+        ARM_FLASHx_DEV->status->error = DRIVER_STATUS_ERROR;
+        ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_IDLE;
+        if ((err == FSP_ERR_INVALID_ADDRESS) ||
+            (err == FSP_ERR_INVALID_SIZE)) {
+            /* The native driver checks aligment and range */
+            return ARM_DRIVER_ERROR_PARAMETER;
+        }
+        return ARM_DRIVER_ERROR;
+    }
+
+    /* Validate the blank check result */
+    if (FLASH_RESULT_NOT_BLANK == blank_check_result)
+    {
+        memcpy(data, (const void *)addr, cnt);
+    }
+    else
+    {
+        memset(data, 0xFF, cnt);
+    }
 
     ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_IDLE;
 
@@ -295,12 +324,12 @@ static ARM_FLASH_INFO * ARM_Flashx_GetInfo(ARM_FLASHx_Resources *ARM_FLASHx_DEV)
 #if (RTE_EFLASH0)
 static ARM_FLASH_INFO ARM_FLASH0_DEV_DATA = {
     .sector_info    = NULL,     /* Uniform sector layout */
-    .sector_count   = (0x2000u / 0x40u), /* 2MB (flash size) / 16kB */
+    .sector_count   = (0x1000u / 0x40u), /* 2MB (flash size) / 16kB */
     .sector_size    = 0x40u,  /* 16kB - as there are no sectors the page size
                                  *        size is used here
                                  */
     .page_size      = 0x40u,  /* 16kB */
-    .program_unit   = 0x40u,       /* Minimum write size in bytes */
+    .program_unit   = 0x4u,       /* Minimum write size in bytes */
     .erased_value   = 0xFF
 };
 

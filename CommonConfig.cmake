@@ -116,7 +116,7 @@ elseif(${COMPILER} STREQUAL "GNUARM")
 	include("Common/FindGNUARM")
 	include("Common/${GNUARM_MODULE}")
 
-	set (COMMON_COMPILE_FLAGS -fshort-enums -fshort-wchar -funsigned-char -msoft-float -ffunction-sections -fdata-sections --specs=nano.specs -fno-builtin)
+	set (COMMON_COMPILE_FLAGS -fshort-enums -fshort-wchar -funsigned-char -msoft-float -ffunction-sections -fdata-sections --specs=rdimon.specs --specs=nano.specs -fno-builtin)
 	##Shared compiler and linker settings.
 	function(config_setting_shared_compiler_flags tgt)
 		embedded_set_target_compile_flags(TARGET ${tgt} LANGUAGE C APPEND FLAGS -xc -std=c99 ${COMMON_COMPILE_FLAGS} -Wall -Werror -Wno-format -Wno-return-type -Wno-unused-but-set-variable)
@@ -128,7 +128,7 @@ elseif(${COMPILER} STREQUAL "GNUARM")
 		#with short wchars, however the standard library is compiled with normal
 		#wchar, and this generates linker time warnings. TF-M code does not use
 		#wchar, so the warning can be suppressed.
-		embedded_set_target_link_flags(TARGET ${tgt} FLAGS -Wl,-check-sections,-fatal-warnings,--gc-sections,--no-wchar-size-warning,--print-memory-usage --entry=Reset_Handler --specs=nano.specs)
+		embedded_set_target_link_flags(TARGET ${tgt} FLAGS -Wl,-check-sections,-fatal-warnings,--gc-sections,--no-wchar-size-warning,--print-memory-usage --entry=Reset_Handler --specs=rdimon.specs --specs=nano.specs)
 	endfunction()
 elseif(${COMPILER} STREQUAL "IARARM")
 	#Use any IARARM version found on PATH. Note: Only versions supported by the

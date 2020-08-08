@@ -17,14 +17,16 @@
  * https://github.com/ARM-software/CMSIS_5/tree/5.0.1
  * Git SHA: 8a1d9d6ee18b143ae5befefa14d89fb5b3f99c75
  */
-
+#include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
+#include "SEGGER_RTT.h"
 #include "system_core_init.h"
 #include "platform_description.h"
 //#include "bsp_api.h"
 //#include "psa/crypto.h"
 //#include "platform.h"
-
+extern void initialise_monitor_handles(void);
 /*----------------------------------------------------------------------------
   Define clocks
  *----------------------------------------------------------------------------*/
@@ -76,5 +78,17 @@ void SystemInit (void)
 
 //  mbedtls_platform_context ctx = {0};
 //  mbedtls_platform_setup(&ctx);
+  if (R_DEBUG->DBGSTR_b.CDBGPWRUPREQ)
+  {
+      /*
+       * Clear the RTT control block so that it does not have random data in the id field.
+       */
+      memset((void *) &_SEGGER_RTT, 0, sizeof(_SEGGER_RTT));
 
+      SEGGER_RTT_Init();
+  }
+  if (R_DEBUG->DBGSTR_b.CDBGPWRUPREQ)
+  {
+      initialise_monitor_handles();
+  }
 }
