@@ -200,7 +200,9 @@ static int32_t ARM_Flashx_ReadData(ARM_FLASHx_Resources *ARM_FLASHx_DEV,
         if ((err == FSP_ERR_INVALID_ADDRESS) ||
             (err == FSP_ERR_INVALID_SIZE)) {
             /* The native driver checks aligment and range */
-            return ARM_DRIVER_ERROR_PARAMETER;
+            ARM_FLASHx_DEV->status->error = DRIVER_STATUS_NO_ERROR;
+            ARM_FLASHx_DEV->status->busy = DRIVER_STATUS_IDLE;
+            return ARM_DRIVER_OK;
         }
         return ARM_DRIVER_ERROR;
     }
