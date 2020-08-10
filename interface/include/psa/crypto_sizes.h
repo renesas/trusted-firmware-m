@@ -80,8 +80,13 @@
 /* Note: for HMAC-SHA-3, the block size is 144 bytes for HMAC-SHA3-226,
  * 136 bytes for HMAC-SHA3-256, 104 bytes for SHA3-384, 72 bytes for
  * HMAC-SHA3-512. */
+#if defined(MBEDTLS_SHA512_C)
 #define PSA_HASH_MAX_SIZE 64
 #define PSA_HMAC_MAX_HASH_BLOCK_SIZE 128
+#else
+#define PSA_HASH_MAX_SIZE 32
+#define PSA_HMAC_MAX_HASH_BLOCK_SIZE 64
+#endif
 
 /** \def PSA_MAC_MAX_SIZE
  *

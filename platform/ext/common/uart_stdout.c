@@ -45,7 +45,7 @@ int stdio_output_string(const unsigned char *str, uint32_t len)
 //    while (STDIO_DRIVER.GetStatus().tx_busy);
 //
 //    return STDIO_DRIVER.GetTxCount();
-    SEGGER_RTT_printf(0,"%s",str);
+//    SEGGER_RTT_printf(0,"%s",str);
     return len;
 }
 

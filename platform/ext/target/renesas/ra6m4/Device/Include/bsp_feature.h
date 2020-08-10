@@ -126,12 +126,12 @@
 #define BSP_FEATURE_CGC_SODRV_MASK                        (0x02U)
 #define BSP_FEATURE_CGC_SODRV_SHIFT                       (0x01U)
 
-#define BSP_FEATURE_CRYPTO_HAS_AES                        (0)
+#define BSP_FEATURE_CRYPTO_HAS_AES                        (1)
 #define BSP_FEATURE_CRYPTO_HAS_AES_WRAPPED                (0)
-#define BSP_FEATURE_CRYPTO_HAS_ECC                        (0)
+#define BSP_FEATURE_CRYPTO_HAS_ECC                        (1)
 #define BSP_FEATURE_CRYPTO_HAS_ECC_WRAPPED                (0)
-#define BSP_FEATURE_CRYPTO_HAS_HASH                       (0)
-#define BSP_FEATURE_CRYPTO_HAS_RSA                        (0)
+#define BSP_FEATURE_CRYPTO_HAS_HASH                       (1)
+#define BSP_FEATURE_CRYPTO_HAS_RSA                        (1)
 #define BSP_FEATURE_CRYPTO_HAS_RSA_WRAPPED                (0)
 
 #define BSP_FEATURE_CTSU_CTSUCHAC_REGISTER_COUNT          (3U)

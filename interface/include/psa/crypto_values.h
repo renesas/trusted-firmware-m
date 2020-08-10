@@ -272,7 +272,7 @@
  *
  * Zero is not the encoding of any key type.
  */
-#define PSA_KEY_TYPE_NONE                       ((psa_key_type_t)0x00000000)
+#define PSA_KEY_TYPE_NONE                           ((psa_key_type_t)0x0000)
 
 /** Vendor-defined key type flag.
  *
@@ -281,15 +281,15 @@
  * must use an encoding with the #PSA_KEY_TYPE_VENDOR_FLAG bit set and should
  * respect the bitwise structure used by standard encodings whenever practical.
  */
-#define PSA_KEY_TYPE_VENDOR_FLAG                ((psa_key_type_t)0x80000000)
+#define PSA_KEY_TYPE_VENDOR_FLAG                    ((psa_key_type_t)0x8000)
 
-#define PSA_KEY_TYPE_CATEGORY_MASK              ((psa_key_type_t)0x70000000)
-#define PSA_KEY_TYPE_CATEGORY_SYMMETRIC         ((psa_key_type_t)0x40000000)
-#define PSA_KEY_TYPE_CATEGORY_RAW               ((psa_key_type_t)0x50000000)
-#define PSA_KEY_TYPE_CATEGORY_PUBLIC_KEY        ((psa_key_type_t)0x60000000)
-#define PSA_KEY_TYPE_CATEGORY_KEY_PAIR          ((psa_key_type_t)0x70000000)
+#define PSA_KEY_TYPE_CATEGORY_MASK                  ((psa_key_type_t)0x7000)
+#define PSA_KEY_TYPE_CATEGORY_RAW                   ((psa_key_type_t)0x1000)
+#define PSA_KEY_TYPE_CATEGORY_SYMMETRIC             ((psa_key_type_t)0x2000)
+#define PSA_KEY_TYPE_CATEGORY_PUBLIC_KEY            ((psa_key_type_t)0x4000)
+#define PSA_KEY_TYPE_CATEGORY_KEY_PAIR              ((psa_key_type_t)0x7000)
 
-#define PSA_KEY_TYPE_CATEGORY_FLAG_PAIR         ((psa_key_type_t)0x10000000)
+#define PSA_KEY_TYPE_CATEGORY_FLAG_PAIR             ((psa_key_type_t)0x3000)
 
 /** Whether a key type is vendor-defined.
  *
@@ -303,8 +303,8 @@
  * This encompasses both symmetric keys and non-key data.
  */
 #define PSA_KEY_TYPE_IS_UNSTRUCTURED(type) \
-    (((type) & PSA_KEY_TYPE_CATEGORY_MASK & ~(psa_key_type_t)0x10000000) == \
-     PSA_KEY_TYPE_CATEGORY_SYMMETRIC)
+    (((type) & PSA_KEY_TYPE_CATEGORY_MASK) == PSA_KEY_TYPE_CATEGORY_RAW || \
+     ((type) & PSA_KEY_TYPE_CATEGORY_MASK) == PSA_KEY_TYPE_CATEGORY_SYMMETRIC)
 
 /** Whether a key type is asymmetric: either a key pair or a public key. */
 #define PSA_KEY_TYPE_IS_ASYMMETRIC(type)                                \
@@ -347,7 +347,7 @@
  *
  * A "key" of this type cannot be used for any cryptographic operation.
  * Applications may use this type to store arbitrary data in the keystore. */
-#define PSA_KEY_TYPE_RAW_DATA                   ((psa_key_type_t)0x50000001)
+#define PSA_KEY_TYPE_RAW_DATA                       ((psa_key_type_t)0x1001)
 
 /** HMAC key.
  *
@@ -357,21 +357,24 @@
  * HMAC keys should generally have the same size as the underlying hash.
  * This size can be calculated with #PSA_HASH_SIZE(\c alg) where
  * \c alg is the HMAC algorithm or the underlying hash algorithm. */
-#define PSA_KEY_TYPE_HMAC                       ((psa_key_type_t)0x51000000)
+#define PSA_KEY_TYPE_HMAC                           ((psa_key_type_t)0x1100)
 
 /** A secret for key derivation.
  *
  * The key policy determines which key derivation algorithm the key
  * can be used for.
  */
-#define PSA_KEY_TYPE_DERIVE                     ((psa_key_type_t)0x52000000)
+#define PSA_KEY_TYPE_DERIVE                         ((psa_key_type_t)0x1200)
 
 /** Key for a cipher, AEAD or MAC algorithm based on the AES block cipher.
  *
  * The size of the key can be 16 bytes (AES-128), 24 bytes (AES-192) or
  * 32 bytes (AES-256).
  */
-#define PSA_KEY_TYPE_AES                        ((psa_key_type_t)0x40000001)
+#define PSA_KEY_TYPE_AES                            ((psa_key_type_t)0x2400)
+
+/** Whether a key type is AES. */
+#define PSA_KEY_TYPE_IS_AES(type) (((type) == PSA_KEY_TYPE_AES) != 0)
 
 /** Key for a cipher or MAC algorithm based on DES or 3DES (Triple-DES).
  *
@@ -382,17 +385,17 @@
  * deprecated and should only be used to decrypt legacy data. 3-key 3DES
  * is weak and deprecated and should only be used in legacy protocols.
  */
-#define PSA_KEY_TYPE_DES                        ((psa_key_type_t)0x40000002)
+#define PSA_KEY_TYPE_DES                            ((psa_key_type_t)0x2301)
 
 /** Key for a cipher, AEAD or MAC algorithm based on the
  * Camellia block cipher. */
-#define PSA_KEY_TYPE_CAMELLIA                   ((psa_key_type_t)0x40000003)
+#define PSA_KEY_TYPE_CAMELLIA                       ((psa_key_type_t)0x2403)
 
 /** Key for the RC4 stream cipher.
  *
  * Note that RC4 is weak and deprecated and should only be used in
  * legacy protocols. */
-#define PSA_KEY_TYPE_ARC4                       ((psa_key_type_t)0x40000004)
+#define PSA_KEY_TYPE_ARC4                           ((psa_key_type_t)0x2002)
 
 /** Key for the ChaCha20 stream cipher or the Chacha20-Poly1305 AEAD algorithm.
  *
@@ -401,19 +404,19 @@
  * Implementations must support 12-byte nonces, may support 8-byte nonces,
  * and should reject other sizes.
  */
-#define PSA_KEY_TYPE_CHACHA20                   ((psa_key_type_t)0x40000005)
+#define PSA_KEY_TYPE_CHACHA20                       ((psa_key_type_t)0x2004)
 
 /** RSA public key. */
-#define PSA_KEY_TYPE_RSA_PUBLIC_KEY             ((psa_key_type_t)0x60010000)
+#define PSA_KEY_TYPE_RSA_PUBLIC_KEY                 ((psa_key_type_t)0x4001)
 /** RSA key pair (private and public key). */
-#define PSA_KEY_TYPE_RSA_KEY_PAIR                ((psa_key_type_t)0x70010000)
+#define PSA_KEY_TYPE_RSA_KEY_PAIR                   ((psa_key_type_t)0x7001)
 /** Whether a key type is an RSA key (pair or public-only). */
 #define PSA_KEY_TYPE_IS_RSA(type)                                       \
     (PSA_KEY_TYPE_PUBLIC_KEY_OF_KEY_PAIR(type) == PSA_KEY_TYPE_RSA_PUBLIC_KEY)
 
-#define PSA_KEY_TYPE_ECC_PUBLIC_KEY_BASE        ((psa_key_type_t)0x60030000)
-#define PSA_KEY_TYPE_ECC_KEY_PAIR_BASE           ((psa_key_type_t)0x70030000)
-#define PSA_KEY_TYPE_ECC_CURVE_MASK             ((psa_key_type_t)0x0000ffff)
+#define PSA_KEY_TYPE_ECC_PUBLIC_KEY_BASE            ((psa_key_type_t)0x4100)
+#define PSA_KEY_TYPE_ECC_KEY_PAIR_BASE              ((psa_key_type_t)0x7100)
+#define PSA_KEY_TYPE_ECC_CURVE_MASK                 ((psa_key_type_t)0x00ff)
 /** Elliptic curve key pair.
  *
  * \param curve     A value of type ::psa_ecc_curve_t that identifies the
@@ -509,9 +512,9 @@
  */
 #define PSA_ECC_CURVE_VENDOR_MAX        ((psa_ecc_curve_t) 0xfe7f)
 
-#define PSA_KEY_TYPE_DH_PUBLIC_KEY_BASE         ((psa_key_type_t)0x60040000)
-#define PSA_KEY_TYPE_DH_KEY_PAIR_BASE            ((psa_key_type_t)0x70040000)
-#define PSA_KEY_TYPE_DH_GROUP_MASK              ((psa_key_type_t)0x0000ffff)
+#define PSA_KEY_TYPE_DH_PUBLIC_KEY_BASE             ((psa_key_type_t)0x4200)
+#define PSA_KEY_TYPE_DH_KEY_PAIR_BASE               ((psa_key_type_t)0x7200)
+#define PSA_KEY_TYPE_DH_GROUP_MASK                  ((psa_key_type_t)0x00ff)
 /** Diffie-Hellman key pair.
  *
  * \param group     A value of type ::psa_dh_group_t that identifies the
@@ -1553,7 +1556,16 @@
  * by other lifetime values as implementation-specific extensions.
  */
 #define PSA_KEY_LIFETIME_PERSISTENT             ((psa_key_lifetime_t)0x00000001)
+#define PSA_KEY_LIFETIME_PERSISTENT_FLAG        ((psa_key_lifetime_t)PSA_KEY_LIFETIME_PERSISTENT)
+#define PSA_KEY_LIFETIME_IS_VOLATILE(lifetime)  (((lifetime) & PSA_KEY_LIFETIME_PERSISTENT_FLAG) == 0)
 
+#define PSA_KEY_LIFETIME_IS_PERSISTENT(lifetime) \
+    (((lifetime) & PSA_KEY_LIFETIME_PERSISTENT) != 0)
+
+#define PSA_KEY_LIFETIME_VENDOR_FLAG ((psa_key_lifetime_t)0x80000000)
+
+#define PSA_KEY_LIFETIME_IS_VENDOR_DEFINED(lifetime) \
+    (((lifetime) & PSA_KEY_LIFETIME_VENDOR_FLAG) != 0)
 /** The minimum value for a key identifier chosen by the application.
  */
 #define PSA_KEY_ID_USER_MIN                     ((psa_key_id_t)0x00000001)
