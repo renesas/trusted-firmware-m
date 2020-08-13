@@ -140,48 +140,35 @@
 
 /* The maximum size of an ECC key on this implementation, in bits.
  * This is a vendor-specific macro. */
+#if defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED)
 #define PSA_VENDOR_ECC_MAX_CURVE_BITS 521
-
-/** Bit size associated with an elliptic curve.
- *
- * \param curve     An elliptic curve (value of type #psa_ecc_curve_t).
- *
- * \return          The size associated with \p curve, in bits.
- *                  This may be 0 if the implementation does not support
- *                  the specified curve.
- */
-#define PSA_ECC_CURVE_BITS(curve)               \
-    ((curve) == PSA_ECC_CURVE_SECT163K1        ? 163 : \
-     (curve) == PSA_ECC_CURVE_SECT163R1        ? 163 : \
-     (curve) == PSA_ECC_CURVE_SECT163R2        ? 163 : \
-     (curve) == PSA_ECC_CURVE_SECT193R1        ? 193 : \
-     (curve) == PSA_ECC_CURVE_SECT193R2        ? 193 : \
-     (curve) == PSA_ECC_CURVE_SECT233K1        ? 233 : \
-     (curve) == PSA_ECC_CURVE_SECT233R1        ? 233 : \
-     (curve) == PSA_ECC_CURVE_SECT239K1        ? 239 : \
-     (curve) == PSA_ECC_CURVE_SECT283K1        ? 283 : \
-     (curve) == PSA_ECC_CURVE_SECT283R1        ? 283 : \
-     (curve) == PSA_ECC_CURVE_SECT409K1        ? 409 : \
-     (curve) == PSA_ECC_CURVE_SECT409R1        ? 409 : \
-     (curve) == PSA_ECC_CURVE_SECT571K1        ? 571 : \
-     (curve) == PSA_ECC_CURVE_SECT571R1        ? 571 : \
-     (curve) == PSA_ECC_CURVE_SECP160K1        ? 160 : \
-     (curve) == PSA_ECC_CURVE_SECP160R1        ? 160 : \
-     (curve) == PSA_ECC_CURVE_SECP160R2        ? 160 : \
-     (curve) == PSA_ECC_CURVE_SECP192K1        ? 192 : \
-     (curve) == PSA_ECC_CURVE_SECP192R1        ? 192 : \
-     (curve) == PSA_ECC_CURVE_SECP224K1        ? 224 : \
-     (curve) == PSA_ECC_CURVE_SECP224R1        ? 224 : \
-     (curve) == PSA_ECC_CURVE_SECP256K1        ? 256 : \
-     (curve) == PSA_ECC_CURVE_SECP256R1        ? 256 : \
-     (curve) == PSA_ECC_CURVE_SECP384R1        ? 384 : \
-     (curve) == PSA_ECC_CURVE_SECP521R1        ? 521 : \
-     (curve) == PSA_ECC_CURVE_BRAINPOOL_P256R1 ? 256 : \
-     (curve) == PSA_ECC_CURVE_BRAINPOOL_P384R1 ? 384 : \
-     (curve) == PSA_ECC_CURVE_BRAINPOOL_P512R1 ? 512 : \
-     (curve) == PSA_ECC_CURVE_CURVE25519       ? 255 : \
-     (curve) == PSA_ECC_CURVE_CURVE448         ? 448 : \
-     0)
+#elif defined(MBEDTLS_ECP_DP_BP512R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 512
+#elif defined(MBEDTLS_ECP_DP_CURVE448_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 448
+#elif defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 384
+#elif defined(MBEDTLS_ECP_DP_BP384R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 384
+#elif defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 256
+#elif defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 256
+#elif defined(MBEDTLS_ECP_DP_BP256R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 256
+#elif defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 255
+#elif defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 224
+#elif defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 224
+#elif defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 192
+#elif defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED)
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 192
+#else
+#define PSA_VENDOR_ECC_MAX_CURVE_BITS 0
+#endif
 
 /** \def PSA_ALG_TLS12_PSK_TO_MS_MAX_PSK_LEN
  *
