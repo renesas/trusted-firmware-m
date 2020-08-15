@@ -89,26 +89,20 @@ typedef MBEDTLS_PSA_DEPRECATED psa_dh_group_t mbedtls_deprecated_psa_dh_group_t;
 /*
  * Deprecated PSA Crypto function names (PSA Crypto API  <= 1.0 beta3)
  */
-MBEDTLS_PSA_DEPRECATED static inline psa_status_t psa_asymmetric_sign( psa_key_handle_t key,
+MBEDTLS_PSA_DEPRECATED psa_status_t psa_asymmetric_sign( psa_key_handle_t key,
                             psa_algorithm_t alg,
                             const uint8_t *hash,
                             size_t hash_length,
                             uint8_t *signature,
                             size_t signature_size,
-                            size_t *signature_length )
-{
-    return psa_sign_hash( key, alg, hash, hash_length, signature, signature_size, signature_length );
-}
+                            size_t *signature_length );
 
-MBEDTLS_PSA_DEPRECATED static inline psa_status_t psa_asymmetric_verify( psa_key_handle_t key,
+MBEDTLS_PSA_DEPRECATED psa_status_t psa_asymmetric_verify( psa_key_handle_t key,
                               psa_algorithm_t alg,
                               const uint8_t *hash,
                               size_t hash_length,
                               const uint8_t *signature,
-                              size_t signature_length )
-{
-    return psa_verify_hash( key, alg, hash, hash_length, signature, signature_length );
-}
+                              size_t signature_length );
 
 #endif /* MBEDTLS_DEPRECATED_REMOVED */
 
