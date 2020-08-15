@@ -62,6 +62,7 @@ boot_add_data_to_shared_area(uint8_t        major_type,
                              size_t         size,
                              const uint8_t *data)
 {
+#if BL2_TEMP_DIS  //HACK
     struct shared_data_tlv_entry tlv_entry = {0};
     struct tfm_boot_data *boot_data;
     uint8_t *next_tlv;
@@ -121,6 +122,7 @@ boot_add_data_to_shared_area(uint8_t        major_type,
     boot_data->header.tlv_tot_len += tlv_entry.tlv_len;
 
     return SHARED_MEMORY_OK;
+#endif
 }
 
 /* See in boot_record.h */

@@ -1,0 +1,160 @@
+/***********************************************************************************************************************
+* File Name    : flash_layout.h
+* Description  : Memory partition related macro definition file
+***********************************************************************************************************************/
+/***********************************************************************************************************************
+* DISCLAIMER
+* This software is supplied by Renesas Electronics Corporation and is only intended for use with Renesas products. No
+* other uses are authorized. This software is owned by Renesas Electronics Corporation and is protected under all
+* applicable laws, including copyright laws.
+* THIS SOFTWARE IS PROVIDED "AS IS" AND RENESAS MAKES NO WARRANTIES REGARDING
+* THIS SOFTWARE, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. ALL SUCH WARRANTIES ARE EXPRESSLY DISCLAIMED. TO THE MAXIMUM
+* EXTENT PERMITTED NOT PROHIBITED BY LAW, NEITHER RENESAS ELECTRONICS CORPORATION NOR ANY OF ITS AFFILIATED COMPANIES
+* SHALL BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES FOR ANY REASON RELATED TO THIS
+* SOFTWARE, EVEN IF RENESAS OR ITS AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+* Renesas reserves the right, without notice, to make changes to this software and to discontinue the availability of
+* this software. By using this software, you agree to the additional terms and conditions found by accessing the
+* following link:
+* http://www.renesas.com/disclaimer
+*
+* Copyright (C) 2020 Renesas Electronics Corporation. All rights reserved.
+***********************************************************************************************************************/
+#ifndef __FLASH_LAYOUT_H__
+#define __FLASH_LAYOUT_H__
+
+#include "bsp_api.h"
+#include "rm_bl2_cfg.h"
+
+#define MAX(X,Y)                       ((X) > (Y) ? (X) : (Y))
+
+/* Size of a Secure and of a Non-secure image */
+#define FLASH_S_PARTITION_SIZE              (BL2_CFG_FLASH_S_PARTITION_SIZE)
+#define FLASH_NS_PARTITION_SIZE             (BL2_CFG_FLASH_NS_PARTITION_SIZE)
+#define FLASH_MAX_PARTITION_SIZE            ((FLASH_S_PARTITION_SIZE >   \
+                                             FLASH_NS_PARTITION_SIZE) ? \
+                                             FLASH_S_PARTITION_SIZE :    \
+                                             FLASH_NS_PARTITION_SIZE)
+
+#define FLASH_TOTAL_SIZE                    (BSP_ROM_SIZE_BYTES)  
+
+/* Sector size of the flash hardware; same as FLASH0_SECTOR_SIZE */
+#define FLASH_AREA_IMAGE_SECTOR_SIZE        (0x8000)    /* 32 KB */
+
+/* Sector size of the flash hardware */
+#define FLASH_BOOT_SECTOR_SIZE              (0x2000)    /* 8 KB */
+
+/* Flash layout info for BL2 bootloader */
+#define FLASH_BASE_ADDRESS                  (0)
+
+/* Offset and size definitions of the flash partitions that are handled by the
+ * bootloader. The image swapping is done between IMAGE_PRIMARY and
+ * IMAGE_SECONDARY, SCRATCH is used as a temporary storage during image
+ * swapping.
+ */
+#define FLASH_AREA_BL2_OFFSET               (0x0)
+/*This is fized to (8 * FLASH_BOOT_SECTOR_SIZE) so that all the 8K blocks are used by the bootloader
+ * since FLASH_AREA_IMAGE_SECTOR_SIZE does not allow mixing sector sizes easily.*/
+#define FLASH_AREA_BL2_SIZE                  (BL2_CFG_FLASH_AREA_BL2_SIZE) 
+
+#ifndef MCUBOOT_OVERWRITE_ONLY
+#define FLASH_AREA_SCRATCH_SIZE             (FLASH_AREA_IMAGE_SECTOR_SIZE)
+
+/* The maximum number of status entries supported by the bootloader. */
+/* The maximum number of status entries must be at least 2. For more
+ * information see the MCUBoot issue:
+ * https://github.com/JuulLabs-OSS/mcuboot/issues/427.
+ */
+#define BOOT_STATUS_MAX_ENTRIES             ((FLASH_S_PARTITION_SIZE + \
+                                             FLASH_NS_PARTITION_SIZE) / \
+                                             FLASH_AREA_SCRATCH_SIZE)
+
+#else
+#define FLASH_AREA_SCRATCH_SIZE             (0)
+
+/* The maximum number of status entries supported by the bootloader. */
+/* The maximum number of status entries must be at least 2. For more
+ * information see the MCUBoot issue:
+ * https://github.com/JuulLabs-OSS/mcuboot/issues/427.
+ */
+#define MCUBOOT_STATUS_MAX_ENTRIES             (0)
+
+#endif
+
+#if !defined(MCUBOOT_IMAGE_NUMBER) || (MCUBOOT_IMAGE_NUMBER == 1)
+#define FLASH_AREA_0_ID                     (1)
+#define FLASH_AREA_0_OFFSET                 (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)
+#define FLASH_AREA_0_SIZE                   (FLASH_NS_PARTITION_SIZE)
+
+#define FLASH_AREA_2_ID                     (FLASH_AREA_0_ID + 1)
+#define FLASH_AREA_2_OFFSET                 (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)
+#define FLASH_AREA_2_SIZE                   (FLASH_NS_PARTITION_SIZE)
+
+/* Scratch area */
+#define FLASH_AREA_SCRATCH_ID               (FLASH_AREA_2_ID + 1)
+#define FLASH_AREA_SCRATCH_OFFSET           (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)
+
+/* Maximum number of image sectors supported by the bootloader. */
+#define MCUBOOT_MAX_IMG_SECTORS       (( FLASH_S_PARTITION_SIZE +  \
+                                      FLASH_NS_PARTITION_SIZE) / \
+                                      FLASH_AREA_IMAGE_SECTOR_SIZE)
+
+
+#elif (MCUBOOT_IMAGE_NUMBER == 2)
+/* Secure image primary slot */
+#define FLASH_AREA_0_ID            (1)
+#define FLASH_AREA_0_OFFSET        (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)
+#define FLASH_AREA_0_SIZE          (FLASH_S_PARTITION_SIZE)
+/* Non-secure image primary slot */
+#define FLASH_AREA_1_ID            (FLASH_AREA_0_ID + 1)
+#define FLASH_AREA_1_OFFSET        (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)
+#define FLASH_AREA_1_SIZE          (FLASH_NS_PARTITION_SIZE)
+/* Secure image secondary slot */
+#define FLASH_AREA_2_ID            (FLASH_AREA_1_ID + 1)
+#define FLASH_AREA_2_OFFSET        (FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE)
+#define FLASH_AREA_2_SIZE          (FLASH_S_PARTITION_SIZE)
+/* Non-secure image secondary slot */
+#define FLASH_AREA_3_ID            (FLASH_AREA_2_ID + 1)
+#define FLASH_AREA_3_OFFSET        (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)
+#define FLASH_AREA_3_SIZE          (FLASH_NS_PARTITION_SIZE)
+/* Not used, only the Non-swapping firmware upgrade operation
+ * is supported on Musca-B1.
+ */
+#define FLASH_AREA_SCRATCH_ID      (FLASH_AREA_3_ID + 1)
+#define FLASH_AREA_SCRATCH_OFFSET  (FLASH_AREA_3_OFFSET + FLASH_AREA_3_SIZE)
+#define FLASH_AREA_SCRATCH_SIZE    (0)
+/* Maximum number of image sectors supported by the bootloader. */
+#define MCUBOOT_MAX_IMG_SECTORS    (FLASH_MAX_PARTITION_SIZE / \
+                                    FLASH_AREA_IMAGE_SECTOR_SIZE)
+#else
+#error "Only MCUBOOT_IMAGE_NUMBER 1 and 2 are supported!"
+#endif
+
+/*  NV Counters definitions */
+#define FLASH_NV_COUNTERS_AREA_OFFSET       (BL2_CFG_DATA_FLASH_NV_COUNTERS_AREA_OFFSET)
+#define FLASH_NV_COUNTERS_AREA_SIZE         (BL2_CFG_DATA_FLASH_NV_COUNTERS_AREA_SIZE) 
+
+/* Flash device name used by BL2
+ * Name is defined in flash driver file: Driver_Flash.c
+ */
+#define FLASH_DEV_NAME               Driver_FLASH0
+
+/* NV Counters definitions */
+#define TFM_NV_COUNTERS_AREA_ADDR    FLASH_NV_COUNTERS_AREA_OFFSET
+#define TFM_NV_COUNTERS_AREA_SIZE    (FLASH_NV_COUNTERS_AREA_SIZE)
+#define TFM_NV_COUNTERS_SECTOR_ADDR  FLASH_NV_COUNTERS_AREA_OFFSET
+#define TFM_NV_COUNTERS_SECTOR_SIZE  FLASH_NV_COUNTERS_AREA_SIZE
+
+#define TOTAL_ROM_SIZE               FLASH_TOTAL_SIZE
+#define TOTAL_RAM_SIZE               (BSP_RAM_SIZE_BYTES) 
+
+/* Use Flash to store Code data */
+#define S_ROM_ALIAS_BASE  (0x00000000)
+#define NS_ROM_ALIAS_BASE (0x00000000)
+
+/* Use SRAM to store RW data */
+#define S_RAM_ALIAS_BASE  (0x20000000)
+#define NS_RAM_ALIAS_BASE (0x20000000)
+
+#endif /* __FLASH_LAYOUT_H__ */
+

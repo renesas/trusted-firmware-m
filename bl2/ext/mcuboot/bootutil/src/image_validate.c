@@ -34,6 +34,7 @@
 #include "bootutil/sha256.h"
 #include "bootutil/sign_key.h"
 #include "security_cnt.h"
+#include "rm_bl2_cfg.h"
 
 #include "mcuboot_config/mcuboot_config.h"
 

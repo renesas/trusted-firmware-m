@@ -20,6 +20,7 @@
 
 #include "bootutil/ignore.h"
 #include <stdio.h>
+#include "rm_bl2_cfg.h"
 
 #ifdef __cplusplus
 extern "C" {

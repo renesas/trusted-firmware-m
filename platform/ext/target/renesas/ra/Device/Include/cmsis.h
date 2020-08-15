@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD:platform/ext/target/renesas/ra6m4/CMSIS_Driver/Config/cmsis_driver_config.h
  * Copyright (c) 2018-2020 Arm Limited. All rights reserved.
+=======
+ * Copyright (c) 2017-2019 Arm Limited. All rights reserved.
+>>>>>>> add_ra_bl2_support:platform/ext/target/renesas/ra/Device/Include/cmsis.h
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +18,14 @@
  * limitations under the License.
  */
 
-#ifndef __CMSIS_DRIVER_CONFIG_H__
-#define __CMSIS_DRIVER_CONFIG_H__
+#ifndef __RA_CMSIS_H__
+#define __RA_CMSIS_H__
 
-#include "device_cfg.h"
-#include "device_definition.h"
-#include "platform_description.h"
-#include "RTE_Device.h"
-#include "target_cfg.h"
+/* This file is only included to prevent build errors since the ARM 
+ * code includes this file. All the definitions expected here are already 
+ * provided by other CMSIS files that are provided via the FSP BSP. */
 
+<<<<<<< HEAD:platform/ext/target/renesas/ra6m4/CMSIS_Driver/Config/cmsis_driver_config.h
 #define UART0_DEV           UART0_PL011_DEV_NS
 #define UART1_DEV           UART1_PL011_DEV_NS
 
@@ -33,3 +36,7 @@
 #define FLASH0_DEV          MT25QL_DEV_S
 
 #endif  /* __CMSIS_DRIVER_CONFIG_H__ */
+=======
+
+#endif /*__RA_CMSIS_H__ */
+>>>>>>> add_ra_bl2_support:platform/ext/target/renesas/ra/Device/Include/cmsis.h

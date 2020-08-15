@@ -94,18 +94,22 @@ static void do_boot(struct boot_rsp *rsp)
     boot_platform_quit(vt);
 }
 
-int main(void)
+int bl2_main (void)
 {
-#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
+#if BL2_TEMP_DIS 
+ #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     uint32_t msp_stack_bottom =
-            (uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Base);
+            (uint32_t) &REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Base);
+ #endif
 #endif
     struct boot_rsp rsp;
     int rc;
 
-#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
+#if BL2_TEMP_DIS
+ #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     __set_MSPLIM(msp_stack_bottom);
-#endif
+ #endif
+#endif 
 
     /* Perform platform specific initialization */
     if (boot_platform_init() != 0) {

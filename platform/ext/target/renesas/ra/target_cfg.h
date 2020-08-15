@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2016-2019 Arm Limited. All rights reserved.
+ * Copyright (c) 2018 ARM Limited
+ * Copyright (c) 2019, Cypress Semiconductor Corporation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +15,12 @@
  * limitations under the License.
  */
 
-#ifndef __RA6M4_PLATFORM_REGS_H__
-#define __RA6M4_PLATFORM_REGS_H__
+#ifndef __TARGET_CFG_H__
+#define __TARGET_CFG_H__
 
-#include <stdint.h>
-#include "platform_base_address.h"
+#include "bsp_api.h"
+#include "platform/ext/common/uart_stdout.h"
 
-#endif /* __RA6M4_PLATFORM_REGS_H__ */
+#define TFM_DRIVER_STDIO    Driver_USART
+
+#endif /* __TARGET_CFG_H__ */

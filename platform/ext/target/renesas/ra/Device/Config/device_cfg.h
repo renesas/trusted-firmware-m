@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD:platform/ext/target/renesas/ra6m4/Device/Config/device_cfg.h
  * Copyright (c) 2017-2020 Arm Limited. All rights reserved.
+=======
+ * Copyright (c) 2017-2018 Arm Limited
+>>>>>>> add_ra_bl2_support:platform/ext/target/renesas/ra/Device/Config/device_cfg.h
  *
  * Licensed under the Apache License Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +29,12 @@
  *          definitions to select which peripherals are available in the build.
  *
  * This is a default device configuration file with all peripherals enabled.
+ * \note This define is present here only to prevent compile warning since the 
+ * uart_stdout.c uses this macro. The actual baud rate config is done via
+ * the UART instance configuration structure.  
  */
 
+<<<<<<< HEAD:platform/ext/target/renesas/ra6m4/Device/Config/device_cfg.h
 ///*ARM UART Controller PL011*/
 //#define UART0_PL011_S
 //#define UART0_PL011_NS
@@ -55,3 +63,8 @@
 #define DEFAULT_UART_BAUDRATE 115200
 
 #endif  /* __RA6M4_DEVICE_CFG_H__ */
+=======
+#define DEFAULT_UART_BAUDRATE  115200
+
+#endif  /* __ARM_LTD_DEVICE_CFG_H__ */
+>>>>>>> add_ra_bl2_support:platform/ext/target/renesas/ra/Device/Config/device_cfg.h
