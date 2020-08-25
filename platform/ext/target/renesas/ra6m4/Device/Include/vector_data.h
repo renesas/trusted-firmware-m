@@ -23,5 +23,9 @@ typedef enum IRQn
     DebugMonitor_IRQn           = -4,   /* Debug Monitor Interrupt */
     PendSV_IRQn                 = -2,   /* Pend SV Interrupt */
     SysTick_IRQn                = -1,   /* System Tick Interrupt */
+	  UART1_Rx_IRQn      = 0,   /* NonSecure Wdog Rst Request Interrupt  */
+	  UART1_Tx_IRQn            = 1,   /* Non-Secure Watchdog Interrupt         */
+	  UART1_IRQn             = 2,   /* S32K Timer Interrupt                  */
+	  UART1_Error_IRQn                 = 3,   /* CMSDK Timer 0 Interrupt               */
 } IRQn_Type;
 #endif                                 /* VECTOR_DATA_H */

@@ -89,16 +89,16 @@ const struct memory_region_limits memory_regions = {
 
 struct tfm_spm_partition_platform_data_t
     tfm_peripheral_FF_TEST_UART_REGION = {
-        MUSCA_B1_UART1_NS_BASE,
-        MUSCA_B1_UART1_NS_BASE + 0xFFF,
+    		R_SCI0_BASE,
+			R_SCI0_BASE + 0xFFF,
         PPC_SP_DO_NOT_CONFIGURE,
         -1
 };
 
 struct tfm_spm_partition_platform_data_t
     tfm_peripheral_FF_TEST_WATCHDOG_REGION = {
-        MUSCA_B1_CMSDK_WATCHDOG_S_BASE,
-        MUSCA_B1_CMSDK_WATCHDOG_S_BASE + 0xFFF,
+    		R_WDT_BASE,
+			R_WDT_BASE + 0xFFF,
         PPC_SP_DO_NOT_CONFIGURE,
         -1
 };

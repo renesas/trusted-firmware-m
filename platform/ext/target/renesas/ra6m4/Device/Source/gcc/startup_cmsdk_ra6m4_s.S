@@ -42,10 +42,10 @@ __Vectors:
     .long    SysTick_Handler       /* SysTick Handler */
 
     /* Core interrupts */
-    .long    NS_WATCHDOG_RESET_IRQHandler    /*  0: Non-Secure Watchdog Reset Request Interrupt */
-    .long    NS_WATCHDOG_IRQHandler          /*  1: Non-Secure Watchdog Interrupt */
-    .long    S32K_TIMER_IRQHandler           /*  2: S32K Timer Interrupt */
-    .long    TFM_TIMER0_IRQ_Handler          /*  3: CMSDK Timer 0 Interrupt */
+    .long    sci_uart_rxi_isr    /*  0: Non-Secure Watchdog Reset Request Interrupt */
+    .long    sci_uart_txi_isr          /*  1: Non-Secure Watchdog Interrupt */
+    .long    sci_uart_tei_isr           /*  2: S32K Timer Interrupt */
+    .long    sci_uart_eri_isr          /*  3: CMSDK Timer 0 Interrupt */
     .long    TIMER1_IRQHandler               /*  4: CMSDK Timer 1 Interrupt */
     .long    DUALTIMER_IRQHandler            /*  5: CMSDK Dual Timer Interrupt */
     .long    MHU0_IRQHandler                 /*  6: Message Handling Unit 0 Interrupt */
