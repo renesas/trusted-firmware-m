@@ -27,11 +27,11 @@
  * This is a default device configuration file with all peripherals enabled.
  */
 
-///*ARM UART Controller PL011*/
-//#define UART0_PL011_S
-//#define UART0_PL011_NS
-//#define UART1_PL011_S
-//#define UART1_PL011_NS
+/*ARM UART Controller PL011*/
+#define UART0_RA6M4_S
+#define UART0_RA6M4_NS
+#define UART1_RA6M4_S
+#define UART1_RA6M4_NS
 //
 ///* CMSDK Timers */
 //#define CMSDK_TIMER0_S

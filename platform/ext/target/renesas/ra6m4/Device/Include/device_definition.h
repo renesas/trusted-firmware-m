@@ -156,21 +156,21 @@ extern struct timer_cmsdk_dev_t CMSDK_TIMER1_DEV_NS;
 #endif
 
 /** ARM UART PL011 driver structures */
-#ifdef UART0_PL011_S
-#include "uart_pl011_drv.h"
-extern struct uart_pl011_dev_t UART0_PL011_DEV_S;
+#ifdef UART0_RA6M4_S
+#include "r_sci_uart.h"
+extern uart_instance_t UART0_RA6M4_DEV_S;
 #endif
-#ifdef UART0_PL011_NS
-#include "uart_pl011_drv.h"
-extern struct uart_pl011_dev_t UART0_PL011_DEV_NS;
+#ifdef UART0_RA6M4_NS
+#include "r_sci_uart.h"
+extern struct uart_pl011_dev_t UART0_RA6M4_DEV_NS;
 #endif
-#ifdef UART1_PL011_S
-#include "uart_pl011_drv.h"
-extern struct uart_pl011_dev_t UART1_PL011_DEV_S;
+#ifdef UART1_RA6M4_S
+#include "r_sci_uart.h"
+extern struct uart_pl011_dev_t UART1_RA6M4_DEV_S;
 #endif
-#ifdef UART1_PL011_NS
-#include "uart_pl011_drv.h"
-extern struct uart_pl011_dev_t UART1_PL011_DEV_NS;
+#ifdef UART1_RA6M4_NS
+#include "r_sci_uart.h"
+extern struct uart_pl011_dev_t UART1_RA6M4_DEV_NS;
 #endif
 
 #if defined(DFLASH0_S) || defined(CFLASH0_S)
