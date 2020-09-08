@@ -18,13 +18,15 @@
 #define __TARGET_CFG_H__
 #include <stdint.h>
 #include "tfm_peripherals_def.h"
+#include "bsp_api.h"
+#include "uart_stdout.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define TFM_DRIVER_STDIO    Driver_USART1
-#define NS_DRIVER_STDIO     Driver_USART1
+#define NS_DRIVER_STDIO     Driver_USART_NS
 
 /**
  * \brief Defines the word offsets of Slave Peripheral Protection Controller

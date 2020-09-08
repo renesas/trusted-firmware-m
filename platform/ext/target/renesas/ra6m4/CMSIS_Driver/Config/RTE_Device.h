@@ -61,12 +61,12 @@
 
 // <e> USART (Universal synchronous - asynchronous receiver transmitter) [Driver_USART0]
 // <i> Configuration settings for Driver_USART0 in component ::Drivers:USART
-//#define   RTE_USART0                      1
+#define   RTE_USART0                      1
 // </e> USART (Universal synchronous - asynchronous receiver transmitter) [Driver_USART0]
 
 // <e> USART (Universal synchronous - asynchronous receiver transmitter) [Driver_USART1]
 // <i> Configuration settings for Driver_USART1 in component ::Drivers:USART
-//#define   RTE_USART1                      1
+#define   RTE_USART1                      1
 // </e> USART (Universal synchronous - asynchronous receiver transmitter) [Driver_USART1]
 
 // <e> PPC (Peripheral Protection Controller) [Driver_AHB_PPC0]

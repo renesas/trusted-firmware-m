@@ -27,31 +27,19 @@
  * This is a default device configuration file with all peripherals enabled.
  */
 
-/*ARM UART Controller PL011*/
+/*ARM UART Controller RA6M4*/
 #define UART0_RA6M4_S
 #define UART0_RA6M4_NS
-#define UART1_RA6M4_S
-#define UART1_RA6M4_NS
-//
-///* CMSDK Timers */
-//#define CMSDK_TIMER0_S
-//#define CMSDK_TIMER0_NS
-//#define CMSDK_TIMER1_S
-//#define CMSDK_TIMER1_NS
-//
+//#define UART1_RA6M4_S
+//#define UART1_RA6M4_NS
+
+
 ///* Flash controller */
 #define DFLASH0_S
 #define CFLASH0_S
-//
-///* Cadence QSPI Flash Controller */
-//#define QSPI_IP6514E_S
-//#define QSPI_IP6514E_NS
-//
-///* MT25QL Flash memory library */
-//#define MT25QL_S
-//#define MT25QL_NS
-//
+
+
 /* Default UART baud rate */
-#define DEFAULT_UART_BAUDRATE 115200
+#define DEFAULT_UART_BAUDRATE 9600
 
 #endif  /* __RA6M4_DEVICE_CFG_H__ */

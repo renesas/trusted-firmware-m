@@ -33,144 +33,24 @@ extern "C" {
 #endif
 
 /* ======= Peripheral configuration structure declarations ======= */
-
-/* ARM SCC driver structures */
-#ifdef MUSCA_B1_SCC_S
-#include "musca_b1_scc_drv.h"
-extern struct musca_b1_scc_dev_t MUSCA_B1_SCC_DEV_S;
-#endif
-
-/* ARM PPC driver structures */
-#ifdef AHB_PPC0_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t AHB_PPC0_DEV_S;
-#endif
-
-#ifdef AHB_PPCEXP0_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t AHB_PPCEXP0_DEV_S;
-#endif
-
-#ifdef AHB_PPCEXP1_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t AHB_PPCEXP1_DEV_S;
-#endif
-
-#ifdef AHB_PPCEXP2_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t AHB_PPCEXP2_DEV_S;
-#endif
-
-#ifdef AHB_PPCEXP3_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t AHB_PPCEXP3_DEV_S;
-#endif
-
-#ifdef APB_PPC0_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t APB_PPC0_DEV_S;
-#endif
-
-#ifdef APB_PPC1_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t APB_PPC1_DEV_S;
-#endif
-
-#ifdef APB_PPCEXP0_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t APB_PPCEXP0_DEV_S;
-#endif
-
-#ifdef APB_PPCEXP1_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t APB_PPCEXP1_DEV_S;
-#endif
-
-#ifdef APB_PPCEXP2_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t APB_PPCEXP2_DEV_S;
-#endif
-
-#ifdef APB_PPCEXP3_S
-#include "ppc_sse200_drv.h"
-extern struct ppc_sse200_dev_t APB_PPCEXP3_DEV_S;
-#endif
-
-/* ARM MPC SIE 200 driver structures */
-#ifdef MPC_ISRAM0_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_ISRAM0_DEV_S;
-#endif
-#ifdef MPC_ISRAM1_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_ISRAM1_DEV_S;
-#endif
-#ifdef MPC_ISRAM2_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_ISRAM2_DEV_S;
-#endif
-#ifdef MPC_ISRAM3_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_ISRAM3_DEV_S;
-#endif
-#ifdef MPC_CODE_SRAM_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_CODE_SRAM_DEV_S;
-#endif
-#ifdef MPC_QSPI_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_QSPI_DEV_S;
-#endif
-#ifdef MPC_EFLASH0_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_EFLASH0_DEV_S;
-#endif
-#ifdef MPC_EFLASH1_S
-#include "mpc_sie200_drv.h"
-extern struct mpc_sie200_dev_t MPC_EFLASH1_DEV_S;
-#endif
-
-/** CMSDK GPIO driver structures */
-#ifdef GPIO0_CMSDK_S
-#include "gpio_cmsdk_drv.h"
-extern struct gpio_cmsdk_dev_t GPIO0_CMSDK_DEV_S;
-#endif
-
-/** CMSDK Timer driver structures */
-#ifdef CMSDK_TIMER0_S
-#include "timer_cmsdk_drv.h"
-extern struct timer_cmsdk_dev_t CMSDK_TIMER0_DEV_S;
-#endif
-#ifdef CMSDK_TIMER0_NS
-#include "timer_cmsdk_drv.h"
-extern struct timer_cmsdk_dev_t CMSDK_TIMER0_DEV_NS;
-#endif
-
-#ifdef CMSDK_TIMER1_S
-#include "timer_cmsdk_drv.h"
-extern struct timer_cmsdk_dev_t CMSDK_TIMER1_DEV_S;
-#endif
-#ifdef CMSDK_TIMER1_NS
-#include "timer_cmsdk_drv.h"
-extern struct timer_cmsdk_dev_t CMSDK_TIMER1_DEV_NS;
-#endif
-
-/** ARM UART PL011 driver structures */
+/** ARM UART RA6M4 driver structures */
 #ifdef UART0_RA6M4_S
 #include "r_sci_uart.h"
 extern uart_instance_t UART0_RA6M4_DEV_S;
+void user_uart_callback (uart_callback_args_t * p_args);
 #endif
 #ifdef UART0_RA6M4_NS
 #include "r_sci_uart.h"
-extern struct uart_pl011_dev_t UART0_RA6M4_DEV_NS;
+extern uart_instance_t UART0_RA6M4_DEV_NS;
+void user_uart_callback_ns (uart_callback_args_t * p_args);
 #endif
 #ifdef UART1_RA6M4_S
 #include "r_sci_uart.h"
-extern struct uart_pl011_dev_t UART1_RA6M4_DEV_S;
+extern struct uart_instance_t UART1_RA6M4_DEV_S;
 #endif
 #ifdef UART1_RA6M4_NS
 #include "r_sci_uart.h"
-extern struct uart_pl011_dev_t UART1_RA6M4_DEV_NS;
+extern struct uart_instance_t UART1_RA6M4_DEV_NS;
 #endif
 
 #if defined(DFLASH0_S) || defined(CFLASH0_S)
@@ -178,28 +58,6 @@ extern struct uart_pl011_dev_t UART1_RA6M4_DEV_NS;
 extern flash_instance_t FLASH0_DEV_S;
 #endif
 
-/* QSPI Flash Controller driver structures */
-#ifdef QSPI_IP6514E_S
-#include "qspi_ip6514e_drv.h"
-extern struct qspi_ip6514e_dev_t QSPI_DEV_S;
-#endif
-
-#ifdef QSPI_IP6514E_NS
-#include "qspi_ip6514e_drv.h"
-extern struct qspi_ip6514e_dev_t QSPI_DEV_NS;
-#endif
-
-/* ======= External peripheral configuration structure declarations ======= */
-
-/* MT25QL Flash memory library structures */
-#if (defined(MT25QL_S) && defined(QSPI_IP6514E_S))
-#include "mt25ql_flash_lib.h"
-extern struct mt25ql_dev_t MT25QL_DEV_S;
-#endif
-#if (defined(MT25QL_NS) && defined(QSPI_IP6514E_NS))
-#include "mt25ql_flash_lib.h"
-extern struct mt25ql_dev_t MT25QL_DEV_NS;
-#endif
 
 #ifdef __cplusplus
 }

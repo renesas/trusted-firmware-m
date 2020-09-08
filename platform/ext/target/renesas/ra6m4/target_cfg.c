@@ -66,12 +66,12 @@ const struct memory_region_limits memory_regions = {
 #define All_SEL_STATUS (SPNIDEN_SEL_STATUS | SPIDEN_SEL_STATUS | \
                         NIDEN_SEL_STATUS | DBGEN_SEL_STATUS)
 
-//struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
-//        MUSCA_B1_UART1_NS_BASE,
-//        MUSCA_B1_UART1_NS_BASE + 0xFFF,
+// struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
+//        R_SCI0_BASE,
+//        R_SCI0_BASE + 0xFFF,
 //        PPC_SP_DO_NOT_CONFIGURE,
 //        -1
-//};
+// };
 
 //struct tfm_spm_partition_platform_data_t tfm_peripheral_timer0 = {
 //        MUSCA_B1_CMSDK_TIMER0_S_BASE,
@@ -89,8 +89,8 @@ const struct memory_region_limits memory_regions = {
 
 struct tfm_spm_partition_platform_data_t
     tfm_peripheral_FF_TEST_UART_REGION = {
-    		R_SCI0_BASE,
-			R_SCI0_BASE + 0xFFF,
+    		R_SCI7_BASE,
+			R_SCI7_BASE + 0xFFF,
         PPC_SP_DO_NOT_CONFIGURE,
         -1
 };
@@ -103,12 +103,12 @@ struct tfm_spm_partition_platform_data_t
         -1
 };
 
-#define FF_TEST_NVMEM_REGION_START            0x3003F800
-#define FF_TEST_NVMEM_REGION_END              0x3003FBFF
-#define FF_TEST_SERVER_PARTITION_MMIO_START   0x3003FC00
-#define FF_TEST_SERVER_PARTITION_MMIO_END     0x3003FD00
-#define FF_TEST_DRIVER_PARTITION_MMIO_START   0x3003FE00
-#define FF_TEST_DRIVER_PARTITION_MMIO_END     0x3003FF00
+#define FF_TEST_NVMEM_REGION_START            0x8001000
+#define FF_TEST_NVMEM_REGION_END              0x8001FFF
+#define FF_TEST_SERVER_PARTITION_MMIO_START   0x200138FF
+#define FF_TEST_SERVER_PARTITION_MMIO_END     0x200139FF
+#define FF_TEST_DRIVER_PARTITION_MMIO_START   0x20013AFF
+#define FF_TEST_DRIVER_PARTITION_MMIO_END     0x20013BFF
 
 struct tfm_spm_partition_platform_data_t
     tfm_peripheral_FF_TEST_NVMEM_REGION = {

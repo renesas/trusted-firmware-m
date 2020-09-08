@@ -101,14 +101,13 @@ if (NOT DEFINED BUILD_NATIVE_DRIVERS)
     message(FATAL_ERROR "Configuration variable BUILD_NATIVE_DRIVERS (true|false) is undefined!")
 elseif (BUILD_NATIVE_DRIVERS)
 #    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
-     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_sci_uart.c")
+     
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/bsp_io.c")
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/bsp_irq.c")
-
-    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
-    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_sci_uart.c")
-    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/bsp_io.c")
-    list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/bsp_irq.c")
+     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_sci_uart.c")
+     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_ioport.c")
+     list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
+     #list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/pin_data.c")
 endif()
 
 if (NOT DEFINED BUILD_TIME)
@@ -198,7 +197,7 @@ if (NOT DEFINED BUILD_CMSIS_DRIVERS)
 elseif (BUILD_CMSIS_DRIVERS)
     #list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_MPC.c"
     #                        "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_PPC.c")
-    #list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_USART.c")
+    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_USART.c")
     embedded_include_directories(PATH "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver" ABSOLUTE)
     embedded_include_directories(PATH "${PLATFORM_DIR}/driver" ABSOLUTE)
 endif()
@@ -208,7 +207,6 @@ if (NOT DEFINED BUILD_FLASH)
 elseif (BUILD_FLASH)
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_QSPI_Flash.c")
     list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_Flash.c")
-    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/CMSIS_Driver/Driver_USART.c")
     # As the PS area is going to be in RAM, it is required to set
     # PS_CREATE_FLASH_LAYOUT to be sure the PS service knows that when it
     # starts the PS area does not contain any valid PS flash layout and it
