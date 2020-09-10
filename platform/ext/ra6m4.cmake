@@ -107,7 +107,7 @@ elseif (BUILD_NATIVE_DRIVERS)
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_sci_uart.c")
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_ioport.c")
      list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
-     #list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/pin_data.c")
+     list(APPEND ALL_SRC_C_S "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/pin_data.c")
 endif()
 
 if (NOT DEFINED BUILD_TIME)

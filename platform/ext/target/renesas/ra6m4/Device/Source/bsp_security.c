@@ -104,7 +104,7 @@ void R_BSP_SecurityInit (void)
 
     /* Reenable PRCR for SARs. */
     R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
-    //R_BSP_PinCfgSecurityInit();
+    R_BSP_PinCfgSecurityInit();
 }
 
 #endif

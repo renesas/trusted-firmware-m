@@ -40,6 +40,18 @@ enum tfm_plat_err_t tfm_spm_hal_init_isolation_hw(void)
 {
 //    int32_t ret = ARM_DRIVER_OK;
     /* Configures non-secure memory spaces in the target */
+    R_PMISC->PWPRS = 0;                              ///< Clear BOWI bit - writing to PFSWE bit enabled
+    R_PMISC->PWPRS = 1U << 6U;
+    /* Ensure that the PMSAR registers are reset (Soft reset does not reset PMSAR). */
+    R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR);
+
+    for (uint32_t i = 0; i < 9; i++)
+    {
+        R_PMISC->PMSAR[i].PMSAR = UINT16_MAX;
+    }
+
+    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
+
     R_BSP_SecurityInit();
 //    sau_and_idau_cfg();
 //    ret = mpc_init_cfg();

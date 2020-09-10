@@ -1,22 +1,4 @@
-/***********************************************************************************************************************
- * Copyright [2020] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
- *
- * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
- * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
- * sold pursuant to Renesas terms and conditions of sale.  Purchasers are solely responsible for the selection and use
- * of Renesas products and Renesas assumes no liability.  No license, express or implied, to any intellectual property
- * right is granted by Renesas. This software is protected under all applicable laws, including copyright laws. Renesas
- * reserves the right to change or discontinue this software and/or this documentation. THE SOFTWARE AND DOCUMENTATION
- * IS DELIVERED TO YOU "AS IS," AND RENESAS MAKES NO REPRESENTATIONS OR WARRANTIES, AND TO THE FULLEST EXTENT
- * PERMISSIBLE UNDER APPLICABLE LAW, DISCLAIMS ALL WARRANTIES, WHETHER EXPLICITLY OR IMPLICITLY, INCLUDING WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT, WITH RESPECT TO THE SOFTWARE OR
- * DOCUMENTATION.  RENESAS SHALL HAVE NO LIABILITY ARISING OUT OF ANY SECURITY VULNERABILITY OR BREACH.  TO THE MAXIMUM
- * EXTENT PERMITTED BY LAW, IN NO EVENT WILL RENESAS BE LIABLE TO YOU IN CONNECTION WITH THE SOFTWARE OR DOCUMENTATION
- * (OR ANY PERSON OR ENTITY CLAIMING RIGHTS DERIVED FROM YOU) FOR ANY LOSS, DAMAGES, OR CLAIMS WHATSOEVER, INCLUDING,
- * WITHOUT LIMITATION, ANY DIRECT, CONSEQUENTIAL, SPECIAL, INDIRECT, PUNITIVE, OR INCIDENTAL DAMAGES; ANY LOST PROFITS,
- * OTHER ECONOMIC DAMAGE, PROPERTY DAMAGE, OR PERSONAL INJURY; AND EVEN IF RENESAS HAS BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH LOSS, DAMAGES, CLAIMS OR COSTS.
- **********************************************************************************************************************/
+/* ${REA_DISCLAIMER_PLACEHOLDER} */
 
 /* Ensure Renesas MCU variation definitions are included to ensure MCU
  * specific register variations are handled correctly. */
@@ -1877,6 +1859,14 @@ typedef struct
 {
     __IOM R_PFS_PORT_PIN_Type PIN[16]; /*!< (@ 0x00000000) Pin Function Selects                                       */
 } R_PFS_PORT_Type;                     /*!< Size = 64 (0x40)                                                          */
+
+/**
+ * @brief R_PMISC_PMSAR [PMSAR] (Port Security Attribution Register)
+ */
+typedef struct
+{
+    __IOM uint16_t PMSAR;              /*!< (@ 0x00000000) Port Security Attribution Register                         */
+} R_PMISC_PMSAR_Type;                  /*!< Size = 2 (0x2)                                                            */
 
 /**
  * @brief R_RTC_RTCCR [RTCCR] (Time Capture Control Register)
@@ -12726,7 +12716,7 @@ typedef struct                         /*!< (@ 0x40047000) R_MSTP Structure     
         {
             __IOM uint32_t MSTPC0  : 1; /*!< [0..0] CAC Module Stop                                                    */
             __IOM uint32_t MSTPC1  : 1; /*!< [1..1] CRC Calculator Module Stop                                         */
-            uint32_t               : 1;
+            __IOM uint32_t MSTPC2  : 1; /*!< [2..2] Parallel Data Capture Module Stop                                  */
             __IOM uint32_t MSTPC3  : 1; /*!< [3..3] Capacitive Touch Sensing Unit Module Stop                          */
             __IOM uint32_t MSTPC4  : 1; /*!< [4..4] Segment LCD Controller Module Stop                                 */
             uint32_t               : 3;
@@ -13376,7 +13366,22 @@ typedef struct                         /*!< (@ 0x40040D00) R_PMISC Structure    
             __IOM uint8_t B0WI  : 1;   /*!< [7..7] PFSWE Bit Write Disable                                            */
         } PWPR_b;
     };
-} R_PMISC_Type;                        /*!< Size = 4 (0x4)                                                            */
+    __IM uint8_t RESERVED1;
+
+    union
+    {
+        __IOM uint8_t PWPRS;           /*!< (@ 0x00000005) Write-Protect Register for Secure                          */
+
+        struct
+        {
+            uint8_t             : 6;
+            __IOM uint8_t PFSWE : 1;   /*!< [6..6] PmnPFS Register Write                                              */
+            __IOM uint8_t B0WI  : 1;   /*!< [7..7] PFSWE Bit Write Disable                                            */
+        } PWPRS_b;
+    };
+    __IM uint16_t            RESERVED2[5];
+    __IOM R_PMISC_PMSAR_Type PMSAR[9]; /*!< (@ 0x00000010) Port Security Attribution Register                         */
+} R_PMISC_Type;                        /*!< Size = 34 (0x22)                                                          */
 
 /* =========================================================================================================================== */
 /* ================                                          R_QSPI                                           ================ */
@@ -15551,15 +15556,15 @@ typedef struct                         /*!< (@ 0x40082000) R_SLCDC Structure    
 
     union
     {
-        __IOM uint8_t SEG[38];         /*!< (@ 0x00000100) LCD Display Data Array                                     */
+        __IOM uint8_t SEG[64];         /*!< (@ 0x00000100) LCD Display Data Array                                     */
 
         struct
         {
             __IOM uint8_t A : 4;       /*!< [3..0] A-Pattern Area                                                     */
             __IOM uint8_t B : 4;       /*!< [7..4] B-Pattern Area                                                     */
-        } SEG_b[38];
+        } SEG_b[64];
     };
-} R_SLCDC_Type;                        /*!< Size = 294 (0x126)                                                        */
+} R_SLCDC_Type;                        /*!< Size = 320 (0x140)                                                        */
 
 /* =========================================================================================================================== */
 /* ================                                          R_SPI0                                           ================ */
@@ -17915,6 +17920,28 @@ typedef struct                         /*!< (@ 0x407EC000) R_TSN Structure      
 } R_TSN_Type;                          /*!< Size = 554 (0x22a)                                                        */
 
 /* =========================================================================================================================== */
+/* ================                                         R_TSN_CAL                                         ================ */
+/* =========================================================================================================================== */
+
+/**
+ * @brief Temperature Sensor (R_TSN_CAL)
+ */
+
+typedef struct                         /*!< (@ 0x407FB17C) R_TSN_CAL Structure                                        */
+{
+    union
+    {
+        __IM uint32_t TSCDR;           /*!< (@ 0x00000000) Temperature Sensor 32 bit Calibration Data Register        */
+
+        struct
+        {
+            __IM uint32_t TSCDR : 32;  /*!< [31..0] The 32 bit TSCDR register stores temperature sensor
+                                        *   calibration converted value.                                              */
+        } TSCDR_b;
+    };
+} R_TSN_CAL_Type;                      /*!< Size = 4 (0x4)                                                            */
+
+/* =========================================================================================================================== */
 /* ================                                        R_TSN_CTRL                                         ================ */
 /* =========================================================================================================================== */
 
@@ -20115,7 +20142,21 @@ typedef struct                         /*!< (@ 0x40000E00) R_TZF Structure      
 
 typedef struct                         /*!< (@ 0x40008000) R_CPSCU Structure                                          */
 {
-    __IM uint32_t RESERVED[5];
+    __IM uint32_t RESERVED[4];
+
+    union
+    {
+        __IOM uint32_t SRAMSAR;         /*!< (@ 0x00000010) SRAM Security Attribution Register                         */
+
+        struct
+        {
+            __IOM uint32_t SRAMSA0 : 1; /*!< [0..0] Security attributes of registers for SRAM Protection               */
+            __IOM uint32_t SRAMSA1 : 1; /*!< [1..1] Security attributes of registers for SRAM Protection
+                                         *   2                                                                         */
+            __IOM uint32_t SRAMSA2 : 1; /*!< [2..2] Security attributes of registers for ECC Relation                  */
+            uint32_t               : 29;
+        } SRAMSAR_b;
+    };
 
     union
     {
@@ -20131,23 +20172,23 @@ typedef struct                         /*!< (@ 0x40008000) R_CPSCU Structure    
 
     union
     {
-        __IM uint32_t DTCSAR;          /*!< (@ 0x00000030) DTC Controller Security Attribution Register               */
+        __IOM uint32_t DTCSAR;          /*!< (@ 0x00000030) DTC Controller Security Attribution Register               */
 
         struct
         {
-            __IM uint32_t DTCSTSA : 1; /*!< [0..0] DTC Security Attribution                                           */
-            uint32_t              : 31;
+            __IOM uint32_t DTCSTSA : 1; /*!< [0..0] DTC Security Attribution                                           */
+            uint32_t               : 31;
         } DTCSAR_b;
     };
 
     union
     {
-        __IM uint32_t DMACSAR;         /*!< (@ 0x00000034) DMAC Controller Security Attribution Register              */
+        __IOM uint32_t DMACSAR;         /*!< (@ 0x00000034) DMAC Controller Security Attribution Register              */
 
         struct
         {
-            __IM uint32_t DMASTSA : 1; /*!< [0..0] DMAST Security Attribution                                         */
-            uint32_t              : 31;
+            __IOM uint32_t DMASTSA : 1; /*!< [0..0] DMAST Security Attribution                                         */
+            uint32_t               : 31;
         } DMACSAR_b;
     };
     __IM uint32_t RESERVED2[2];
@@ -20262,7 +20303,30 @@ typedef struct                         /*!< (@ 0x40008000) R_CPSCU Structure    
             __IOM uint32_t SAIELSRn : 32; /*!< [31..0] Security Attributes of registers for IELSR95 to IELSR64           */
         } ICUSARI_b;
     };
-    __IM uint32_t RESERVED4[45];
+    __IM uint32_t RESERVED4[33];
+
+    union
+    {
+        __IOM uint32_t BUSSARA;        /*!< (@ 0x00000100) Bus Security Attribution Register A                        */
+
+        struct
+        {
+            __IOM uint32_t BUSSA0 : 1; /*!< [0..0] BUS Security Attribution A0                                        */
+            uint32_t              : 31;
+        } BUSSARA_b;
+    };
+
+    union
+    {
+        __IOM uint32_t BUSSARB;        /*!< (@ 0x00000104) Bus Security Attribution Register B                        */
+
+        struct
+        {
+            __IOM uint32_t BUSSB0 : 1; /*!< [0..0] BUS Security Attribution B0                                        */
+            uint32_t              : 31;
+        } BUSSARB_b;
+    };
+    __IM uint32_t RESERVED5[10];
 
     union
     {
@@ -20287,7 +20351,7 @@ typedef struct                         /*!< (@ 0x40008000) R_CPSCU Structure    
             uint32_t                : 31;
         } MMPUSARB_b;
     };
-    __IM uint32_t RESERVED5[30];
+    __IM uint32_t RESERVED6[30];
 
     union
     {
@@ -20665,7 +20729,6 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
  #include "base_addresses.h"
 
 /* =========================================  End of section using anonymous unions  ========================================= */
-
  #if defined(__CC_ARM)
   #pragma pop
  #elif defined(__ICCARM__)
@@ -21443,6 +21506,12 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
 /* =========================================================================================================================== */
 /* ================                                           PORT                                            ================ */
 /* =========================================================================================================================== */
+
+/* =========================================================================================================================== */
+/* ================                                           PMSAR                                           ================ */
+/* =========================================================================================================================== */
+
+/* =========================================================  PMSAR  ========================================================= */
 
 /* =========================================================================================================================== */
 /* ================                                           RTCCR                                           ================ */
@@ -26588,6 +26657,8 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
  #define R_MSTP_MSTPCRC_MSTPC3_Msk     (0x8UL)        /*!< MSTPC3 (Bitfield-Mask: 0x01)                          */
  #define R_MSTP_MSTPCRC_MSTPC1_Pos     (1UL)          /*!< MSTPC1 (Bit 1)                                        */
  #define R_MSTP_MSTPCRC_MSTPC1_Msk     (0x2UL)        /*!< MSTPC1 (Bitfield-Mask: 0x01)                          */
+ #define R_MSTP_MSTPCRC_MSTPC2_Pos     (2UL)          /*!< MSTPC2 (Bit 2)                                        */
+ #define R_MSTP_MSTPCRC_MSTPC2_Msk     (0x4UL)        /*!< MSTPC2 (Bitfield-Mask: 0x01)                          */
  #define R_MSTP_MSTPCRC_MSTPC0_Pos     (0UL)          /*!< MSTPC0 (Bit 0)                                        */
  #define R_MSTP_MSTPCRC_MSTPC0_Msk     (0x1UL)        /*!< MSTPC0 (Bitfield-Mask: 0x01)                          */
  #define R_MSTP_MSTPCRC_MSTPC8_Pos     (8UL)          /*!< MSTPC8 (Bit 8)                                        */
@@ -26824,6 +26895,11 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
  #define R_PMISC_PWPR_PFSWE_Msk         (0x40UL) /*!< PFSWE (Bitfield-Mask: 0x01)                           */
  #define R_PMISC_PWPR_B0WI_Pos          (7UL)    /*!< B0WI (Bit 7)                                          */
  #define R_PMISC_PWPR_B0WI_Msk          (0x80UL) /*!< B0WI (Bitfield-Mask: 0x01)                            */
+/* =========================================================  PWPRS  ========================================================= */
+ #define R_PMISC_PWPRS_PFSWE_Pos        (6UL)    /*!< PFSWE (Bit 6)                                         */
+ #define R_PMISC_PWPRS_PFSWE_Msk        (0x40UL) /*!< PFSWE (Bitfield-Mask: 0x01)                           */
+ #define R_PMISC_PWPRS_B0WI_Pos         (7UL)    /*!< B0WI (Bit 7)                                          */
+ #define R_PMISC_PWPRS_B0WI_Msk         (0x80UL) /*!< B0WI (Bitfield-Mask: 0x01)                            */
 
 /* =========================================================================================================================== */
 /* ================                                          R_QSPI                                           ================ */
@@ -28999,6 +29075,14 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
  #define R_TSN_TSCDRL_TSCDRL_Msk    (0xffUL) /*!< TSCDRL (Bitfield-Mask: 0xff)                          */
 
 /* =========================================================================================================================== */
+/* ================                                         R_TSN_CAL                                         ================ */
+/* =========================================================================================================================== */
+
+/* =========================================================  TSCDR  ========================================================= */
+ #define R_TSN_CAL_TSCDR_TSCDR_Pos    (0UL)          /*!< TSCDR (Bit 0)                                         */
+ #define R_TSN_CAL_TSCDR_TSCDR_Msk    (0xffffffffUL) /*!< TSCDR (Bitfield-Mask: 0xffffffff)                     */
+
+/* =========================================================================================================================== */
 /* ================                                        R_TSN_CTRL                                         ================ */
 /* =========================================================================================================================== */
 
@@ -29613,6 +29697,13 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
 /* ================                                          R_CPSCU                                          ================ */
 /* =========================================================================================================================== */
 
+/* ========================================================  SRAMSAR  ======================================================== */
+ #define R_CPSCU_SRAMSAR_SRAMSA0_Pos        (0UL)          /*!< SRAMSA0 (Bit 0)                                       */
+ #define R_CPSCU_SRAMSAR_SRAMSA0_Msk        (0x1UL)        /*!< SRAMSA0 (Bitfield-Mask: 0x01)                         */
+ #define R_CPSCU_SRAMSAR_SRAMSA1_Pos        (1UL)          /*!< SRAMSA1 (Bit 1)                                       */
+ #define R_CPSCU_SRAMSAR_SRAMSA1_Msk        (0x2UL)        /*!< SRAMSA1 (Bitfield-Mask: 0x01)                         */
+ #define R_CPSCU_SRAMSAR_SRAMSA2_Pos        (2UL)          /*!< SRAMSA2 (Bit 2)                                       */
+ #define R_CPSCU_SRAMSAR_SRAMSA2_Msk        (0x4UL)        /*!< SRAMSA2 (Bitfield-Mask: 0x01)                         */
 /* =======================================================  STBRAMSAR  ======================================================= */
  #define R_CPSCU_STBRAMSAR_NSBSTBR_Pos      (0UL)          /*!< NSBSTBR (Bit 0)                                       */
  #define R_CPSCU_STBRAMSAR_NSBSTBR_Msk      (0xfUL)        /*!< NSBSTBR (Bitfield-Mask: 0x0f)                         */
@@ -29671,6 +29762,12 @@ typedef struct                         /*!< (@ 0x400A6000) R_OSPI Structure     
 /* ========================================================  ICUSARI  ======================================================== */
  #define R_CPSCU_ICUSARI_SAIELSRn_Pos       (0UL)          /*!< SAIELSRn (Bit 0)                                      */
  #define R_CPSCU_ICUSARI_SAIELSRn_Msk       (0xffffffffUL) /*!< SAIELSRn (Bitfield-Mask: 0xffffffff)                  */
+/* ========================================================  BUSSARA  ======================================================== */
+ #define R_CPSCU_BUSSARA_BUSSA0_Pos         (0UL)          /*!< BUSSA0 (Bit 0)                                        */
+ #define R_CPSCU_BUSSARA_BUSSA0_Msk         (0x1UL)        /*!< BUSSA0 (Bitfield-Mask: 0x01)                          */
+/* ========================================================  BUSSARB  ======================================================== */
+ #define R_CPSCU_BUSSARB_BUSSB0_Pos         (0UL)          /*!< BUSSB0 (Bit 0)                                        */
+ #define R_CPSCU_BUSSARB_BUSSB0_Msk         (0x1UL)        /*!< BUSSB0 (Bitfield-Mask: 0x01)                          */
 /* =======================================================  MMPUSARA  ======================================================== */
  #define R_CPSCU_MMPUSARA_MMPUAnSA_Pos      (0UL)          /*!< MMPUAnSA (Bit 0)                                      */
  #define R_CPSCU_MMPUSARA_MMPUAnSA_Msk      (0xffUL)       /*!< MMPUAnSA (Bitfield-Mask: 0xff)                        */

@@ -30,7 +30,6 @@
  #include <stdint.h>
  #include "r_sci_uart.h"
  #include "r_uart_api.h"
- #include "r_ioport.h"
  #include "cmsis_driver_config.h"
  #include "RTE_Device.h"
 #include "bsp_feature.h"
@@ -139,27 +138,20 @@ static int32_t ARM_USARTx_Send(UARTx_Resources* uart_dev, const void *data,
                                uint32_t num)
 {
     fsp_err_t fsp_err = FSP_SUCCESS;
-    uint8_t buffer = 48U;
     if ((num == 0) || (data == NULL))
     {
-        return ARM_DRIVER_ERROR;
+    	return ARM_DRIVER_ERROR;
     }
-    while(1)
-    {
-    	while (!(g_uart_evt == 1U));
-    	g_uart_evt = 0U;
 
-    	fsp_err = R_SCI_UART_Write(uart_dev->dev->p_ctrl, &buffer/*data*/, 1/*num*/);
-    	if (FSP_SUCCESS != fsp_err)
-    	{
-    		return ARM_DRIVER_ERROR;
-    	}
-    	buffer++;
-    	if(buffer == 80U)
-    	{
-    		buffer =48U;
-    	}
+    while (!(g_uart_evt == 1U));
+    g_uart_evt = 0U;
+
+    fsp_err = R_SCI_UART_Write(uart_dev->dev->p_ctrl, (uint8_t const *)data, num);
+    if (FSP_SUCCESS != fsp_err)
+    {
+    	return ARM_DRIVER_ERROR;
     }
+
     /*Save the transmitted number to be used in ARM_USART_GetTxCount*/
     g_num = num;
 
@@ -302,43 +294,6 @@ static ARM_USART_CAPABILITIES ARM_USART1_GetCapabilities (void)
 static int32_t ARM_USART1_Initialize (ARM_USART_SignalEvent_t cb_event)
 {
     ARG_UNUSED(cb_event);
-    static ioport_instance_ctrl_t g_ioport_ctrl;
-    static const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
-    	    {
-    	        .pin     = BSP_IO_PORT_06_PIN_14, // RXD7
-    	        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
-    	    },
-    	    {
-    	        .pin     = BSP_IO_PORT_06_PIN_13, // TXD7
-    	        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
-    	    },
-		    {
-		        .pin = BSP_IO_PORT_01_PIN_08,
-		        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-		    },
-		    {
-		        .pin = BSP_IO_PORT_01_PIN_09,
-		        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-		    },
-		    {
-		        .pin = BSP_IO_PORT_01_PIN_10,
-		        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-		    },
-		    {
-		        .pin = BSP_IO_PORT_03_PIN_00,
-		        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-		    },
-    };
-
-    static const ioport_cfg_t g_bsp_pin_cfg = {
-        .number_of_pins = sizeof(g_bsp_pin_cfg_data)/sizeof(ioport_pin_cfg_t),
-        .p_pin_cfg_data = &g_bsp_pin_cfg_data[0],
-    };
-    fsp_err_t fsp_err = R_IOPORT_Open (&g_ioport_ctrl, &g_bsp_pin_cfg);
-    if (FSP_SUCCESS != fsp_err)
-    {
-        return ARM_DRIVER_ERROR;
-    }
 
     return ARM_USARTx_Initialize(&USART1_DEV);
 }
