@@ -340,15 +340,15 @@ static void platform_signal_handle(psa_signal_t signal, plat_func_t pfn)
 enum tfm_platform_err_t platform_sp_init(void)
 {
     /* Initialise the non-volatile counters */
-//    enum tfm_plat_err_t err;
-//    err = tfm_plat_init_nv_counter();
-//    if (err != TFM_PLAT_ERR_SUCCESS) {
-//#ifdef TFM_PSA_API
-//        psa_panic();
-//#else
-//        return TFM_PLATFORM_ERR_SYSTEM_ERROR;
-//#endif
-//    }
+    enum tfm_plat_err_t err;
+    err = tfm_plat_init_nv_counter();
+    if (err != TFM_PLAT_ERR_SUCCESS) {
+#ifdef TFM_PSA_API
+        psa_panic();
+#else
+        return TFM_PLATFORM_ERR_SYSTEM_ERROR;
+#endif
+    }
 #ifdef TFM_PSA_API
     psa_signal_t signals = 0;
 
