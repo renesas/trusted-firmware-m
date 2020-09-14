@@ -35,12 +35,12 @@
 /***********************************************************************************************************************
  * Typedef definitions
  **********************************************************************************************************************/
-void R_BSP_PinCfgSecurityInit(void);
+
 /***********************************************************************************************************************
  * Exported global variables (to be accessed by other files)
  **********************************************************************************************************************/
 void R_BSP_SecurityInit(void);
-
+extern void R_BSP_PinCfgSecurityInit(void);
 /*******************************************************************************************************************//**
  * Initialize security features for TrustZone.
  *
@@ -96,15 +96,19 @@ void R_BSP_SecurityInit (void)
     R_TZF->TZFPT  = BSP_PRV_TZ_REG_KEY + 0U;
 
     /* Initialize PSARs. */
-    R_PSCU->PSARB = BSP_TZ_CFG_PSARB;
+    R_PSCU->PSARB = (0xFEFFFFFF);
     R_PSCU->PSARC = BSP_TZ_CFG_PSARC;
     R_PSCU->PSARD = BSP_TZ_CFG_PSARD;
     R_PSCU->PSARE = BSP_TZ_CFG_PSARE;
     R_PSCU->MSSAR = BSP_TZ_CFG_MSSAR;
 
-    /* Reenable PRCR for SARs. */
-    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
+  R_CPSCU->ICUSARB   = (0 | 0xFFFFFFFEU);;   /* NMI Security Attribution. */
+
+
+    /* Initialize security features. */
     R_BSP_PinCfgSecurityInit();
+        /* Reenable PRCR for SARs. */
+    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
 }
 
 #endif

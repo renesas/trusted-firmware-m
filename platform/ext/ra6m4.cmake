@@ -101,7 +101,6 @@ if (NOT DEFINED BUILD_NATIVE_DRIVERS)
     message(FATAL_ERROR "Configuration variable BUILD_NATIVE_DRIVERS (true|false) is undefined!")
 elseif (BUILD_NATIVE_DRIVERS)
 #    list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_flash_hp.c")
-     
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/bsp_io.c")
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/bsp_irq.c")
      list(APPEND ALL_SRC_C "${PLATFORM_DIR}/target/renesas/ra6m4/Native_Driver/r_sci_uart.c")

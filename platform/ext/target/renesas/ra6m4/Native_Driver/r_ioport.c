@@ -23,7 +23,6 @@
  **********************************************************************************************************************/
 #include <stdint.h>
 #include "bsp_api.h"
-#include "bsp_io.h"
 #include "r_ioport.h"
 #include "r_ioport_api.h"
 

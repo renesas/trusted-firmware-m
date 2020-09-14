@@ -16,6 +16,44 @@
 #include "region_defs.h"
 #include "secure_utilities.h"
 #include "region.h"
+#include "r_ioport_api.h"
+#include "r_ioport.h"
+#include "core_cm33.h"
+#include "bsp_clocks.h"
+
+static const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
+            {
+                .pin     = BSP_IO_PORT_06_PIN_14, // RXD7
+                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+            },
+            {
+                .pin     = BSP_IO_PORT_06_PIN_13, // TXD7
+                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+            },
+            {
+                .pin = BSP_IO_PORT_01_PIN_08,
+                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+            },
+            {
+                .pin = BSP_IO_PORT_01_PIN_09,
+                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+            },
+            {
+                .pin = BSP_IO_PORT_01_PIN_10,
+                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+            },
+            {
+                .pin = BSP_IO_PORT_03_PIN_00,
+                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+            },
+    };
+
+static ioport_instance_ctrl_t g_ioport_ctrl;
+
+static const ioport_cfg_t g_bsp_pin_cfg = {
+    .number_of_pins = sizeof(g_bsp_pin_cfg_data)/sizeof(ioport_pin_cfg_t),
+    .p_pin_cfg_data = &g_bsp_pin_cfg_data[0],
+};
 
 /* Get address of memory regions to configure MPU */
 extern const struct memory_region_limits memory_regions;
@@ -40,19 +78,54 @@ enum tfm_plat_err_t tfm_spm_hal_init_isolation_hw(void)
 {
 //    int32_t ret = ARM_DRIVER_OK;
     /* Configures non-secure memory spaces in the target */
-    R_PMISC->PWPRS = 0;                              ///< Clear BOWI bit - writing to PFSWE bit enabled
-    R_PMISC->PWPRS = 1U << 6U;
-    /* Ensure that the PMSAR registers are reset (Soft reset does not reset PMSAR). */
-    R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR);
 
-    for (uint32_t i = 0; i < 9; i++)
-    {
-        R_PMISC->PMSAR[i].PMSAR = UINT16_MAX;
-    }
+/* Configure system clocks. */
+bsp_clock_init();
 
-    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
+R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR);
 
+for (uint32_t i = 0; i < 9; i++)
+   {
+       R_PMISC->PMSAR[i].PMSAR = UINT16_MAX;
+   }
+
+R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
+
+#if BSP_TZ_SECURE_BUILD
+    /* Initialize security features. */
     R_BSP_SecurityInit();
+#endif
+
+	R_IOPORT_Open(&g_ioport_ctrl, &g_bsp_pin_cfg);
+
+#if BSP_TZ_SECURE_BUILD
+	R_IOPORT_PinsCfg(&g_ioport_ctrl, &g_bsp_pin_cfg);
+#endif
+
+#if FSP_PRIV_TZ_USE_SECURE_REGS
+
+    /* Unprotect security registers. */
+    R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR);
+    // R_CPSCU->ICUSARG = 0xffffff0f;
+    // NVIC->ITNS = 0xffffff0f;
+    uint32_t volatile * p_icusarg = &R_CPSCU->ICUSARG;
+    p_icusarg[0]  = 0xfffffff0;
+    NVIC->ITNS[0] = 0xfffffff0;
+    p_icusarg[1]  = 0xffffffff;
+    NVIC->ITNS[1] = 0xffffffff;
+    p_icusarg[2]  = 0xffffffff;
+    NVIC->ITNS[2] = 0xffffffff;
+    NVIC_ClearTargetState(0);
+    NVIC_ClearTargetState(1);
+    NVIC_ClearTargetState(2);
+    NVIC_ClearTargetState(3);
+    /* Protect security registers. */
+    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
+#endif
+    R_ICU->IELSR[0] = (uint32_t) (426);
+    R_ICU->IELSR[1] = (uint32_t) (427);
+    R_ICU->IELSR[2] = (uint32_t) (428);
+    R_ICU->IELSR[3] = (uint32_t) (429);
 //    sau_and_idau_cfg();
 //    ret = mpc_init_cfg();
 //    if (ret != ARM_DRIVER_OK) {

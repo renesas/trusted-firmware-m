@@ -16,11 +16,7 @@ void bsp_clock_init (void);
 /* platform-specific hw initialization */
 __WEAK enum tfm_plat_err_t tfm_spm_hal_post_init_platform(void)
 {
-    bsp_clock_init();
-    R_ICU->IELSR[4] = (uint32_t) (426);
-    R_ICU->IELSR[5] = (uint32_t) (427);
-    R_ICU->IELSR[6] = (uint32_t) (428);
-    R_ICU->IELSR[7] = (uint32_t) (429);
+    //bsp_clock_init();
     return TFM_PLAT_ERR_SUCCESS;
 }
 

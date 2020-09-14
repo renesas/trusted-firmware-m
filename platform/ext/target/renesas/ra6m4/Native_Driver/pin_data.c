@@ -5,41 +5,6 @@
 #include "bsp_feature.h"
 #include "renesas.h"
 
-
-static const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
-            {
-                .pin     = BSP_IO_PORT_06_PIN_14, // RXD7
-                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
-            },
-            {
-                .pin     = BSP_IO_PORT_06_PIN_13, // TXD7
-                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
-            },
-            {
-                .pin = BSP_IO_PORT_01_PIN_08,
-                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-            },
-            {
-                .pin = BSP_IO_PORT_01_PIN_09,
-                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-            },
-            {
-                .pin = BSP_IO_PORT_01_PIN_10,
-                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-            },
-            {
-                .pin = BSP_IO_PORT_03_PIN_00,
-                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
-            },
-    };
-
-static ioport_instance_ctrl_t g_ioport_ctrl;
-
-static const ioport_cfg_t g_bsp_pin_cfg = {
-    .number_of_pins = sizeof(g_bsp_pin_cfg_data)/sizeof(ioport_pin_cfg_t),
-    .p_pin_cfg_data = &g_bsp_pin_cfg_data[0],
-};
-
 #if BSP_TZ_SECURE_BUILD
 
 #define BSP_PRV_NUM_PMSAR  (sizeof(R_PMISC->PMSAR) / sizeof(R_PMISC->PMSAR[0]))
@@ -49,6 +14,37 @@ void R_BSP_PinCfgSecurityInit(void);
 /* Initialize SAR registers for secure pins. */
 void R_BSP_PinCfgSecurityInit(void)
 {
+	const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
+	            {
+	                .pin     = BSP_IO_PORT_06_PIN_14, // RXD7
+	                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+	            },
+	            {
+	                .pin     = BSP_IO_PORT_06_PIN_13, // TXD7
+	                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+	            },
+	            {
+	                .pin = BSP_IO_PORT_01_PIN_08,
+	                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+	            },
+	            {
+	                .pin = BSP_IO_PORT_01_PIN_09,
+	                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+	            },
+	            {
+	                .pin = BSP_IO_PORT_01_PIN_10,
+	                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+	            },
+	            {
+	                .pin = BSP_IO_PORT_03_PIN_00,
+	                .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG),
+	            },
+	    };
+
+	const ioport_cfg_t g_bsp_pin_cfg = {
+	    .number_of_pins = sizeof(g_bsp_pin_cfg_data)/sizeof(ioport_pin_cfg_t),
+	    .p_pin_cfg_data = &g_bsp_pin_cfg_data[0],
+	};
 
     uint16_t pmsar[BSP_PRV_NUM_PMSAR];
     memset(pmsar, 0xFF, BSP_PRV_NUM_PMSAR * sizeof(R_PMISC->PMSAR[0]));
@@ -66,12 +62,5 @@ void R_BSP_PinCfgSecurityInit(void)
     {
         R_PMISC->PMSAR[i].PMSAR = pmsar[i];
     }
-
-	R_IOPORT_Open (&g_ioport_ctrl, &g_bsp_pin_cfg);
 }
 #endif
-
-
-
-
-

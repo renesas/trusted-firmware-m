@@ -78,24 +78,23 @@ static int32_t tfm_core_init(void)
         return TFM_ERROR_GENERIC;
     }
 
-    LOG_MSG("\033[1;34m[Sec Thread] Secure image initializing!\033[0m\r\n");
+    LOG_MSG("Secure image initializing its!\r\n");
 
 #ifdef TFM_CORE_DEBUG
     LOG_MSG("TF-M isolation level is: %d\r\n", TFM_LVL);
 #endif
 
     tfm_core_validate_boot_data();
-
     configure_ns_code();
-
     /* Configures all interrupts to retarget NS state, except for
      * secure peripherals
      */
+    LOG_MSG("NScodt image initializing its!\r\n");
     plat_err = tfm_spm_hal_nvic_interrupt_target_state_cfg();
     if (plat_err != TFM_PLAT_ERR_SUCCESS) {
         return TFM_ERROR_GENERIC;
     }
-
+    //LOG_MSG("NVICdt image initializing its!\r\n");
     for (i = 0; i < tfm_core_irq_signals_count; ++i) {
         plat_err = tfm_spm_hal_set_secure_irq_priority(
                                           tfm_core_irq_signals[i].irq_line,
@@ -110,13 +109,13 @@ static int32_t tfm_core_init(void)
             return TFM_ERROR_GENERIC;
         }
     }
-
+    LOG_MSG("SPMIRQ image initializing its!\r\n");
     /* Enable secure peripherals interrupts */
     plat_err = tfm_spm_hal_nvic_interrupt_enable();
     if (plat_err != TFM_PLAT_ERR_SUCCESS) {
         return TFM_ERROR_GENERIC;
     }
-
+    LOG_MSG("NVICIR image initializing its!\r\n");
     return TFM_SUCCESS;
 }
 

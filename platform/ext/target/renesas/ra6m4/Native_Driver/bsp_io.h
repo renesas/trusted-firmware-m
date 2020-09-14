@@ -1,4 +1,22 @@
-/* ${REA_DISCLAIMER_PLACEHOLDER} */
+/***********************************************************************************************************************
+ * Copyright [2020] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ *
+ * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
+ * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
+ * sold pursuant to Renesas terms and conditions of sale.  Purchasers are solely responsible for the selection and use
+ * of Renesas products and Renesas assumes no liability.  No license, express or implied, to any intellectual property
+ * right is granted by Renesas. This software is protected under all applicable laws, including copyright laws. Renesas
+ * reserves the right to change or discontinue this software and/or this documentation. THE SOFTWARE AND DOCUMENTATION
+ * IS DELIVERED TO YOU "AS IS," AND RENESAS MAKES NO REPRESENTATIONS OR WARRANTIES, AND TO THE FULLEST EXTENT
+ * PERMISSIBLE UNDER APPLICABLE LAW, DISCLAIMS ALL WARRANTIES, WHETHER EXPLICITLY OR IMPLICITLY, INCLUDING WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT, WITH RESPECT TO THE SOFTWARE OR
+ * DOCUMENTATION.  RENESAS SHALL HAVE NO LIABILITY ARISING OUT OF ANY SECURITY VULNERABILITY OR BREACH.  TO THE MAXIMUM
+ * EXTENT PERMITTED BY LAW, IN NO EVENT WILL RENESAS BE LIABLE TO YOU IN CONNECTION WITH THE SOFTWARE OR DOCUMENTATION
+ * (OR ANY PERSON OR ENTITY CLAIMING RIGHTS DERIVED FROM YOU) FOR ANY LOSS, DAMAGES, OR CLAIMS WHATSOEVER, INCLUDING,
+ * WITHOUT LIMITATION, ANY DIRECT, CONSEQUENTIAL, SPECIAL, INDIRECT, PUNITIVE, OR INCIDENTAL DAMAGES; ANY LOST PROFITS,
+ * OTHER ECONOMIC DAMAGE, PROPERTY DAMAGE, OR PERSONAL INJURY; AND EVEN IF RENESAS HAS BEEN ADVISED OF THE POSSIBILITY
+ * OF SUCH LOSS, DAMAGES, CLAIMS OR COSTS.
+ **********************************************************************************************************************/
 
 /*******************************************************************************************************************//**
  * @defgroup BSP_IO BSP I/O access
@@ -309,7 +327,7 @@ __STATIC_INLINE void R_BSP_PinWrite (bsp_io_port_pin_t pin, bsp_io_level_t level
  **********************************************************************************************************************/
 __STATIC_INLINE void R_BSP_PinAccessEnable (void)
 {
-//#if BSP_CFG_PFS_PROTECT
+#if BSP_CFG_PFS_PROTECT
 
     /** Get the current state of interrupts */
     FSP_CRITICAL_SECTION_DEFINE;
@@ -318,13 +336,13 @@ __STATIC_INLINE void R_BSP_PinAccessEnable (void)
     /** If this is first entry then allow writing of PFS. */
     if (0 == g_protect_pfswe_counter)
     {
-// #if BSP_TZ_SECURE_BUILD
+ #if BSP_TZ_SECURE_BUILD
         R_PMISC->PWPRS = 0;                              ///< Clear BOWI bit - writing to PFSWE bit enabled
         R_PMISC->PWPRS = 1U << BSP_IO_PWPR_PFSWE_OFFSET; ///< Set PFSWE bit - writing to PFS register enabled
-// #else
-//        R_PMISC->PWPR = 0;                               ///< Clear BOWI bit - writing to PFSWE bit enabled
-//        R_PMISC->PWPR = 1U << BSP_IO_PWPR_PFSWE_OFFSET;  ///< Set PFSWE bit - writing to PFS register enabled
-// #endif
+ #else
+        R_PMISC->PWPR = 0;                               ///< Clear BOWI bit - writing to PFSWE bit enabled
+        R_PMISC->PWPR = 1U << BSP_IO_PWPR_PFSWE_OFFSET;  ///< Set PFSWE bit - writing to PFS register enabled
+ #endif
     }
 
     /** Increment the protect counter */
@@ -332,7 +350,7 @@ __STATIC_INLINE void R_BSP_PinAccessEnable (void)
 
     /** Restore the interrupt state */
     FSP_CRITICAL_SECTION_EXIT;
-//#endif
+#endif
 }
 
 /*******************************************************************************************************************//**
@@ -341,7 +359,7 @@ __STATIC_INLINE void R_BSP_PinAccessEnable (void)
  **********************************************************************************************************************/
 __STATIC_INLINE void R_BSP_PinAccessDisable (void)
 {
-//#if BSP_CFG_PFS_PROTECT
+#if BSP_CFG_PFS_PROTECT
 
     /** Get the current state of interrupts */
     FSP_CRITICAL_SECTION_DEFINE;
@@ -357,18 +375,18 @@ __STATIC_INLINE void R_BSP_PinAccessDisable (void)
     /** Is it safe to disable writing of PFS? */
     if (0 == g_protect_pfswe_counter)
     {
- //#if BSP_TZ_SECURE_BUILD
+ #if BSP_TZ_SECURE_BUILD
         R_PMISC->PWPRS = 0;                             ///< Clear PFSWE bit - writing to PFSWE bit enabled
         R_PMISC->PWPRS = 1U << BSP_IO_PWPR_B0WI_OFFSET; ///< Set BOWI bit - writing to PFS register enabled
-// #else
-//        R_PMISC->PWPR = 0;                              ///< Clear PFSWE bit - writing to PFS register disabled
-//        R_PMISC->PWPR = 1U << BSP_IO_PWPR_B0WI_OFFSET;  ///< Set BOWI bit - writing to PFSWE bit disabled
-// #endif
+ #else
+        R_PMISC->PWPR = 0;                              ///< Clear PFSWE bit - writing to PFS register disabled
+        R_PMISC->PWPR = 1U << BSP_IO_PWPR_B0WI_OFFSET;  ///< Set BOWI bit - writing to PFSWE bit disabled
+ #endif
     }
 
     /** Restore the interrupt state */
     FSP_CRITICAL_SECTION_EXIT;
-//#endif
+#endif
 }
 
 /** @} (end addtogroup BSP_IO) */

@@ -42,15 +42,15 @@ __Vectors:
     .long    SysTick_Handler       /* SysTick Handler */
 
     /* Core interrupts */
-    .long    sci_uart_rxi_isr    /*  0: Non-Secure Watchdog Reset Request Interrupt */
-    .long    sci_uart_txi_isr          /*  1: Non-Secure Watchdog Interrupt */
-    .long    sci_uart_tei_isr           /*  2: S32K Timer Interrupt */
-    .long    sci_uart_eri_isr               /*  3: CMSDK Timer 0 Interrupt */
     .long    0    /*  0: Non-Secure Watchdog Reset Request Interrupt */
-    .long    0          /*  1: Non-Secure Watchdog Interrupt */
-    .long    0           /*  2: S32K Timer Interrupt */
+    .long    ns_uart_txi_isr          /*  1: Non-Secure Watchdog Interrupt */
+    .long    ns_uart_tei_isr           /*  2: S32K Timer Interrupt */
     .long    0               /*  3: CMSDK Timer 0 Interrupt */
-    .long    CRYPTOCELL_IRQHandler           /*  8: CryptoCell-312 Interrupt */
+    .long    0                  /*  4: CMSDK Timer 1 Interrupt */
+    .long    0            /*  5: CMSDK Dual Timer Interrupt */
+    .long    0                 /*  6: Message Handling Unit 0 Interrupt */
+    .long    0                 /*  7: Message Handling Unit 1 Interrupt */
+    .long    0           /*  8: CryptoCell-312 Interrupt */
     .long    0                               /*  9: Reserved */
     .long    0                               /* 10: Reserved */
     .long    0                               /* 11: Reserved */
@@ -283,8 +283,9 @@ Reset_Handler:
     def_irq_handler             SysTick_Handler
 
     /* Core interrupts */
-    def_irq_handler     NS_WATCHDOG_RESET_IRQHandler    /*  0: Non-Secure Watchdog Reset Request Interrupt */
-    def_irq_handler     NS_WATCHDOG_IRQHandler          /*  1: Non-Secure Watchdog Interrupt */
+
+    def_irq_handler     ns_uart_txi_isr    /*  0: Non-Secure Watchdog Reset Request Interrupt */
+    def_irq_handler     ns_uart_tei_isr          /*  1: Non-Secure Watchdog Interrupt */
     def_irq_handler     S32K_TIMER_IRQHandler           /*  2: S32K Timer Interrupt */
     def_irq_handler     TIMER0_IRQHandler               /*  3: CMSDK Timer 0 Interrupt */
     def_irq_handler     TIMER1_Handler                  /*  4: CMSDK Timer 1 Interrupt */

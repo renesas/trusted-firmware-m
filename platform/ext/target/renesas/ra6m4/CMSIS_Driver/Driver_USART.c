@@ -22,9 +22,6 @@
  * Copyright (C) 2019 Renesas Electronics Corporation. All rights reserved.
  ***********************************************************************************************************************/
 
-
-#if 1
-
  #include <Driver_USART.h>
  #include <string.h>
  #include <stdint.h>
@@ -42,8 +39,9 @@
 /* Driver version */
  #define ARM_USART_DRV_VERSION    ARM_DRIVER_VERSION_MAJOR_MINOR(1, 0)
 
-static volatile uint32_t g_uart_evt = 1;
-static volatile uint32_t     g_num      = 0;
+static volatile uint32_t g_uart_evt = 1U;
+static volatile uint32_t g_uart_evt_last = 0U;
+static volatile uint32_t     g_num      = 0U;
 
 /* Driver Version */
 static ARM_DRIVER_VERSION DriverVersion =
@@ -79,23 +77,12 @@ static ARM_USART_CAPABILITIES DriverCapabilities =
     0                                  /* Reserved */
 };
 
-/* FSP structures required by uart and flash drivers */
-//extern sci_uart_instance_ctrl_t g_tfm_fsp_uart_ctrl;
-//extern const uart_cfg_t         g_tfm_fsp_uart_cfg;
 typedef struct {
     uart_instance_t* dev;      /* UART device structure */
     uint32_t tx_nbr_bytes;             /* Number of bytes transfered */
     uint32_t rx_nbr_bytes;             /* Number of bytes recevied */
     ARM_USART_SignalEvent_t cb_event;  /* Callback function for events */
 } UARTx_Resources;
-
-/* USART0 Driver wrapper functions */
-static UARTx_Resources USART0_DEV = {
-    .dev = &UART0_DEV,
-    .tx_nbr_bytes = 0,
-    .rx_nbr_bytes = 0,
-    .cb_event = NULL,
-};
 
 static UARTx_Resources USART1_DEV = {
     .dev = &UART1_DEV,
@@ -151,7 +138,8 @@ static int32_t ARM_USARTx_Send(UARTx_Resources* uart_dev, const void *data,
     {
     	return ARM_DRIVER_ERROR;
     }
-
+    while (!(g_uart_evt_last == 1U));
+    g_uart_evt_last = 0U;
     /*Save the transmitted number to be used in ARM_USART_GetTxCount*/
     g_num = num;
 
@@ -190,83 +178,6 @@ static int32_t ARM_USARTx_Receive(UARTx_Resources* uart_dev,
     return ARM_DRIVER_OK;
 }
 
-static ARM_DRIVER_VERSION ARM_USART0_GetVersion (void)
-{
-    fsp_version_t ver;
-    fsp_err_t     fsp_err = FSP_SUCCESS;
-
-    fsp_err = R_SCI_UART_VersionGet(&ver);
-    if (FSP_SUCCESS != fsp_err)
-    {
-        DriverVersion.api = (uint16_t) ((uint16_t) (ver.api_version_major << 8) | (ver.api_version_minor));
-        DriverVersion.drv = (uint16_t) ((uint16_t) (ver.code_version_major << 8) | (ver.code_version_minor));
-    }
-    else
-    {
-        memset(&DriverVersion, 0, sizeof(DriverVersion));
-    }
-
-    return DriverVersion;
-}
-
-static ARM_USART_CAPABILITIES ARM_USART0_GetCapabilities (void)
-{
-    return DriverCapabilities;
-}
-static int32_t ARM_USART0_Initialize (ARM_USART_SignalEvent_t cb_event)
-{
-    ARG_UNUSED(cb_event);
-
-    return ARM_USARTx_Initialize(&USART0_DEV);
-}
-
-static int32_t ARM_USART0_Uninitialize (void)
-{
-    return ARM_USARTx_Uninitialize(&USART0_DEV);
-}
-
-static int32_t ARM_USART0_PowerControl (ARM_POWER_STATE state)
-{
-    (void) state;                      /* Not used, avoid warning */
-
-    /* Nothing to be done */
-    return ARM_DRIVER_OK;
-}
-
-static uint32_t ARM_USART0_GetTxCount (void)
-{
-    /* Return the last successfully transmitted data count.
-     * This implementation will not work in a multithreaded environment. */
-    return g_num;
-}
-
-static int32_t ARM_USART0_Control (uint32_t control, uint32_t arg)
-{
-    (void) arg;                        /* Not used, avoid warning */
-    (void) control;                    /* Not used, avoid warning */
-
-    /* Nothing to be done */
-    return ARM_DRIVER_OK;
-}
-
-static ARM_USART_STATUS ARM_USART0_GetStatus (void)
-{
-    /* Nothing to be done */
-    ARM_USART_STATUS status = {0, 0, 0, 0, 0, 0, 0, 0};
-
-    return status;
-}
-
-static int32_t ARM_USART0_Send(const void *data, uint32_t num)
-{
-    return ARM_USARTx_Send(&USART0_DEV, data, num);
-}
-
-static int32_t ARM_USART0_Receive(void *data, uint32_t num)
-{
-    return ARM_USARTx_Receive(&USART0_DEV, data, num);
-}
-
 static ARM_DRIVER_VERSION ARM_USART1_GetVersion (void)
 {
     fsp_version_t ver;
@@ -300,7 +211,7 @@ static int32_t ARM_USART1_Initialize (ARM_USART_SignalEvent_t cb_event)
 
 static int32_t ARM_USART1_Uninitialize (void)
 {
-    return ARM_USARTx_Uninitialize(&USART0_DEV);
+    return ARM_USARTx_Uninitialize(&USART1_DEV);
 }
 
 static int32_t ARM_USART1_PowerControl (ARM_POWER_STATE state)
@@ -347,38 +258,16 @@ static int32_t ARM_USART1_Receive(void *data, uint32_t num)
 
 void user_uart_callback (uart_callback_args_t * p_args)
 {
-//    if (NULL != p_args)
-//    {
-//        g_uart_evt = p_args->event;
-//    }
     if(p_args->event == UART_EVENT_TX_DATA_EMPTY)
     {
     	g_uart_evt = 1U;
     }
     if(p_args->event == UART_EVENT_TX_COMPLETE)
     {
-    	g_uart_evt = 1U;
-       //tx_irq_triggered = 1U;
+    	g_uart_evt_last = 1U;
     }
 }
 
-void user_uart_callback_ns (uart_callback_args_t * p_args)
-{
-//    if (NULL != p_args)
-//    {
-//        g_uart_evt = p_args->event;
-//    }
-    if(p_args->event == UART_EVENT_TX_DATA_EMPTY)
-    {
-    	g_uart_evt = 1U;
-    }
-    if(p_args->event == UART_EVENT_TX_COMPLETE)
-    {
-    	g_uart_evt = 1U;
-       //tx_irq_triggered = 1U;
-    }
-}
-//extern ARM_DRIVER_USART Driver_USART1;
 ARM_DRIVER_USART Driver_USART1 =
 {
     ARM_USART1_GetVersion,
@@ -397,21 +286,4 @@ ARM_DRIVER_USART Driver_USART1 =
     NULL
 };
 
-ARM_DRIVER_USART Driver_USART_NS =
-{
-    ARM_USART0_GetVersion,
-    ARM_USART0_GetCapabilities,
-	ARM_USART0_Initialize,
-	ARM_USART0_Uninitialize,
-    ARM_USART0_PowerControl,
-	ARM_USART0_Send,
-	ARM_USART0_Receive,
-    NULL,
-    ARM_USART0_GetTxCount,
-    NULL,
-    ARM_USART0_Control,
-    ARM_USART0_GetStatus,
-    NULL,
-    NULL
-};
-#endif                                 // BL2_CFG_UART_DEBUG_ENABLE
+                                 // BL2_CFG_UART_DEBUG_ENABLE

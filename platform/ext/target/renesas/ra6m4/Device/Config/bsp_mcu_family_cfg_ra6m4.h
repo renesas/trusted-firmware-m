@@ -26,6 +26,7 @@
 #define BSP_TZ_CFG_NONSECURE_BUILD        (0)
 #define BSP_TZ_SECURE_BUILD           (1)
 #define BSP_TZ_NONSECURE_BUILD        (0)
+#define BSP_CFG_PFS_PROTECT ((1))
 #elif defined(_RA_TZ_NONSECURE)
 #define BSP_TZ_CFG_SECURE_BUILD           (0)
 #define BSP_TZ_CFG_NONSECURE_BUILD        (1)
@@ -47,7 +48,7 @@
 
             /* Peripheral Security Attribution Register (PSAR) Settings */
             
-            #define BSP_TZ_CFG_PSARB               (0xFFFFFFFF)
+            #define BSP_TZ_CFG_PSARB               (0xFEFFFFFF)
             #define BSP_TZ_CFG_PSARC               (0xFFFFFFFF)
             #define BSP_TZ_CFG_PSARD               (0xFFFFFFFF)
             #define BSP_TZ_CFG_PSARE               (0xFFFFFFFF)
