@@ -21,14 +21,18 @@
 #include "Driver_USART.h"
 #include "target_cfg.h"
 #include "device_cfg.h"
+#include "tfm_common_config.h"
 
 #define ASSERT_HIGH(X)  assert(X == ARM_DRIVER_OK)
 
+#if CFG_UART_DEBUG_ENABLE
 extern ARM_DRIVER_USART Driver_USART;
 #define STDIO_DRIVER    Driver_USART
+#endif
 
 int stdio_output_string(const unsigned char *str, uint32_t len)
 {
+#if CFG_UART_DEBUG_ENABLE
     int32_t ret;
 
     ret = STDIO_DRIVER.Send(str, len);
@@ -39,7 +43,10 @@ int stdio_output_string(const unsigned char *str, uint32_t len)
     while (STDIO_DRIVER.GetStatus().tx_busy);
 
     return STDIO_DRIVER.GetTxCount();
-
+#else
+    (void)str;
+    return (int)len;
+#endif
 }
 
 /* Redirects printf to STDIO_DRIVER in case of ARMCLANG*/
@@ -81,6 +88,7 @@ int putchar(int ch)
 
 void stdio_init(void)
 {
+#if CFG_UART_DEBUG_ENABLE
     int32_t ret;
     ret = STDIO_DRIVER.Initialize(NULL);
     ASSERT_HIGH(ret);
@@ -94,10 +102,12 @@ void stdio_init(void)
     (void)ret;
 
     (void)STDIO_DRIVER.Control(ARM_USART_CONTROL_TX, 1);
+#endif
 }
 
 void stdio_uninit(void)
 {
+#if CFG_UART_DEBUG_ENABLE
     int32_t ret;
 
     (void)STDIO_DRIVER.PowerControl(ARM_POWER_OFF);
@@ -105,4 +115,5 @@ void stdio_uninit(void)
     ret = STDIO_DRIVER.Uninitialize();
     ASSERT_HIGH(ret);
     (void)ret;
+#endif
 }
