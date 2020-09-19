@@ -870,7 +870,7 @@ boot_read_status(struct boot_loader_state *state, struct boot_status *bs)
 
 #ifdef MCUBOOT_OVERWRITE_ONLY
     #if BL2_TEMP_EN
-    if(boot_data.imgs[0][BOOT_SECONDARY_SLOT].is_hdr_valid == true)
+    if(boot_data.imgs[BOOT_CURR_IMG(state)][BOOT_SECONDARY_SLOT].is_hdr_valid == true)
         bs->swap_type = BOOT_SWAP_TYPE_PERM;
     #endif
     /* Overwrite-only doesn't make use of the swap status area. */
