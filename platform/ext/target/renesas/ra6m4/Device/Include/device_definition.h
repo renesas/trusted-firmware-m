@@ -178,6 +178,11 @@ extern struct uart_pl011_dev_t UART1_PL011_DEV_NS;
 extern uart_instance_t UART1_RA6M4_DEV_S;
 #endif
 
+#ifdef UART0_RA6M4_S
+#include "r_sci_uart.h"
+extern uart_instance_t UART0_RA6M4_DEV_S;
+#endif
+
 #if defined(DFLASH0_S) || defined(CFLASH0_S)
 #include "r_flash_hp.h"
 extern flash_instance_t FLASH0_DEV_S;

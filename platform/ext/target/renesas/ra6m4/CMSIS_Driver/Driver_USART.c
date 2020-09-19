@@ -31,7 +31,10 @@
  #include "RTE_Device.h"
 #include "bsp_feature.h"
 #include "renesas.h"
-
+#include "psa_manifest/pid.h"
+#include "psa/service.h"
+#include "../psa-arch-tests/api-tests/platform/manifests/psa_manifest/driver_partition_psa.h"
+extern void tfm_irq_handler(uint32_t partition_id, psa_signal_t signal, IRQn_Type irq_line);
  #ifndef ARG_UNUSED
   #define ARG_UNUSED(arg)    ((void) arg)
  #endif
@@ -39,10 +42,11 @@
 /* Driver version */
  #define ARM_USART_DRV_VERSION    ARM_DRIVER_VERSION_MAJOR_MINOR(1, 0)
 
-static volatile uint32_t g_uart_evt = 1U;
+volatile uint32_t g_uart_evt = 1U;
 static volatile uint32_t g_uart_evt_last = 0U;
 static volatile uint32_t     g_num      = 0U;
-
+extern volatile uint8_t tx_irq_triggered;
+extern volatile uint8_t tx_irq_triggered_irq;
 /* Driver Version */
 static ARM_DRIVER_VERSION DriverVersion =
 {
@@ -138,8 +142,8 @@ static int32_t ARM_USARTx_Send(UARTx_Resources* uart_dev, const void *data,
     {
     	return ARM_DRIVER_ERROR;
     }
-    while (!(g_uart_evt_last == 1U));
-    g_uart_evt_last = 0U;
+//    while (!(g_uart_evt_last == 1U));
+//    g_uart_evt_last = 0U;
     /*Save the transmitted number to be used in ARM_USART_GetTxCount*/
     g_num = num;
 
@@ -249,6 +253,8 @@ static ARM_USART_STATUS ARM_USART1_GetStatus (void)
 static int32_t ARM_USART1_Send(const void *data, uint32_t num)
 {
     return ARM_USARTx_Send(&USART1_DEV, data, num);
+    while (!(g_uart_evt_last == 1U));
+    g_uart_evt_last = 0U;
 }
 
 static int32_t ARM_USART1_Receive(void *data, uint32_t num)
@@ -265,6 +271,7 @@ void user_uart_callback (uart_callback_args_t * p_args)
     if(p_args->event == UART_EVENT_TX_COMPLETE)
     {
     	g_uart_evt_last = 1U;
+    	tx_irq_triggered = 1U;
     }
 }
 
@@ -279,6 +286,79 @@ ARM_DRIVER_USART Driver_USART1 =
 	ARM_USART1_Receive,
     NULL,
     ARM_USART1_GetTxCount,
+    NULL,
+    ARM_USART1_Control,
+    ARM_USART1_GetStatus,
+    NULL,
+    NULL
+};
+
+
+static UARTx_Resources USART0_DEV = {
+    .dev = &UART0_DEV,
+    .tx_nbr_bytes = 0,
+    .rx_nbr_bytes = 0,
+    .cb_event = NULL,
+};
+
+static int32_t ARM_USART0_Initialize (ARM_USART_SignalEvent_t cb_event)
+{
+    ARG_UNUSED(cb_event);
+
+    return ARM_USARTx_Initialize(&USART0_DEV);
+}
+
+static int32_t ARM_USART0_Uninitialize (void)
+{
+    return ARM_USARTx_Uninitialize(&USART0_DEV);
+}
+
+static uint32_t ARM_USART0_GetTxCount (void)
+{
+    /* Return the last successfully transmitted data count.
+     * This implementation will not work in a multithreaded environment. */
+    return g_num;
+}
+
+static int32_t ARM_USART0_Send(const void *data, uint32_t num)
+{
+    return ARM_USARTx_Send(&USART0_DEV, data, num);
+}
+
+static int32_t ARM_USART0_Receive(void *data, uint32_t num)
+{
+    return ARM_USARTx_Receive(&USART0_DEV, data, num);
+}
+
+void user_uart_callback_irq (uart_callback_args_t * p_args)
+{
+    if(p_args->event == UART_EVENT_TX_DATA_EMPTY)
+    {
+    	g_uart_evt = 1U;
+    }
+    if(p_args->event == UART_EVENT_TX_COMPLETE)
+    {
+    	g_uart_evt_last = 1U;
+    	tx_irq_triggered_irq = 1U;
+        __disable_irq();
+        /* It is OK to call tfm_irq_handler directly from here, as we are already
+         * in handler mode, and we will not be pre-empted as we disabled interrupts
+         */
+        tfm_irq_handler(DRIVER_PARTITION, DRIVER_UART_INTR_SIG, FF_TEST_UART_IRQ);
+        __enable_irq();
+    }
+}
+ARM_DRIVER_USART Driver_USART_IRQ =
+{
+    ARM_USART1_GetVersion,
+    ARM_USART1_GetCapabilities,
+	ARM_USART0_Initialize,
+	ARM_USART0_Uninitialize,
+    ARM_USART1_PowerControl,
+	ARM_USART0_Send,
+	ARM_USART0_Receive,
+    NULL,
+    ARM_USART0_GetTxCount,
     NULL,
     ARM_USART1_Control,
     ARM_USART1_GetStatus,

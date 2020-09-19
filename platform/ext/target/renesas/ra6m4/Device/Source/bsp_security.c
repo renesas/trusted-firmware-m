@@ -96,7 +96,7 @@ void R_BSP_SecurityInit (void)
     R_TZF->TZFPT  = BSP_PRV_TZ_REG_KEY + 0U;
 
     /* Initialize PSARs. */
-    R_PSCU->PSARB = (0xFEFFFFFF);
+    R_PSCU->PSARB = (0x7EFFFFFF);
     R_PSCU->PSARC = BSP_TZ_CFG_PSARC;
     R_PSCU->PSARD = BSP_TZ_CFG_PSARD;
     R_PSCU->PSARE = BSP_TZ_CFG_PSARE;

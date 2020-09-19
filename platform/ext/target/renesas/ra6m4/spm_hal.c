@@ -109,8 +109,8 @@ R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
     // R_CPSCU->ICUSARG = 0xffffff0f;
     // NVIC->ITNS = 0xffffff0f;
     uint32_t volatile * p_icusarg = &R_CPSCU->ICUSARG;
-    p_icusarg[0]  = 0xfffffff0;
-    NVIC->ITNS[0] = 0xfffffff0;
+    p_icusarg[0]  = 0xffffff00;
+    NVIC->ITNS[0] = 0xffffff00;
     p_icusarg[1]  = 0xffffffff;
     NVIC->ITNS[1] = 0xffffffff;
     p_icusarg[2]  = 0xffffffff;
@@ -119,6 +119,10 @@ R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
     NVIC_ClearTargetState(1);
     NVIC_ClearTargetState(2);
     NVIC_ClearTargetState(3);
+    NVIC_ClearTargetState(4);
+    NVIC_ClearTargetState(5);
+    NVIC_ClearTargetState(6);
+    NVIC_ClearTargetState(7);
     /* Protect security registers. */
     R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
 #endif
@@ -126,6 +130,10 @@ R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
     R_ICU->IELSR[1] = (uint32_t) (427);
     R_ICU->IELSR[2] = (uint32_t) (428);
     R_ICU->IELSR[3] = (uint32_t) (429);
+	R_ICU->IELSR[4] = (uint32_t) (384);
+    R_ICU->IELSR[5] = (uint32_t) (385);
+    R_ICU->IELSR[6] = (uint32_t) (386);
+    R_ICU->IELSR[7] = (uint32_t) (387);
 //    sau_and_idau_cfg();
 //    ret = mpc_init_cfg();
 //    if (ret != ARM_DRIVER_OK) {
@@ -177,17 +185,17 @@ enum tfm_plat_err_t tfm_spm_hal_configure_default_isolation(
     }
 #endif /* defined(CONFIG_TFM_ENABLE_MEMORY_PROTECT) && (TFM_LVL != 1) */
 
-    if (platform_data->periph_ppc_bank != PPC_SP_DO_NOT_CONFIGURE) {
-        ppc_configure_to_secure(platform_data->periph_ppc_bank,
-                                platform_data->periph_ppc_loc);
-//        if (privileged) {
-//            ppc_clr_secure_unpriv(platform_data->periph_ppc_bank,
-//                                  platform_data->periph_ppc_loc);
-//        } else {
-//            ppc_en_secure_unpriv(platform_data->periph_ppc_bank,
-//                                 platform_data->periph_ppc_loc);
-//        }
-    }
+//    if (platform_data->periph_ppc_bank != PPC_SP_DO_NOT_CONFIGURE) {
+//        ppc_configure_to_secure(platform_data->periph_ppc_bank,
+//                                platform_data->periph_ppc_loc);
+////        if (privileged) {
+////            ppc_clr_secure_unpriv(platform_data->periph_ppc_bank,
+////                                  platform_data->periph_ppc_loc);
+////        } else {
+////            ppc_en_secure_unpriv(platform_data->periph_ppc_bank,
+////                                 platform_data->periph_ppc_loc);
+////        }
+//    }
     return TFM_PLAT_ERR_SUCCESS;
 }
 

@@ -46,10 +46,10 @@ __Vectors:
     .long    ns_uart_txi_isr          /*  1: Non-Secure Watchdog Interrupt */
     .long    ns_uart_tei_isr           /*  2: S32K Timer Interrupt */
     .long    0               /*  3: CMSDK Timer 0 Interrupt */
-    .long    0                  /*  4: CMSDK Timer 1 Interrupt */
+    .long    0            /*  4: CMSDK Timer 1 Interrupt */
     .long    0            /*  5: CMSDK Dual Timer Interrupt */
-    .long    0                 /*  6: Message Handling Unit 0 Interrupt */
-    .long    0                 /*  7: Message Handling Unit 1 Interrupt */
+    .long    0            /*  6: Message Handling Unit 0 Interrupt */
+    .long    0            /*  7: Message Handling Unit 1 Interrupt */
     .long    0           /*  8: CryptoCell-312 Interrupt */
     .long    0                               /*  9: Reserved */
     .long    0                               /* 10: Reserved */

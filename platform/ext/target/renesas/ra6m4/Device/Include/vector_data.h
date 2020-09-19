@@ -27,5 +27,9 @@ typedef enum IRQn
 	SCI7_TXI_IRQn = 1, /* SCI7 TXI (Transmit data empty) */
 	SCI7_TEI_IRQn = 2, /* SCI7 TEI (Transmit end) */
 	SCI7_ERI_IRQn = 3, /* SCI7 ERI (Receive error) */
+	SCI0_RXI_IRQn = 4, /* SCI0 RXI (Received data full) */
+	SCI0_TXI_IRQn = 5, /* SCI0 TXI (Transmit data empty) */
+	SCI0_TEI_IRQn = 6, /* SCI0 TEI (Transmit end) */
+	SCI0_ERI_IRQn = 7, /* SCI0 ERI (Receive error) */
 } IRQn_Type;
 #endif                                 /* VECTOR_DATA_H */

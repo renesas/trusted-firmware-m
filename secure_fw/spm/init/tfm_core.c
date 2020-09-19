@@ -78,7 +78,7 @@ static int32_t tfm_core_init(void)
         return TFM_ERROR_GENERIC;
     }
 
-    LOG_MSG("Secure image initializing its!\r\n");
+    //LOG_MSG("Secure image initializing its!\r\n");
 
 #ifdef TFM_CORE_DEBUG
     LOG_MSG("TF-M isolation level is: %d\r\n", TFM_LVL);
@@ -89,7 +89,7 @@ static int32_t tfm_core_init(void)
     /* Configures all interrupts to retarget NS state, except for
      * secure peripherals
      */
-    LOG_MSG("NScodt image initializing its!\r\n");
+    //LOG_MSG("NScodt image initializing its!\r\n");
     plat_err = tfm_spm_hal_nvic_interrupt_target_state_cfg();
     if (plat_err != TFM_PLAT_ERR_SUCCESS) {
         return TFM_ERROR_GENERIC;
@@ -109,13 +109,13 @@ static int32_t tfm_core_init(void)
             return TFM_ERROR_GENERIC;
         }
     }
-    LOG_MSG("SPMIRQ image initializing its!\r\n");
+    //LOG_MSG("SPMIRQ image initializing its!\r\n");
     /* Enable secure peripherals interrupts */
     plat_err = tfm_spm_hal_nvic_interrupt_enable();
     if (plat_err != TFM_PLAT_ERR_SUCCESS) {
         return TFM_ERROR_GENERIC;
     }
-    LOG_MSG("NVICIR image initializing its!\r\n");
+    //LOG_MSG("NVICIR image initializing its!\r\n");
     return TFM_SUCCESS;
 }
 
@@ -145,14 +145,16 @@ int main(void)
     if (tfm_core_init() != TFM_SUCCESS) {
         tfm_core_panic();
     }
-    /* Print the TF-M version */
-    LOG_MSG("\033[1;34mBooting TFM v%d.%d %s\033[0m\r\n",
-            VERSION_MAJOR, VERSION_MINOR, VERSION_STRING);
+//    /* Print the TF-M version */
+//    LOG_MSG("\033[1;34mBooting TFM v%d.%d %s\033[0m\r\n",
+//            VERSION_MAJOR, VERSION_MINOR, VERSION_STRING);
 
     if (tfm_spm_db_init() != SPM_ERR_OK) {
         tfm_core_panic();
     }
-
+    /* Print the TF-M version */
+    //LOG_MSG("\033[1;34mBooting TFM v%d.%d %s\033[0m\r\n",
+//            VERSION_MAJOR, VERSION_MINOR, VERSION_STRING);
 #ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
     if (tfm_spm_hal_setup_isolation_hw() != TFM_PLAT_ERR_SUCCESS) {
         tfm_core_panic();

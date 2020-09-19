@@ -27,6 +27,7 @@
  * This is a default device configuration file with all peripherals enabled.
  */
 #define UART1_RA6M4_S
+#define UART0_RA6M4_S
 
 ///*ARM UART Controller PL011*/
 //#define UART0_PL011_S

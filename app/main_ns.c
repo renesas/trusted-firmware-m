@@ -120,7 +120,7 @@ static void tfm_ns_multi_core_boot(void)
  */
 __WEAK int32_t tfm_ns_platform_init(void)
 {
-    stdio_init();
+    //stdio_init();
 
     return ARM_DRIVER_OK;
 }
@@ -170,10 +170,10 @@ int main(void)
 #if defined(TEST_FRAMEWORK_NS)
     thread_func = test_app;
 #elif defined(PSA_API_TEST_NS)
-    R_ICU->IELSR[0] = (uint32_t) (384);
-    R_ICU->IELSR[1] = (uint32_t) (385);
-    R_ICU->IELSR[2] = (uint32_t) (386);
-    R_ICU->IELSR[3] = (uint32_t) (387);
+    R_ICU->IELSR[4] = (uint32_t) (384);
+    R_ICU->IELSR[5] = (uint32_t) (385);
+    R_ICU->IELSR[6] = (uint32_t) (386);
+    R_ICU->IELSR[7] = (uint32_t) (387);
 
     thread_func = psa_api_test;
 #endif
@@ -182,7 +182,7 @@ int main(void)
     (void) osThreadNew(thread_func, NULL, &thread_attr);
 #endif
 
-    LOG_MSG("Non-Secure system starting...\r\n");
+    //LOG_MSG("Non-Secure system starting...\r\n");
     (void) osKernelStart();
 
     /* Reached only in case of error */

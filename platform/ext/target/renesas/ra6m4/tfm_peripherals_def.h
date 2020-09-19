@@ -10,6 +10,7 @@
 #define __TFM_PERIPHERALS_DEF_H__
 
 #include "platform_irq.h"
+#include "vector_data.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,8 +18,8 @@ extern "C" {
 
 #define TFM_TIMER0_IRQ           (TIMER0_IRQn)
 #define TFM_TIMER1_IRQ           (TIMER1_IRQn)
-#define FF_TEST_UART_IRQ         (UART1_Tx_IRQn)
-#define FF_TEST_UART_IRQ_Handler UARTTX1_Handler
+#define FF_TEST_UART_IRQ          SCI0_TXI_IRQn
+#define FF_TEST_UART_IRQ_Handler  UARTTX1_Handler
 
 struct tfm_spm_partition_platform_data_t;
 

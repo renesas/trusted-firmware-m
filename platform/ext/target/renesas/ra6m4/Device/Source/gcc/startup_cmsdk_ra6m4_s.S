@@ -46,10 +46,10 @@ __Vectors:
     .long    sci_uart_txi_isr          /*  1: Non-Secure Watchdog Interrupt */
     .long    sci_uart_tei_isr           /*  2: S32K Timer Interrupt */
     .long    sci_uart_eri_isr          /*  3: CMSDK Timer 0 Interrupt */
-    .long    0               /*  4: CMSDK Timer 1 Interrupt */
-    .long    0            /*  5: CMSDK Dual Timer Interrupt */
-    .long    0                 /*  6: Message Handling Unit 0 Interrupt */
-    .long    0                 /*  7: Message Handling Unit 1 Interrupt */
+    .long    sci_uart_rxi_isr               /*  4: CMSDK Timer 1 Interrupt */
+    .long    sci_uart_txi_isr            /*  5: CMSDK Dual Timer Interrupt */
+    .long    sci_uart_tei_isr                 /*  6: Message Handling Unit 0 Interrupt */
+    .long    sci_uart_eri_isr                 /*  7: Message Handling Unit 1 Interrupt */
     .long    CRYPTOCELL_IRQHandler           /*  8: CryptoCell-312 Interrupt */
     .long    MPC_Handler                     /*  9: Secure Combined MPC Interrupt */
     .long    PPC_Handler                     /* 10: Secure Combined PPC Interrupt */

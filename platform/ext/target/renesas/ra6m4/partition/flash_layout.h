@@ -48,8 +48,8 @@
  */
 
 /* Size of a Secure and of a Non-secure image */
-#define FLASH_S_PARTITION_SIZE          (0x30800) /* S partition: 384 KB */
-#define FLASH_NS_PARTITION_SIZE         (0x40000) /* NS partition: 512 KB */
+#define FLASH_S_PARTITION_SIZE          (0x40800) /* S partition: 258 KB */
+#define FLASH_NS_PARTITION_SIZE         (0x40000) /* NS partition: 256 KB */
 #define FLASH_MAX_PARTITION_SIZE        ((FLASH_S_PARTITION_SIZE >   \
                                           FLASH_NS_PARTITION_SIZE) ? \
                                          FLASH_S_PARTITION_SIZE :    \

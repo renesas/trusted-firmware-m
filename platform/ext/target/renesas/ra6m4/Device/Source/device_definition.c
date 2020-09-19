@@ -411,39 +411,85 @@ static sci_uart_instance_ctrl_t g_uart0_ctrl;
 
 static baud_setting_t g_uart0_baud_setting =
 {
-/* Baud rate calculated with 0.469% error. */.abcse = 0,
-  .abcs = 0, .bgdm = 1, .cks = 1, .brr = 161, .mddr = (uint8_t) 256, .brme = false };
+		/* Baud rate calculated with 0.469% error. */.abcse = 0,
+		.abcs = 0, .bgdm = 1, .cks = 1, .brr = 161, .mddr = (uint8_t) 256, .brme = false };
 
 /** UART extended configuration for UARTonSCI HAL driver */
 static sci_uart_extended_cfg_t g_uart0_cfg_extend =
 { .clock = SCI_UART_CLOCK_INT,
-  .rx_edge_start = SCI_UART_START_BIT_FALLING_EDGE,
-  .noise_cancel = SCI_UART_NOISE_CANCELLATION_DISABLE,
-  .rx_fifo_trigger = SCI_UART_RX_FIFO_TRIGGER_MAX,
-  .p_baud_setting = &g_uart0_baud_setting,
-  .uart_mode = UART_MODE_RS232,
-  .ctsrts_en = SCI_UART_CTSRTS_RTS_OUTPUT,
-  .flow_control_pin = (bsp_io_port_pin_t) (0xFFFFU),
-    };
+		.rx_edge_start = SCI_UART_START_BIT_FALLING_EDGE,
+		.noise_cancel = SCI_UART_NOISE_CANCELLATION_DISABLE,
+		.rx_fifo_trigger = SCI_UART_RX_FIFO_TRIGGER_MAX,
+		.p_baud_setting = &g_uart0_baud_setting,
+		.uart_mode = UART_MODE_RS232,
+		.ctsrts_en = SCI_UART_CTSRTS_RTS_OUTPUT,
+		.flow_control_pin = (bsp_io_port_pin_t) (0xFFFFU),
+};
 
 /** UART interface configuration */
 static uart_cfg_t g_uart0_cfg =
 { .channel = 7, .data_bits = UART_DATA_BITS_8, .parity = UART_PARITY_OFF, .stop_bits = UART_STOP_BITS_1, .p_callback =
-          user_uart_callback,
-  .p_context = NULL, .p_extend = &g_uart0_cfg_extend,
-  .p_transfer_tx = NULL,
-  .p_transfer_rx = NULL,
-  .rxi_ipl = (12),
-  .txi_ipl = (12), .tei_ipl = (12), .eri_ipl = (12),
-  .rxi_irq = VECTOR_NUMBER_SCI7_RXI,
-  .txi_irq = VECTOR_NUMBER_SCI7_TXI,
-  .tei_irq = VECTOR_NUMBER_SCI7_TEI,
-  .eri_irq = VECTOR_NUMBER_SCI7_ERI,
-        };
+		user_uart_callback,
+		.p_context = NULL, .p_extend = &g_uart0_cfg_extend,
+		.p_transfer_tx = NULL,
+		.p_transfer_rx = NULL,
+		.rxi_ipl = (12),
+		.txi_ipl = (12), .tei_ipl = (12), .eri_ipl = (12),
+		.rxi_irq = VECTOR_NUMBER_SCI7_RXI,
+		.txi_irq = VECTOR_NUMBER_SCI7_TXI,
+		.tei_irq = VECTOR_NUMBER_SCI7_TEI,
+		.eri_irq = VECTOR_NUMBER_SCI7_ERI,
+};
 
- /* Instance structure to use this module. */
+/* Instance structure to use this module. */
 uart_instance_t UART1_RA6M4_DEV_S =
 { .p_ctrl = &g_uart0_ctrl, .p_cfg = &g_uart0_cfg, .p_api = &g_uart_on_sci };
+#endif
+
+#ifdef UART0_RA6M4_S
+void user_uart_callback_irq(uart_callback_args_t * p_args);
+#define VECTOR_NUMBER_SCI0_RXI ((IRQn_Type) 4) /* SCI0 RXI (Receive data full) */
+#define VECTOR_NUMBER_SCI0_TXI ((IRQn_Type) 5) /* SCI0 TXI (Transmit data empty) */
+#define VECTOR_NUMBER_SCI0_TEI ((IRQn_Type) 6) /* SCI0 TEI (Transmit end) */
+#define VECTOR_NUMBER_SCI0_ERI ((IRQn_Type) 7) /* SCI0 ERI (Receive error) */
+
+static sci_uart_instance_ctrl_t g_uart0_ctrl_irq;
+
+static baud_setting_t g_uart0_baud_setting_irq =
+{
+		/* Baud rate calculated with 0.469% error. */.abcse = 0,
+		.abcs = 0, .bgdm = 1, .cks = 1, .brr = 161, .mddr = (uint8_t) 256, .brme = false };
+
+/** UART extended configuration for UARTonSCI HAL driver */
+static sci_uart_extended_cfg_t g_uart0_cfg_extend_irq =
+{ .clock = SCI_UART_CLOCK_INT,
+		.rx_edge_start = SCI_UART_START_BIT_FALLING_EDGE,
+		.noise_cancel = SCI_UART_NOISE_CANCELLATION_DISABLE,
+		.rx_fifo_trigger = SCI_UART_RX_FIFO_TRIGGER_MAX,
+		.p_baud_setting = &g_uart0_baud_setting_irq,
+		.uart_mode = UART_MODE_RS232,
+		.ctsrts_en = SCI_UART_CTSRTS_RTS_OUTPUT,
+		.flow_control_pin = (bsp_io_port_pin_t) (0xFFFFU),
+};
+
+/** UART interface configuration */
+static uart_cfg_t g_uart0_cfg_irq =
+{ .channel = 0, .data_bits = UART_DATA_BITS_8, .parity = UART_PARITY_OFF, .stop_bits = UART_STOP_BITS_1, .p_callback =
+		user_uart_callback_irq,
+		.p_context = NULL, .p_extend = &g_uart0_cfg_extend_irq,
+		.p_transfer_tx = NULL,
+		.p_transfer_rx = NULL,
+		.rxi_ipl = (12),
+		.txi_ipl = (12), .tei_ipl = (12), .eri_ipl = (12),
+		.rxi_irq = VECTOR_NUMBER_SCI0_RXI,
+		.txi_irq = VECTOR_NUMBER_SCI0_TXI,
+		.tei_irq = VECTOR_NUMBER_SCI0_TEI,
+		.eri_irq = VECTOR_NUMBER_SCI0_ERI,
+};
+
+/* Instance structure to use this module. */
+uart_instance_t UART0_RA6M4_DEV_S =
+{ .p_ctrl = &g_uart0_ctrl_irq, .p_cfg = &g_uart0_cfg_irq, .p_api = &g_uart_on_sci };
 #endif
 
 /** Flash driver structures */

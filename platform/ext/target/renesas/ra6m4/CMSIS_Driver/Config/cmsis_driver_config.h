@@ -23,10 +23,11 @@
 #include "RTE_Device.h"
 #include "target_cfg.h"
 
-//#define UART0_DEV           UART0_PL011_DEV_NS
-#define UART1_DEV           UART1_RA6M4_DEV_S
 
-#define MUSCA_B1_SCC_DEV    MUSCA_B1_SCC_DEV_S
+#define UART1_DEV           UART1_RA6M4_DEV_S
+#define UART0_DEV           UART0_RA6M4_DEV_S
+
+//#define MUSCA_B1_SCC_DEV    MUSCA_B1_SCC_DEV_S
 
 #define DFLASH0_DEV         FLASH0_DEV_S
 #define CFLASH0_DEV         FLASH0_DEV_S
