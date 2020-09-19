@@ -8,7 +8,7 @@
 #ifndef __TFM_CLIENT_H__
 #define __TFM_CLIENT_H__
 
-#include "psa/client.h" /* psa_invec, psa_outvec */
+#include "tfm_crypto_include/psa/client.h" /* psa_invec, psa_outvec */
 
 #ifdef __cplusplus
 extern "C" {

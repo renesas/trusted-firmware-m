@@ -11,7 +11,7 @@
 
 #include "attestation_key.h"
 #include "platform/include/tfm_plat_crypto_keys.h"
-#include "psa/crypto.h"
+#include "tfm_crypto_include/psa/crypto.h"
 #include "tfm_memory_utils.h"
 
 /* Only support HMAC as MAC algorithm in COSE_Mac0 so far */
