@@ -44,7 +44,7 @@ __asm("  .global __ARM_use_no_argv\n");
 #endif
 
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
-REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
+extern uint32_t __StackLimit;
 #endif
 
 /* Flash device name must be specified by target */
@@ -96,19 +96,14 @@ static void do_boot(struct boot_rsp *rsp)
 
 int bl2_main (void)
 {
-#if BL2_TEMP_DIS 
- #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
-    uint32_t msp_stack_bottom =
-            (uint32_t) &REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Base);
- #endif
+#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
+    uint32_t msp_stack_bottom = (uint32_t) &__StackLimit;
 #endif
     struct boot_rsp rsp;
     int rc;
 
-#if BL2_TEMP_DIS
- #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
+#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     __set_MSPLIM(msp_stack_bottom);
- #endif
 #endif 
 
     /* Perform platform specific initialization */
