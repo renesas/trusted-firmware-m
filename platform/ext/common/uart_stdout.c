@@ -31,7 +31,6 @@ extern ARM_DRIVER_USART Driver_USART;
 
 int stdio_output_string(const unsigned char *str, uint32_t len)
 {
-
     int32_t ret;
 
     ret = STDIO_DRIVER.Send(str, len);
@@ -83,7 +82,6 @@ int putchar(int ch)
 
 void stdio_init(void)
 {
-
     int32_t ret;
     ret = STDIO_DRIVER.Initialize(NULL);
     ASSERT_HIGH(ret);
@@ -101,7 +99,6 @@ void stdio_init(void)
 
 void stdio_uninit(void)
 {
-
     int32_t ret;
 
     (void)STDIO_DRIVER.PowerControl(ARM_POWER_OFF);
