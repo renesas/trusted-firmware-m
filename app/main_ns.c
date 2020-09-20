@@ -29,9 +29,6 @@
 #include "uart_stdout.h"
 #include "region.h"
 
-#include "bsp_api.h"
-#include "platform_base_address.h"
-
 /**
  * \brief Modified table template for user defined SVC functions
  *
@@ -143,14 +140,14 @@ __WEAK int32_t tfm_ns_platform_uninit(void)
 #ifndef __GNUC__
 __attribute__((noreturn))
 #endif
-int tfm_ns_main(void)
+int main(void)
 {
-//#if defined(__ARM_ARCH_8_1M_MAIN__) || defined(__ARM_ARCH_8M_MAIN__)
-//    /* Set Main Stack Pointer limit */
-//    REGION_DECLARE(Image$$, ARM_LIB_STACK_MSP, $$ZI$$Base);
-//    __set_MSPLIM((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP,
-//                                        $$ZI$$Base));
-//#endif
+#if defined(__ARM_ARCH_8_1M_MAIN__) || defined(__ARM_ARCH_8M_MAIN__)
+    /* Set Main Stack Pointer limit */
+    REGION_DECLARE(Image$$, ARM_LIB_STACK_MSP, $$ZI$$Base);
+    __set_MSPLIM((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP,
+                                        $$ZI$$Base));
+#endif
 
     if (tfm_ns_platform_init() != ARM_DRIVER_OK) {
         /* Avoid undefined behavior if platform init failed */
@@ -169,11 +166,6 @@ int tfm_ns_main(void)
 #if defined(TEST_FRAMEWORK_NS)
     thread_func = test_app;
 #elif defined(PSA_API_TEST_NS)
-    R_ICU->IELSR[0] = (uint32_t) (384);
-    R_ICU->IELSR[1] = (uint32_t) (385);
-    R_ICU->IELSR[2] = (uint32_t) (386);
-    R_ICU->IELSR[3] = (uint32_t) (387);
-
     thread_func = psa_api_test;
 #endif
 

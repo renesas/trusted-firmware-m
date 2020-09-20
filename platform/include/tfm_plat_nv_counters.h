@@ -25,7 +25,7 @@
 
 #include <stdint.h>
 #include "tfm_plat_defs.h"
-#include "rm_bl2_cfg.h"
+#include "tfm_common_config.h"
 
 enum tfm_nv_counter_t {
     PLAT_NV_COUNTER_0 = 0,  /* Used by PS service */

@@ -55,7 +55,7 @@ SECTIONS
         *startup*(.text*)
         . = ALIGN(4);
     } > FLASH
-    
+
     .copy.table : ALIGN(4)
     {
         __copy_table_start__ = .;
