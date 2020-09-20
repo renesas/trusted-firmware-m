@@ -14,7 +14,7 @@ extern "C" {
 
 #include <stdint.h>
 #include "tfm_common_config.h"
-#include "psa/client.h"
+#include "tfm_crypto_include/psa/client.h"
 
 #define TFM_INVALID_CLIENT_ID 0
 
