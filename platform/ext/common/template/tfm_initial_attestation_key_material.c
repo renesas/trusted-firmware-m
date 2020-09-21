@@ -8,8 +8,8 @@
 #include <stdint.h>
 #include "tfm_plat_defs.h"
 #include "tfm_plat_crypto_keys.h"
-#include "psa/crypto_types.h"
-#include "psa/crypto_values.h"
+#include "crypto_include/psa/crypto_types.h"
+#include "crypto_include/psa/crypto_values.h"
 
 #ifdef SYMMETRIC_INITIAL_ATTESTATION
 /*

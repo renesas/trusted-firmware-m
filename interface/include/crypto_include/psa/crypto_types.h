@@ -5,7 +5,7 @@
  *
  */
 /**
- * \file psa/crypto_types.h
+ * \file crypto_include/psa/crypto_types.h
  *
  * \brief PSA cryptography module: type aliases.
  *

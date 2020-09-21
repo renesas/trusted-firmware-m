@@ -5,7 +5,7 @@
  *
  */
 /**
- * \file psa/crypto_extra.h
+ * \file crypto_include/psa/crypto_extra.h
  *
  * \brief PSA cryptography module: vendor extensions
  *
@@ -18,7 +18,7 @@
 #ifndef PSA_CRYPTO_EXTRA_H
 #define PSA_CRYPTO_EXTRA_H
 
-#include "psa/crypto_compat.h"
+#include "crypto_include/psa/crypto_compat.h"
 
 #ifdef __cplusplus
 extern "C" {

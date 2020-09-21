@@ -5,7 +5,7 @@
  *
  */
 
-#include "tfm_crypto_include/psa/initial_attestation.h"
+#include "psa/initial_attestation.h"
 #include "tfm_veneers.h"
 #include "tfm_memory_utils.h"
 #include "tfm_client.h"

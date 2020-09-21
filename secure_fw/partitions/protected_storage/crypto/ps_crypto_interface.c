@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 #include "tfm_crypto_defs.h"
-#include "psa/crypto.h"
+#include "crypto_include/psa/crypto.h"
 #include "tfm_memory_utils.h"
 
 /* The PSA key type used by this implementation */

@@ -15,7 +15,7 @@ extern "C" {
 #include <stdint.h>
 #include "tfm_crypto_defs.h"
 #ifdef TFM_PSA_API
-#include "tfm_crypto_include/psa/service.h"
+#include "psa/service.h"
 
 /**
  * \brief This define is a function pointer type to the Uniform Signature API
@@ -24,7 +24,7 @@ extern "C" {
 typedef psa_status_t (*tfm_crypto_us_t)(psa_invec[],size_t,psa_outvec[],size_t);
 #endif
 
-#include "tfm_crypto_include/psa/crypto_client_struct.h"
+#include "crypto_include/psa/crypto_client_struct.h"
 
 #define UNIFORM_SIGNATURE_API(api_name) \
     psa_status_t api_name(psa_invec[], size_t, psa_outvec[], size_t)

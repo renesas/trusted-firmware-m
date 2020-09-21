@@ -18,7 +18,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "psa/crypto.h"
+#include "crypto_include/psa/crypto.h"
 
 #ifdef __cplusplus
 extern "C" {

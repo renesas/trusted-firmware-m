@@ -1,5 +1,5 @@
 /**
- * \file tfm_crypto_include/psa/crypto_compat.h
+ * \file crypto_include/psa/crypto_compat.h
  *
  * \brief PSA cryptography module: Backward compatibility aliases
  *

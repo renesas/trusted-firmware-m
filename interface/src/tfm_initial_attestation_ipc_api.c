@@ -8,7 +8,7 @@
 #include "psa/initial_attestation.h"
 #include "tfm_ns_interface.h"
 #include "psa/client.h"
-#include "psa/crypto_types.h"
+#include "crypto_include/psa/crypto_types.h"
 #include "psa_manifest/sid.h"
 
 #define IOVEC_LEN(x) (sizeof(x)/sizeof(x[0]))

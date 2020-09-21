@@ -7,7 +7,7 @@
 
 #include "tfm_veneers.h"
 #include "tfm_crypto_defs.h"
-#include "psa/crypto.h"
+#include "crypto_include/psa/crypto.h"
 #ifdef TFM_PSA_API
 #include "psa_manifest/sid.h"
 #endif
