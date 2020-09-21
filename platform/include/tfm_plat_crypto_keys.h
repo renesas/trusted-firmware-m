@@ -15,8 +15,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "tfm_plat_defs.h"
+#ifdef BL2_PROJECT
 #include "psa/crypto.h"
-
+#else
+#include "tfm_crypto_include/psa/crypto.h"
+#endif 
 #ifdef __cplusplus
 extern "C" {
 #endif
