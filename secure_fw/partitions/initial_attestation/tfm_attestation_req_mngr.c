@@ -6,14 +6,14 @@
  */
 
 #include <string.h>
-#include "tfm_crypto_include/psa/initial_attestation.h"
-#include "tfm_crypto_include/psa/crypto.h"
+#include "psa/initial_attestation.h"
+#include "psa/crypto.h"
 #include "attestation.h"
 
 #ifdef TFM_PSA_API
 #include "psa_manifest/tfm_initial_attestation.h"
 #include "tfm_client.h"
-#include "tfm_crypto_include/psa/service.h"
+#include "psa/service.h"
 #include "region_defs.h"
 
 #define ECC_P256_PUBLIC_KEY_SIZE PSA_KEY_EXPORT_ECC_PUBLIC_KEY_MAX_SIZE(256)
