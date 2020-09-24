@@ -869,6 +869,10 @@ boot_read_status(struct boot_loader_state *state, struct boot_status *bs)
     bs->swap_type = BOOT_SWAP_TYPE_NONE;
 
 #ifdef MCUBOOT_OVERWRITE_ONLY
+    #if BL2_TEMP_EN
+    if(boot_data.imgs[BOOT_CURR_IMG(state)][BOOT_SECONDARY_SLOT].is_hdr_valid == true)
+        bs->swap_type = BOOT_SWAP_TYPE_PERM;
+    #endif
     /* Overwrite-only doesn't make use of the swap status area. */
     return 0;
 #else
@@ -2353,6 +2357,7 @@ context_boot_go(struct boot_loader_state *state, struct boot_rsp *rsp)
             }
         }
 
+#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
         /* Save boot status to shared memory area */
 #if (BOOT_IMAGE_NUMBER > 1)
         rc = boot_save_boot_status((BOOT_CURR_IMG(state) == 0) ?
@@ -2370,6 +2375,7 @@ context_boot_go(struct boot_loader_state *state, struct boot_rsp *rsp)
             BOOT_LOG_ERR("Failed to add Image %u data to shared area",
                          BOOT_CURR_IMG(state));
         }
+#endif
     }
 
 #if (BOOT_IMAGE_NUMBER > 1)

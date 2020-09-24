@@ -137,7 +137,7 @@ static int32_t tfm_core_set_secure_exception_priorities(void)
     return TFM_SUCCESS;
 }
 
-int main(void)
+int tfm_main(void)
 {
     /* set Main Stack Pointer limit */
     tfm_arch_set_msplim((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP,

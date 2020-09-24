@@ -14,6 +14,7 @@
 #define __T_COSE_COMMON_H__
 
 #include <stdint.h>
+#include "tfm_common_config.h"
 #include "q_useful_buf.h"
 
 #ifdef __cplusplus

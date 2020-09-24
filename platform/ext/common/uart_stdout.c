@@ -21,17 +21,13 @@
 #include "Driver_USART.h"
 #include "target_cfg.h"
 #include "device_cfg.h"
+#include "tfm_common_config.h"
 
 #define ASSERT_HIGH(X)  assert(X == ARM_DRIVER_OK)
 
-/* Imports USART driver */
-#if DOMAIN_NS == 1U
-extern ARM_DRIVER_USART NS_DRIVER_STDIO;
-#define STDIO_DRIVER    NS_DRIVER_STDIO
-#else
-extern ARM_DRIVER_USART TFM_DRIVER_STDIO;
-#define STDIO_DRIVER    TFM_DRIVER_STDIO
-#endif
+
+extern ARM_DRIVER_USART Driver_USART;
+#define STDIO_DRIVER    Driver_USART
 
 int stdio_output_string(const unsigned char *str, uint32_t len)
 {

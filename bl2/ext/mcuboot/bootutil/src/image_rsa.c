@@ -25,6 +25,7 @@
  */
 
 #include <string.h>
+#include "rm_bl2_cfg.h"
 
 #include "mcuboot_config/mcuboot_config.h"
 

@@ -81,7 +81,7 @@ typedef uint32_t psa_key_type_t;
  *
  * The first option is recommended.
  */
-typedef uint16_t psa_ecc_curve_t;
+typedef uint8_t psa_ecc_curve_t;
 
 /** The type of PSA Diffie-Hellman group identifiers.
  *
@@ -133,7 +133,7 @@ typedef uint16_t psa_ecc_curve_t;
  * 0xFAFA
  * \endcode
  */
-typedef uint16_t psa_dh_group_t;
+typedef uint8_t psa_dh_group_t;
 
 /** \brief Encoding of a cryptographic algorithm.
  *
