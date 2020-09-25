@@ -5,7 +5,7 @@
  *
  */
 /**
- * \file crypto_include/psa/crypto_values.h
+ * \file psa/crypto_values.h
  *
  * \brief PSA cryptography module: macros to build and analyze integer values.
  *

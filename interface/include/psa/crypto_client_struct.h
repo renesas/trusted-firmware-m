@@ -5,7 +5,7 @@
  *
  */
 /**
- * \file crypto_include/psa/crypto_client_struct.h
+ * \file psa/crypto_client_struct.h
  *
  * \brief PSA cryptography client key attribute definitions
  *

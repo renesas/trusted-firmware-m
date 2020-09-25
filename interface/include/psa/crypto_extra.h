@@ -5,7 +5,7 @@
  *
  */
 /**
- * \file crypto_include/psa/crypto_extra.h
+ * \file psa/crypto_extra.h
  *
  * \brief PSA cryptography module: vendor extensions
  *

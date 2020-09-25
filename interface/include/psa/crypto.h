@@ -5,7 +5,7 @@
  *
  */
 /**
- * \file crypto_include/psa/crypto.h
+ * \file psa/crypto.h
  * \brief Platform Security Architecture cryptography module
  */
 
