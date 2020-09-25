@@ -6,7 +6,7 @@
  */
 
 #include "tfm_crypto_defs.h"
-#include "crypto_include/psa/crypto.h"
+#include "psa/crypto.h"
 #include "tfm_ns_interface.h"
 #include "psa_manifest/sid.h"
 #include "psa/client.h"

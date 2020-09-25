@@ -17,7 +17,7 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "crypto_include/psa/crypto_types.h"
+#include "psa/crypto_types.h"
 #include "tfm_plat_crypto_keys.h"
 
 /* FIXME: Functions in this file should be implemented by platform vendor. For

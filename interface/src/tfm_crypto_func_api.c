@@ -7,7 +7,7 @@
 
 #include "tfm_veneers.h"
 #include "tfm_crypto_defs.h"
-#include "crypto_include/psa/crypto.h"
+#include "psa/crypto.h"
 #include "tfm_ns_interface.h"
 
 #define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))

@@ -24,7 +24,7 @@ extern "C" {
 typedef psa_status_t (*tfm_crypto_us_t)(psa_invec[],size_t,psa_outvec[],size_t);
 #endif
 
-#include "crypto_include/psa/crypto_client_struct.h"
+#include "psa/crypto_client_struct.h"
 
 #define UNIFORM_SIGNATURE_API(api_name) \
     psa_status_t api_name(psa_invec[], size_t, psa_outvec[], size_t)

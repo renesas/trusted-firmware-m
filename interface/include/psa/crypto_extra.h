@@ -18,7 +18,7 @@
 #ifndef PSA_CRYPTO_EXTRA_H
 #define PSA_CRYPTO_EXTRA_H
 
-#include "crypto_include/psa/crypto_compat.h"
+#include "psa/crypto_compat.h"
 
 #ifdef __cplusplus
 extern "C" {

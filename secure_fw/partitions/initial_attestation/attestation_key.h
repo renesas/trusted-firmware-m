@@ -8,7 +8,7 @@
 #ifndef __ATTESTATION_KEY_H__
 #define __ATTESTATION_KEY_H__
 
-#include "crypto_include/psa/crypto.h"
+#include "psa/crypto.h"
 #include "psa/initial_attestation.h"
 #include "attestation.h"
 #include "q_useful_buf.h"

@@ -18,7 +18,7 @@
 #endif
 #include "t_cose_common.h"
 #include "q_useful_buf.h"
-#include "crypto_include/psa/crypto.h"
+#include "psa/crypto.h"
 #include "attestation_key.h"
 #include "attestation.h"
 

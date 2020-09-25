@@ -35,7 +35,7 @@
  */
 
 
-#include "crypto_include/psa/crypto.h"     /* PSA Crypto Interface to mbed crypto or such */
+#include "psa/crypto.h"     /* PSA Crypto Interface to mbed crypto or such */
 #include "t_cose_crypto.h"  /* The interface this implements */
 
 

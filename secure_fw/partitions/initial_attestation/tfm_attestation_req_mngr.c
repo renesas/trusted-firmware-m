@@ -7,7 +7,7 @@
 
 #include <string.h>
 
-#include "crypto_include/psa/crypto.h"
+#include "psa/crypto.h"
 #include "psa/initial_attestation.h"
 #include "attestation.h"
 

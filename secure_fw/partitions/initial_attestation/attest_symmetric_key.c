@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "crypto_include/psa/crypto.h"
+#include "psa/crypto.h"
 #include "attestation_key.h"
 #include "platform/include/tfm_plat_crypto_keys.h"
 #include "tfm_memory_utils.h"
