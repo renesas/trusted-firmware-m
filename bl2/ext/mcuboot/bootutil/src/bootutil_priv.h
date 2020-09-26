@@ -152,7 +152,7 @@ _Static_assert(BOOT_IMAGE_NUMBER > 0, "Invalid value for BOOT_IMAGE_NUMBER");
                      (swap_info) = (image) << SWAP_INFO_IMAGE_NUM_POS          \
                                  | (type);                                     \
                      }
-#if BL2_TEMP_DIS
+#ifndef BL2_RA_PORT
 /*
  * The current flashmap API does not check the amount of space allocated when
  * loading sector data from the flash device, allowing for smaller counts here
