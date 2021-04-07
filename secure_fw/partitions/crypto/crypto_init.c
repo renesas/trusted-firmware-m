@@ -9,6 +9,7 @@
 
 #include "tfm_crypto_api.h"
 #include "tfm_crypto_defs.h"
+#include "tfm_sp_log.h"
 
 /*
  * \brief This Mbed TLS include is needed to initialise the memory allocator
@@ -55,7 +56,7 @@ LIST_TFM_CRYPTO_UNIFORM_SIGNATURE_API
  *        in bytes
  */
 #ifndef TFM_CRYPTO_IOVEC_BUFFER_SIZE
-#define TFM_CRYPTO_IOVEC_BUFFER_SIZE (5120)
+#error TFM_CRYPTO_IOVEC_BUFFER_SIZE is not defined
 #endif
 
 /**
@@ -99,13 +100,11 @@ static psa_status_t tfm_crypto_alloc_scratch(size_t requested_size, void **buf)
     return PSA_SUCCESS;
 }
 
-static psa_status_t tfm_crypto_clear_scratch(void)
+void tfm_crypto_clear_scratch(void)
 {
-    scratch.alloc_index = 0;
     scratch.owner = 0;
-    (void)tfm_memset(scratch.buf, 0, sizeof(scratch.buf));
-
-    return PSA_SUCCESS;
+    (void)tfm_memset(scratch.buf, 0, scratch.alloc_index);
+    scratch.alloc_index = 0;
 }
 
 static psa_status_t tfm_crypto_call_sfn(psa_msg_t *msg,
@@ -114,8 +113,8 @@ static psa_status_t tfm_crypto_call_sfn(psa_msg_t *msg,
 {
     psa_status_t status = PSA_SUCCESS;
     size_t in_len = PSA_MAX_IOVEC, out_len = PSA_MAX_IOVEC, i;
-    psa_invec in_vec[PSA_MAX_IOVEC] = { {0} };
-    psa_outvec out_vec[PSA_MAX_IOVEC] = { {0} };
+    psa_invec in_vec[PSA_MAX_IOVEC] = { {NULL, 0} };
+    psa_outvec out_vec[PSA_MAX_IOVEC] = { {NULL, 0} };
     void *alloc_buf_ptr = NULL;
 
     /* Check the number of in_vec filled */
@@ -136,7 +135,7 @@ static psa_status_t tfm_crypto_call_sfn(psa_msg_t *msg,
         /* Allocate necessary space in the internal scratch */
         status = tfm_crypto_alloc_scratch(msg->in_size[i], &alloc_buf_ptr);
         if (status != PSA_SUCCESS) {
-            (void)tfm_crypto_clear_scratch();
+            tfm_crypto_clear_scratch();
             return status;
         }
         /* Read from the IPC framework inputs into the scratch */
@@ -155,7 +154,7 @@ static psa_status_t tfm_crypto_call_sfn(psa_msg_t *msg,
         /* Allocate necessary space for the output in the internal scratch */
         status = tfm_crypto_alloc_scratch(msg->out_size[i], &alloc_buf_ptr);
         if (status != PSA_SUCCESS) {
-            (void)tfm_crypto_clear_scratch();
+            tfm_crypto_clear_scratch();
             return status;
         }
         /* Populate the fields of the output to the secure function */
@@ -175,9 +174,7 @@ static psa_status_t tfm_crypto_call_sfn(psa_msg_t *msg,
     }
 
     /* Clear the allocated internal scratch before returning */
-    if (tfm_crypto_clear_scratch() != PSA_SUCCESS) {
-        return PSA_ERROR_GENERIC_ERROR;
-    }
+    tfm_crypto_clear_scratch();
 
     return status;
 }
@@ -268,7 +265,7 @@ static void tfm_crypto_ipc_handler(void)
  *        Crypto for its dynamic allocations
  */
 #ifndef TFM_CRYPTO_ENGINE_BUF_SIZE
-#define TFM_CRYPTO_ENGINE_BUF_SIZE (0x2000) /* 8KB for EC signing in attest */
+#error TFM_CRYPTO_ENGINE_BUF_SIZE is not defined
 #endif
 
 /**
@@ -279,6 +276,11 @@ static uint8_t mbedtls_mem_buf[TFM_CRYPTO_ENGINE_BUF_SIZE] = {0};
 
 static psa_status_t tfm_crypto_engine_init(void)
 {
+    /* Log unsafe entropy source */
+#if defined (MBEDTLS_TEST_NULL_ENTROPY)
+    LOG_INFFMT("\033[1;34m[Crypto] MBEDTLS_TEST_NULL_ENTROPY is not suitable for production!\033[0m\r\n");
+#endif
+
     /* Initialise the Mbed Crypto memory allocator to use static
      * memory allocation from the provided buffer instead of using
      * the heap

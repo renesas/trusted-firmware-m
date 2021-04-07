@@ -67,7 +67,7 @@ struct memory_region_limits {
 /**
  * \brief Holds the data necessary to do isolation for a specific peripheral.
  */
-struct tfm_spm_partition_platform_data_t
+struct platform_data_t
 {
     uint32_t periph_start;
     uint32_t periph_limit;
@@ -79,6 +79,12 @@ struct tfm_spm_partition_platform_data_t
  * \brief Configures the Memory Protection Controller.
  */
 int32_t mpc_init_cfg(void);
+
+/**
+ * \brief Set to secure the initialized non-secure regions of
+ *        the Memory Protection Controller.
+ */
+void mpc_revert_non_secure_to_secure_cfg(void);
 
 /**
  * \brief Configures the Peripheral Protection Controller.

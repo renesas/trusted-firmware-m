@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018-2019 Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2020 Arm Limited. All rights reserved.
+ * Copyright (c) 2021 IAR Systems AB
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +15,15 @@
  * limitations under the License.
  */
 
-#include "target_cfg.h"
+#include "device_definition.h"
 #include "Driver_Common.h"
 #include "platform_description.h"
-#include "device_definition.h"
 #include "region_defs.h"
+#include "tfm_assert.h"
+#include "target_cfg.h"
 #include "tfm_plat_defs.h"
-
-#include "log/tfm_assert.h"
-#include "log/tfm_log.h"
-
-/* Macros to pick linker symbols */
-#define REGION(a, b, c) a##b##c
-#define REGION_NAME(a, b, c) REGION(a, b, c)
-#define REGION_DECLARE(a, b, c) extern uint32_t REGION_NAME(a, b, c)
+#include "tfm_spm_log.h"
+#include "region.h"
 
 /* The section names come from the scatter file */
 REGION_DECLARE(Load$$LR$$, LR_NS_PARTITION, $$Base);
@@ -80,14 +76,14 @@ const struct memory_region_limits memory_regions = {
  */
 #define SCB_AIRCR_WRITE_MASK ((0x5FAUL << SCB_AIRCR_VECTKEY_Pos))
 
-struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
+struct platform_data_t tfm_peripheral_std_uart = {
         USART0_BASE_NS,
         USART0_BASE_NS + 0xFFF,
         0,
         0
 };
 
-struct tfm_spm_partition_platform_data_t tfm_peripheral_timer0 = {
+struct platform_data_t tfm_peripheral_timer0 = {
         CTIMER2_BASE,
         CTIMER2_BASE + 0xFFF,
         &(AHB_SECURE_CTRL->SEC_CTRL_APB_BRIDGE[0].SEC_CTRL_APB_BRIDGE1_MEM_CTRL1),
@@ -198,13 +194,16 @@ void sau_and_idau_cfg(void)
                 | SAU_RLAR_ENABLE_Msk;
 #endif /* BL2 */
 
-    LOG_MSG("=== [SAU NS] =======\r\n");
-    LOG_MSG("NS ROM [0x%x, 0x%x]\r\n", memory_regions.non_secure_partition_base, memory_regions.non_secure_partition_limit);
-    LOG_MSG("NS DATA [0x%x, 0x%x]\r\n", NS_DATA_START, NS_DATA_LIMIT);
-    LOG_MSG("NSC [0x%x, 0x%x]\r\n", memory_regions.veneer_base, memory_regions.veneer_limit);
-    LOG_MSG("PERIPHERALS [0x%x, 0x%x]\r\n", PERIPHERALS_BASE_NS_START, PERIPHERALS_BASE_NS_END);
+    SPMLOG_INFMSG("=== [SAU NS] =======\r\n");
+    SPMLOG_INFMSGVAL("NS ROM Base: ", memory_regions.non_secure_partition_base);
+    SPMLOG_INFMSGVAL("NS ROM Limit: ", memory_regions.non_secure_partition_limit);
+    SPMLOG_INFMSGVAL("NS DATA Base: ", NS_DATA_START);
+    SPMLOG_INFMSGVAL("NS DATA Limit: ", NS_DATA_LIMIT);
+    SPMLOG_INFMSGVAL("NSC Base: ", memory_regions.veneer_base);
+    SPMLOG_INFMSGVAL("NSC Limit: ", memory_regions.veneer_limit);
+    SPMLOG_INFMSGVAL("PERIPHERALS Base: ", PERIPHERALS_BASE_NS_START);
+    SPMLOG_INFMSGVAL("PERIPHERALS Limit: ", PERIPHERALS_BASE_NS_END);
 }
-
 /*------------------- Memory configuration functions -------------------------*/
 
 int32_t ahb_secure_control_memory_init(void)
@@ -360,9 +359,11 @@ int32_t ahb_secure_control_memory_init(void)
         }
     }
 
-    LOG_MSG("=== [AHB MPC NS] =======\r\n");
-    LOG_MSG("NS ROM [0x%x, 0x%x]\r\n", memory_regions.non_secure_partition_base, memory_regions.non_secure_partition_limit);
-    LOG_MSG("NS DATA [0x%x, 0x%x]\r\n", NS_DATA_START, NS_DATA_LIMIT);
+    SPMLOG_INFMSG("=== [AHB MPC NS] =======\r\n");
+    SPMLOG_INFMSGVAL("NS ROM Base: ", memory_regions.non_secure_partition_base);
+    SPMLOG_INFMSGVAL("NS ROM Limit: ", memory_regions.non_secure_partition_limit);
+    SPMLOG_INFMSGVAL("NS DATA Base: ", NS_DATA_START);
+    SPMLOG_INFMSGVAL("NS DATA Limit: ", NS_DATA_LIMIT);
 
     /* Add barriers to assure the MPC configuration is done before continue
      * the execution.

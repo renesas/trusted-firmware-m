@@ -12,7 +12,7 @@ This file should enumerate the hardware peripherals that are available for TF-M
 on the platform. The name of the peripheral used by a service is set in its
 manifest file. The platform have to provide a macro for each of the provided
 peripherals, that is substituted to a pointer to type
-``struct tfm_spm_partition_platform_data_t``. The memory that the pointer points
+``struct platform_data_t``. The memory that the pointer points
 to is allocated by the platform code. The pointer gets stored in the partitions
 database in SPM, and it is provided to the SPM HAL functions.
 
@@ -42,6 +42,18 @@ platform/include/tfm_platform_system.h
 This file contains the declarations of functions that a platform implementation
 has to provide for TF-M's Platform Service. For details see
 ``docs/user_guides/services/tfm_platform_integration_guide.rst``
+
+**************
+System Startup
+**************
+
+Before calling ``main()``, platform startup code should initialise all system
+clocks, perform runtime initialisation and other steps such as setting the
+vector table. Configuration of the following features is optional as TF-M
+architecture code will check and initialise them:
+
+  - The Security Extension.
+  - The Floating-point Extension.
 
 *****************************
 Debug authentication settings

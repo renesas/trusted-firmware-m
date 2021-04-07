@@ -7,7 +7,7 @@
 
 /*
  * Original code taken from mcuboot project at:
- * https://github.com/JuulLabs-OSS/mcuboot
+ * https://github.com/mcu-tools/mcuboot
  * Git SHA of the original version: ac55554059147fff718015be9f4bd3108123f50a
  */
 
@@ -27,17 +27,17 @@
 #error "FLASH_AREA_IMAGE_SECTOR_SIZE must be defined by the target"
 #endif
 
-#ifdef MCUBOOT_RAM_LOADING
+#ifdef MCUBOOT_RAM_LOAD
 #ifndef IMAGE_EXECUTABLE_RAM_START
-#error "If MCUBOOT_RAM_LOADING is set then IMAGE_EXECUTABLE_RAM_START must be \
+#error "If MCUBOOT_RAM_LOAD is set then IMAGE_EXECUTABLE_RAM_START must be \
 defined by the target"
 #endif
 
 #ifndef IMAGE_EXECUTABLE_RAM_SIZE
-#error "If MCUBOOT_RAM_LOADING is set then IMAGE_EXECUTABLE_RAM_SIZE must be \
+#error "If MCUBOOT_RAM_LOAD is set then IMAGE_EXECUTABLE_RAM_SIZE must be \
 defined by the target"
 #endif
-#endif /* MCUBOOT_RAM_LOADING */
+#endif /* MCUBOOT_RAM_LOAD */
 
 #ifndef FLASH_AREA_0_OFFSET
 #error "FLASH_AREA_0_OFFSET must be defined by the target"
@@ -47,12 +47,22 @@ defined by the target"
 #error "FLASH_AREA_0_SIZE must be defined by the target"
 #endif
 
+#if defined(FLASH_DEV_NAME_0) != defined(FLASH_DEVICE_ID_0)
+#error "FLASH DEV_NAME_0 and DEVICE_ID_0 must be simultaneously defined or not \
+by target"
+#endif
+
 #ifndef FLASH_AREA_2_OFFSET
 #error "FLASH_AREA_2_OFFSET must be defined by the target"
 #endif
 
 #ifndef FLASH_AREA_2_SIZE
 #error "FLASH_AREA_2_SIZE must be defined by the target"
+#endif
+
+#if defined(FLASH_DEV_NAME_2) != defined(FLASH_DEVICE_ID_2)
+#error "FLASH DEV_NAME_2 and DEVICE_ID_2 must be simultaneously defined or not \
+by target"
 #endif
 
 #if (MCUBOOT_IMAGE_NUMBER == 2)
@@ -64,12 +74,22 @@ defined by the target"
 #error "FLASH_AREA_1_SIZE must be defined by the target"
 #endif
 
+#if defined(FLASH_DEV_NAME_1) != defined(FLASH_DEVICE_ID_1)
+#error "FLASH DEV_NAME_1 and DEVICE_ID_1 must be simultaneously defined or not \
+by target"
+#endif
+
 #ifndef FLASH_AREA_3_OFFSET
 #error "FLASH_AREA_3_OFFSET must be defined by the target"
 #endif
 
 #ifndef FLASH_AREA_3_SIZE
 #error "FLASH_AREA_3_SIZE must be defined by the target"
+#endif
+
+#if defined(FLASH_DEV_NAME_3) != defined(FLASH_DEVICE_ID_3)
+#error "FLASH DEV_NAME_3 and DEVICE_ID_3 must be simultaneously defined or not \
+by target"
 #endif
 #endif /* (MCUBOOT_IMAGE_NUMBER == 2) */
 
@@ -79,6 +99,11 @@ defined by the target"
 
 #ifndef FLASH_AREA_SCRATCH_SIZE
 #error "FLASH_AREA_SCRATCH_SIZE must be defined by the target"
+#endif
+
+#if defined(FLASH_DEV_NAME_SCRATCH) != defined(FLASH_DEVICE_ID_SCRATCH)
+#error "FLASH DEV_NAME_SCRATCH and DEVICE_ID_SCRATCH must be simultaneously defined \
+or not by target"
 #endif
 
 #ifndef FLASH_DEV_NAME

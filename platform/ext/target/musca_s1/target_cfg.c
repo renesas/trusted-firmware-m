@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2021 Arm Limited. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@
 #include "platform_description.h"
 #include "device_definition.h"
 #include "region_defs.h"
+#include "tfm_hal_platform.h"
 #include "tfm_plat_defs.h"
 #include "region.h"
+#include "cmsis_driver_config.h"
 
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
 #define MAX(A, B) (((A) > (B)) ? (A) : (B))
@@ -111,19 +113,75 @@ static ARM_DRIVER_PPC *const ppc_bank_drivers[] = {
     (sizeof(ppc_bank_drivers)/sizeof(ppc_bank_drivers[0]))
 
 
-struct tfm_spm_partition_platform_data_t tfm_peripheral_std_uart = {
+struct platform_data_t tfm_peripheral_std_uart = {
         MUSCA_S1_UART1_NS_BASE,
         MUSCA_S1_UART1_NS_BASE + 0xFFF,
         PPC_SP_DO_NOT_CONFIGURE,
         -1
 };
 
-struct tfm_spm_partition_platform_data_t tfm_peripheral_timer0 = {
+struct platform_data_t tfm_peripheral_timer0 = {
         MUSCA_S1_CMSDK_TIMER0_S_BASE,
         MUSCA_S1_CMSDK_TIMER1_S_BASE - 1,
         PPC_SP_APB_PPC0,
         CMSDK_TIMER0_APB_PPC_POS
 };
+
+#ifdef PSA_API_TEST_IPC
+
+/* Below data structure are only used for PSA FF tests, and this pattern is
+ * definitely not to be followed for real life use cases, as it can break
+ * security.
+ */
+
+struct platform_data_t
+    tfm_peripheral_FF_TEST_UART_REGION = {
+        MUSCA_S1_UART1_NS_BASE,
+        MUSCA_S1_UART1_NS_BASE + 0xFFF,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+struct platform_data_t
+    tfm_peripheral_FF_TEST_WATCHDOG_REGION = {
+        MUSCA_S1_CMSDK_WATCHDOG_S_BASE,
+        MUSCA_S1_CMSDK_WATCHDOG_S_BASE + 0xFFF,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+#define FF_TEST_NVMEM_REGION_START 0x3003F800
+#define FF_TEST_NVMEM_REGION_END 0x3003FBFF
+#define FF_TEST_SERVER_PARTITION_MMIO_START 0x3003FC00
+#define FF_TEST_SERVER_PARTITION_MMIO_END 0x3003FD00
+#define FF_TEST_DRIVER_PARTITION_MMIO_START 0x3003FE00
+#define FF_TEST_DRIVER_PARTITION_MMIO_END 0x3003FF00
+
+struct platform_data_t
+    tfm_peripheral_FF_TEST_NVMEM_REGION = {
+        FF_TEST_NVMEM_REGION_START,
+        FF_TEST_NVMEM_REGION_END,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+struct platform_data_t
+    tfm_peripheral_FF_TEST_SERVER_PARTITION_MMIO = {
+        FF_TEST_SERVER_PARTITION_MMIO_START,
+        FF_TEST_SERVER_PARTITION_MMIO_END,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+struct platform_data_t
+    tfm_peripheral_FF_TEST_DRIVER_PARTITION_MMIO = {
+        FF_TEST_DRIVER_PARTITION_MMIO_START,
+        FF_TEST_DRIVER_PARTITION_MMIO_END,
+        PPC_SP_DO_NOT_CONFIGURE,
+        -1
+};
+
+#endif
 
 enum tfm_plat_err_t enable_fault_handlers(void)
 {
@@ -265,6 +323,10 @@ enum tfm_plat_err_t nvic_interrupt_enable()
 
     NVIC_EnableIRQ(S_PPC_COMBINED_IRQn);
 
+#ifdef PSA_API_TEST_IPC
+    NVIC_EnableIRQ(FF_TEST_UART_IRQ);
+#endif
+
     return TFM_PLAT_ERR_SUCCESS;
 }
 
@@ -393,31 +455,11 @@ int32_t mpc_init_cfg(void)
         return ret;
     }
 
-    /* Lock down the MPC configuration */
-    ret = Driver_MRAM_MPC.LockDown();
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
-
-    ret = mpc_data_region0->LockDown();
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
-
-    ret = mpc_data_region1->LockDown();
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
-
-    ret = mpc_data_region2->LockDown();
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
-
-    ret = mpc_data_region3->LockDown();
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
+    /* NOTE: The recommended and expected way of programming MPCs requires to
+     * lock each MPC at this point, so no further configuration is allowed.
+     * However there is a hardware issue in Musca-S1, that makes it necessary to
+     * allow re-configuration before reset. Therefore locking is skipped here.
+     */
 
     /* Add barriers to assure the MPC configuration is done before continue
      * the execution.
@@ -426,6 +468,36 @@ int32_t mpc_init_cfg(void)
     __ISB();
 
     return ARM_DRIVER_OK;
+}
+
+/*  Due to a hardware issue NVIC_SystemReset() does not reset all the MPCs,
+ *  and these retain incorrect settings after reset. This can block the
+ *  boot process.
+ *  To avoid such cases mpc_revert_non_secure_to_secure_cfg() is implemented
+ *  to revert the MPC settings back to secure.
+ */
+void mpc_revert_non_secure_to_secure_cfg(void)
+{
+    ARM_DRIVER_MPC* mpc_data_region2 = &Driver_ISRAM2_MPC;
+    ARM_DRIVER_MPC* mpc_data_region3 = &Driver_ISRAM3_MPC;
+
+    Driver_MRAM_MPC.ConfigRegion(MPC_MRAM_RANGE_BASE_S,
+                                 MPC_MRAM_RANGE_LIMIT_S,
+                                 ARM_MPC_ATTR_SECURE);
+
+    mpc_data_region2->ConfigRegion(MPC_ISRAM2_RANGE_BASE_S,
+                                   MPC_ISRAM2_RANGE_LIMIT_S,
+                                   ARM_MPC_ATTR_SECURE);
+
+    mpc_data_region3->ConfigRegion(MPC_ISRAM3_RANGE_BASE_S,
+                                   MPC_ISRAM3_RANGE_LIMIT_S,
+                                   ARM_MPC_ATTR_SECURE);
+
+    /* Add barriers to assure the MPC configuration is done before continue
+     * the execution.
+     */
+    __DSB();
+    __ISB();
 }
 
 /*---------------------- PPC configuration functions -------------------------*/
@@ -564,19 +636,7 @@ int32_t ppc_init_cfg(void)
     if (ret != ARM_DRIVER_OK) {
         return ret;
     }
-    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_S1_QSPI_APB_PPC_POS,
-                                 ARM_PPC_NONSECURE_ONLY,
-                                 ARM_PPC_PRIV_AND_NONPRIV);
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
     ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_S1_GPTIMER0_APB_PPC_POS,
-                                 ARM_PPC_NONSECURE_ONLY,
-                                 ARM_PPC_PRIV_AND_NONPRIV);
-    if (ret != ARM_DRIVER_OK) {
-        return ret;
-    }
-    ret = Driver_APB_PPCEXP1.ConfigPeriph(MUSCA_S1_SCC_APB_PPC_POS,
                                  ARM_PPC_NONSECURE_ONLY,
                                  ARM_PPC_PRIV_AND_NONPRIV);
     if (ret != ARM_DRIVER_OK) {
@@ -678,4 +738,16 @@ void ppc_clear_irq(void)
     Driver_APB_PPC1.ClearInterrupt();
     Driver_APB_PPCEXP0.ClearInterrupt();
     Driver_APB_PPCEXP1.ClearInterrupt();
+}
+
+enum tfm_hal_status_t tfm_hal_platform_init(void)
+{
+    musca_s1_scc_mram_fast_read_enable(&MUSCA_S1_SCC_DEV);
+
+    arm_cache_enable_blocking(&SSE_200_CACHE_DEV);
+
+    __enable_irq();
+    stdio_init();
+
+    return TFM_HAL_SUCCESS;
 }

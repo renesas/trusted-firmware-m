@@ -1,5 +1,3 @@
-#! armclang --target=arm-arm-none-eabi -march=armv8-m.main -E -xc
-
 /*
  * Copyright (c) 2017-2020 Arm Limited. All rights reserved.
  *
@@ -27,6 +25,16 @@ LR_CODE BL2_CODE_START {
     /* Base address of bootloader data area */
     BL2_DATA_START S_DATA_START {
     }
+
+#ifdef CODE_SHARING
+    /* The code sharing between bootloader and runtime firmware requires to
+     * share the global variables.
+     */
+    TFM_SHARED_SYMBOLS +0 ALIGN 32 SHARED_SYMBOL_AREA_SIZE {
+       *platform.* (+RW)
+       *(.rodata.memset_func)
+    }
+#endif
 
     TFM_SHARED_DATA +0 ALIGN 32 EMPTY BOOT_TFM_SHARED_DATA_SIZE {
     }

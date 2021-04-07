@@ -4,10 +4,9 @@ Trusted Firmware M
 
 Trusted Firmware-M (TF-M) implements the Secure Processing Environment (SPE)
 for Armv8-M, Armv8.1-M architectures (e.g. the `Cortex-M33`_, `Cortex-M23`_,
-`Cortex-M55`_ processors) or dual-core platforms.
-It is the Platform Security Architecture (PSA) reference implementation
-aligning with `PSA Certified`_ guidelines, enabling chips,
-Real Time Operating Systems and devices to become PSA Certified.
+`Cortex-M55`_ processors) or dual-core platforms.It is the platform security
+architecture  reference implementation aligning with PSA Certified guidelines,
+enabling chips,Real Time Operating Systems and devices to become PSA Certified.
 
 TF-M relies on an isolation boundary between the Non-secure Processing
 Environment (NSPE) and the Secure Processing Environment (SPE). It can but is
@@ -26,7 +25,7 @@ architectures. In pre-Armv8-M architectures physical core isolation is required.
    :scale: 65 %
    :align: center
 
-   PSA FF compiant design with TF-M
+   FF-M compliant design with TF-M
 
 Applications and Libraries in the Non-secure Processing Environment can
 utilize these secure services with a standardized set of PSA Functional APIs.
@@ -60,11 +59,6 @@ folders. The original license text is included in those source files.
 - The ``platform`` folder currently contains platforms support imported from
   the external project and the files may have different licenses.
 
-.. Note::
-    Any folder that contains or directly imports 3rd party code is kept in a
-    specific subfolder named ``ext`` so that it can be isolated if required.
-    The 'ext' folder can be seen in the folders above mentioned.
-
 #########################
 Release Notes and Process
 #########################
@@ -81,15 +75,15 @@ Getting Started
 ************
 Prerequisite
 ************
-Trusted Firmware M provides a reference implementation of PSA specifications.
-It is assumed that the reader is familiar with PSA concepts and terms. PSA
-specifications can be found at
+Trusted Firmware M provides a reference implementation of platform security
+architecture  reference implementation aligning with PSA Certified guidelines.
+It is assumed that the reader is familiar with specifications can be found at
 `Platform Security Architecture Resources <https://developer.arm.com/architectures/security-architectures/platform-security-architecture>`__.
 
 The current TF-M implementation specifically targets TrustZone for ARMv8-M so a
 good understanding of the v8-M architecture is also necessary. A good place to
 get started with ARMv8-M is
-`developer.arm.com <https://developer.arm.com/technologies/trustzone>`__.
+`developer.arm.com <https://developer.arm.com/architectures/cpu-architecture/m-profile>`__.
 
 **********************
 Really getting started
@@ -122,14 +116,16 @@ Platforms supported
 ###################
     - Cortex-M55 system:
 
+        - `FPGA image loaded on MPS3 board (AN547).
+          <https://developer.arm.com/products/system-design/development-boards/cortex-m-prototyping-systems/mps3>`_
         - `Fast model FVP_SSE300_MPS2.
           <https://developer.arm.com/tools-and-software/open-source-software/arm-platforms-software/arm-ecosystem-fvps>`_
 
     - Cortex-M33 system:
 
-        - `FPGA image loaded on MPS2 board.
+        - `FPGA image loaded on MPS2 board (AN521).
           <https://developer.arm.com/products/system-design/development-boards/cortex-m-prototyping-systems/mps2>`_
-        - `Fast model FVP_MPS2_AEMv8M.
+        - `Fast model FVP_MPS2_AEMv8M (AN521).
           <https://developer.arm.com/products/system-design/fixed-virtual-platforms>`_
         - `Musca-A test chip board.
           <https://developer.arm.com/products/system-design/development-boards/iot-test-chips-and-boards/musca-a-test-chip-board>`_
@@ -137,26 +133,39 @@ Platforms supported
           <https://developer.arm.com/products/system-design/development-boards/iot-test-chips-and-boards/musca-b-test-chip-board>`_
         - `Musca-S1 test chip board.
           <https://developer.arm.com/tools-and-software/development-boards/iot-test-chips-and-boards/musca-s1-test-chip-board>`_
-        - `FPGA image loaded on MPS3 board.
+        - `FPGA image loaded on MPS3 board (AN524).
           <https://developer.arm.com/tools-and-software/development-boards/fpga-prototyping-boards/mps3>`_
-        - `Arm DesignStart FPGA on AWS Cloud.
-          <https://developer.arm.com/docs/101965/0102/arm-designstart-fpga-on-cloud-arm-ds-getting-started>`_
         - `LPC55S69.
           <https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/general-purpose-mcus/lpc5500-cortex-m33/lpcxpresso55s69-development-board:LPC55S69-EVK>`_
         - `NUCLEO L552ZE Q.
           <https://www.st.com/content/st_com/en/products/evaluation-tools/product-evaluation-tools/mcu-mpu-eval-tools/stm32-mcu-mpu-eval-tools/stm32-nucleo-boards/nucleo-l552ze-q.html>`_
         - `DISCO L562QE.
           <https://www.st.com/content/st_com/en/products/evaluation-tools/product-evaluation-tools/mcu-mpu-eval-tools/stm32-mcu-mpu-eval-tools/stm32-discovery-kits/stm32l562e-dk.html>`_
+        - `nRF9160 DK (nordic_nrf/nrf9160dk_nrf9160).
+          <https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK>`_
+        - `nRF5340 PDK (nordic_nrf/nrf5340pdk_nrf5340_cpuapp).
+          <https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF5340-PDK>`_
+        - `nRF5340 DK (nordic_nrf/nrf5340dk_nrf5340_cpuapp).
+          <https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF5340-PDK>`_
 
     - Cortex-M23 system:
 
-        - `FPGA image loaded on MPS2 board.
+        - `FPGA image loaded on MPS2 board (AN519).
           <https://developer.arm.com/products/system-design/development-boards/cortex-m-prototyping-systems/mps2>`_
+        - `M2351.
+          <https://www.nuvoton.com/products/iot-solution/iot-platform/numaker-pfm-m2351/>`_
 
     - Dual Core Cortex-M system:
 
         - `PSoc64.
           <https://www.cypress.com/documentation/product-brochures/cypress-psoc-64-secure-microcontrollers>`_
+
+    - Secure Enclave system:
+
+        - :doc:`Musca-B1 Secure Enclave. </platform/ext/target/musca_b1/secure_enclave/readme>`
+
+The document :doc:`Platform Deprecation and Removal </docs/contributing/platform_deprecation>`
+lists the deprecated platforms planned to be removed from upstream.
 
 ####################
 Feedback and support
@@ -182,6 +191,12 @@ Version history
 +-------------+--------------+--------------------+-------------------+
 | v1.1        | 2020-07-15   | 1.1 release        | 1f960947          |
 +-------------+--------------+--------------------+-------------------+
+| v1.2.0      | 2020-11-25   | 1.2.0 release      | 90c8e680          |
++-------------+--------------+--------------------+-------------------+
+
+Please refer to
+:ref:`docs/contributing/release_process:Release Version Scheme` for interpreting
+version numbers.
 
 .. _Cortex-M33: https://developer.arm.com/ip-products/processors/cortex-m/cortex-m33
 .. _Cortex-M23: https://developer.arm.com/ip-products/processors/cortex-m/cortex-m23
@@ -191,4 +206,4 @@ Version history
 
 --------------
 
-*Copyright (c) 2017-2020, Arm Limited. All rights reserved.*
+*Copyright (c) 2017-2021, Arm Limited. All rights reserved.*

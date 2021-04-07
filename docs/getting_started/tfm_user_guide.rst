@@ -11,17 +11,27 @@ without BL2 bootloader.
 ****************************************************************
 Execute TF-M example and regression tests on MPS2 boards and FVP
 ****************************************************************
-The BL2 bootloader and TF-M example application and tests run correctly on
-SMM-SSE-200 for MPS2 (AN521) and on the Fixed Virtual Platform model
-FVP_MPS2_AEMv8M version 11.2.23.
-
-To run the example code on FVP_MPS2_AEMv8M
-==========================================
-Using FVP_MPS2_AEMv8M provided by DS-5 v5.27.1.
+The BL2 bootloader and TF-M example application and tests have been verified
+using the reference model for MPS2 (AN521), in  `Keil MDK`_ ,
+`Fixed Virtual Platforms`_ and `Arm Development Studio`_ .
 
 .. Note::
-    FVP reference guide can be found
-    `here <https://developer.arm.com/docs/100966/latest>`__
+    The name of the reference model's executable can vary depending on toolchain.
+
+    - SMM-SSE-200 for `Keil MDK`_
+
+    - FVP_MPS2_AEMv8M for `Fixed Virtual Platforms`_ and `Arm Development Studio`_
+
+    For more information please refer to the appropriate toolchain's
+    documentation:  `Keil MDK Documentation`_ ,
+    `Fixed Virtual Platforms Documentation`_ ,
+    `Arm Development Studio Documentation`_
+
+To run the example code on an SSE-200 Fast-Model
+================================================
+Using FVP_MPS2_AEMv8M provided by `Arm Development Studio`_ 2019.1.
+
+
 
 Example application and regression tests without BL2 bootloader
 ---------------------------------------------------------------
@@ -30,7 +40,7 @@ menu.
 
 .. code-block:: bash
 
-    <DS5_PATH>/sw/models/bin/FVP_MPS2_AEMv8M  \
+    <DS_PATH>/sw/models/bin/FVP_MPS2_AEMv8M  \
     --parameter fvp_mps2.platform_type=2 \
     --parameter cpu0.baseline=0 \
     --parameter cpu0.INITVTOR_S=0x10000000 \
@@ -42,21 +52,21 @@ menu.
     --parameter fvp_mps2.telnetterminal0.quiet=0 \
     --parameter fvp_mps2.telnetterminal1.quiet=1 \
     --parameter fvp_mps2.telnetterminal2.quiet=1 \
-    --application cpu0=<build_dir>/install/outputs/fvp/tfm_s.axf \
-    --data cpu0=<build_dir>/install/outputs/fvp/tfm_ns.bin@0x00100000
+    --application cpu0=<build_dir>/bin/tfm_s.axf \
+    --data cpu0=<build_dir>/bin/tfm_ns.bin@0x00100000
 
 Example application and regression tests with BL2 bootloader
 ------------------------------------------------------------
 To test TF-M with bootloader, one must apply the following changes:
 
-- Add ``mcuboot.axf`` to symbol files in DS-5 in Debug Configuration
+- Add ``bl2.axf`` to symbol files in DS-5 in Debug Configuration
   menu.
 - Replace the last two lines of the previous command with this:
 
 .. code-block:: bash
 
-    --application cpu0=<build_dir>/install/outputs/fvp/mcuboot.axf \
-    --data cpu0=<build_dir>/install/outputs/fvp/tfm_s_ns_signed.bin@0x10080000
+    --application cpu0=<build_dir>/bin/bl2.axf \
+    --data cpu0=<build_dir>/bin/tfm_s_ns_signed.bin@0x10080000
 
 Test software upgrade with BL2 bootloader
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -68,7 +78,7 @@ line to the end of the previous chapter:
 
 .. code-block:: bash
 
-    --data cpu0=<build_dir>/install/outputs/fvp/tfm_s_ns_signed.bin@0x10180000
+    --data cpu0=<build_dir>/bin/tfm_s_ns_signed.bin@0x10180000
 
 To run the example code on SSE 200 FPGA on MPS2 board
 =====================================================
@@ -88,8 +98,8 @@ The MPS2 board tested is HBI0263C referred also as MPS2+.
 
 Example application
 -------------------
-#. Copy ``mcuboot.bin`` and ``tfm_sign.bin`` files from
-   ``<build_dir>/install/outputs/AN521/`` to
+#. Copy ``bl2.bin`` and ``tfm_s_ns_signed.bin`` files from
+   ``<build_dir>/bin`` to
    ``<MPS2 device name>/SOFTWARE/``
 #. Open ``<MPS2 device name>/MB/HBI0263C/AN521/images.txt``
 #. Update the ``AN521/images.txt`` file as follows::
@@ -98,9 +108,9 @@ Example application
        [IMAGES]
        TOTALIMAGES: 2                     ;Number of Images (Max: 32)
        IMAGE0ADDRESS: 0x10000000
-       IMAGE0FILE: \Software\mcuboot.bin  ; BL2 bootloader
+       IMAGE0FILE: \Software\bl2.bin  ; BL2 bootloader
        IMAGE1ADDRESS: 0x10080000
-       IMAGE1FILE: \Software\tfm_sign.bin ; TF-M example application binary blob
+       IMAGE1FILE: \Software\tfm_s_ns_signed.bin ; TF-M example application binary blob
 
 #. Close ``<MPS2 device name>/MB/HBI0263C/AN521/images.txt``
 #. Unmount/eject the ``<MPS2 device name>`` unit
@@ -159,7 +169,7 @@ port (baud 115200 8n1) the following messages::
 Example application without BL2 bootloader
 ------------------------------------------
 #. Copy ``tfm_s.bin`` and ``tfm_ns.bin`` files from
-   ``<build_dir>/install/outputs/AN521/`` to
+   ``<build_dir>/bin`` to
    ``<MPS2 device name>/SOFTWARE/``
 #. Open ``<MPS2 device name>/MB/HBI0263C/AN521/images.txt``
 #. Update the ``AN521/images.txt`` file as follows::
@@ -214,44 +224,44 @@ Execute TF-M example and regression tests on Musca test chip boards
 .. Note::
 
     Before executing any images on Musca-B1 board, please check the
-    :doc:`target platform readme </platform/ext/target/musca_b1/readme>`
+    :doc:`target platform readme </platform/ext/target/musca_b1/sse_200/readme>`
     to have the correct setup.
 
 Example application with BL2 bootloader
 =======================================
 
-#. Create a unified hex file comprising of both ``mcuboot.bin`` and
-   ``tfm_sign.bin``.
+#. Create a unified hex file comprising of both ``bl2.bin`` and
+   ``tfm_s_ns_signed.bin``.
 
     - For Musca-A
 
         - Windows::
 
-            srec_cat.exe install\outputs\MUSCA_A\mcuboot.bin -Binary -offset 0x200000 install\outputs\MUSCA_A\tfm_sign.bin -Binary -offset 0x220000 -o tfm.hex -Intel
+            srec_cat.exe bin\bl2.bin -Binary -offset 0x200000 bin\tfm_s_ns_signed.bin -Binary -offset 0x220000 -o tfm.hex -Intel
 
         - Linux::
 
-            srec_cat install/outputs/MUSCA_A/mcuboot.bin -Binary -offset 0x200000 install/outputs/MUSCA_A/tfm_sign.bin -Binary -offset 0x220000 -o tfm.hex -Intel
+            srec_cat bin/bl2.bin -Binary -offset 0x200000 bin/tfm_s_ns_signed.bin -Binary -offset 0x220000 -o tfm.hex -Intel
 
     - For Musca-B1
 
         - Windows::
 
-            srec_cat.exe install\outputs\MUSCA_B1\mcuboot.bin -Binary -offset 0xA000000 install\outputs\MUSCA_B1\tfm_sign.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
+            srec_cat.exe bin\bl2.bin -Binary -offset 0xA000000 bin\tfm_s_ns_signed.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
 
         - Linux::
 
-            srec_cat install/outputs/MUSCA_B1/mcuboot.bin -Binary -offset 0xA000000 install/outputs/MUSCA_B1/tfm_sign.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
+            srec_cat bin/bl2.bin -Binary -offset 0xA000000 bin/tfm_s_ns_signed.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
 
     - For Musca-S1
 
         - Windows::
 
-            srec_cat.exe install\outputs\MUSCA_S1\mcuboot.bin -Binary -offset 0xA000000 install\outputs\MUSCA_S1\tfm_sign.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
+            srec_cat.exe bin\bl2.bin -Binary -offset 0xA000000 bin\tfm_s_ns_signed.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
 
         - Linux::
 
-            srec_cat install/outputs/MUSCA_S1/mcuboot.bin -Binary -offset 0xA000000 install/outputs/MUSCA_S1/tfm_sign.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
+            srec_cat bin/bl2.bin -Binary -offset 0xA000000 bin/tfm_s_ns_signed.bin -Binary -offset 0xA020000 -o tfm.hex -Intel
 
 #. Power up the Musca board by connecting it to a computer with a USB lead.
    Press the ``PBON`` button if the green ``ON`` LED does not immediately turn
@@ -322,6 +332,87 @@ DAPLink UART (baud 115200 8n1)::
       Description: 'Get attributes with null attributes struct pointer'
     ....
 
+PSA API tests
+=============
+Follow the build instructions for the PSA API tests and then follow the above
+procedures for flashing the image to the board. The PSA API tests are linked
+into the TF-M binaries and will automatically run. A log similar to the
+following should be visible on the UART; it is normal for some tests to be
+skipped but there should be no failed tests::
+
+    [Sec Thread] Secure image initializing!
+    Booting TFM v1.1
+    Non-Secure system starting...
+
+    ***** PSA Architecture Test Suite - Version 1.0 *****
+
+    Running.. Storage Suite
+    ******************************************
+
+    TEST: 401 | DESCRIPTION: UID not found check
+    [Info] Executing tests from non-secure
+
+    [Info] Executing ITS tests
+    [Check 1] Call get API for UID 6 which is not set
+    [Check 2] Call get_info API for UID 6 which is not set
+    [Check 3] Call remove API for UID 6 which is not set
+    [Check 4] Call get API for UID 6 which is removed
+    [Check 5] Call get_info API for UID 6 which is removed
+    [Check 6] Call remove API for UID 6 which is removed
+    [Check 7] Call get API for different UID 5
+    [Check 8] Call get_info API for different UID 5
+    [Check 9] Call remove API for different UID 5
+
+    [Info] Executing PS tests
+    [Check 1] Call get API for UID 6 which is not set
+    [Check 2] Call get_info API for UID 6 which is not set
+    [Check 3] Call remove API for UID 6 which is not set
+    [Check 4] Call get API for UID 6 which is removed
+    [Check 5] Call get_info API for UID 6 which is removed
+    [Check 6] Call remove API for UID 6 which is removed
+    [Check 7] Call get API for different UID 5
+    [Check 8] Call get_info API for different UID 5
+    [Check 9] Call remove API for different UID 5
+
+    TEST RESULT: PASSED
+
+    ******************************************
+
+    <further tests removed from log for brevity>
+
+    ************ Storage Suite Report **********
+    TOTAL TESTS     : 17
+    TOTAL PASSED    : 11
+    TOTAL SIM ERROR : 0
+    TOTAL FAILED    : 0
+    TOTAL SKIPPED   : 6
+    ******************************************
+
+.. note::
+    The Internal Trusted Storage and Protected Storage flash areas must be wiped
+    before running the Storage test suites.
+
+    Many IDEs for embedded development (such as Keil µVision) offer a function
+    to erase a device's flash. Refer to your IDE's documentation for
+    instructions.
+
+    Another way this can be achieved is by using ``srec_cat`` with the ``-fill``
+    parameter to fill the corresponding area in the binary with the erase value
+    of the flash (``0xFF``). For example, for Musca-A the command for
+    concatenating the ``bl2`` and ``tfm_s_ns_signed`` binaries would become::
+
+        srec_cat bin/bl2.bin -Binary -offset 0x200000 \
+                 bin/tfm_s_ns_signed.bin -Binary -offset 0x220000 \
+                 -fill 0xFF 0x420000 0x425000 -o tfm.hex -Intel
+
+    Refer to the platform flash layout for appropriate addresses to erase on
+    other platforms.
+
+    This step is not required on targets that emulate flash storage in RAM, as
+    it will be erased each time the device is reset. Note, however, that a warm
+    reset may not clear SRAM contents, so it may be necessary to power the
+    device off and on again between test runs.
+
 Example application or regression tests on Musca-B1 without BL2 bootloader
 ==========================================================================
 
@@ -330,11 +421,17 @@ and ``tfm_ns.bin``:
 
 - Windows::
 
-    srec_cat.exe install\outputs\MUSCA_B1\tfm_s.bin -Binary -offset 0xA000000 install\outputs\MUSCA_B1\tfm_ns.bin -Binary -offset 0xA080000 -o tfm.hex -Intel
+    srec_cat.exe bin\tfm_s.bin -Binary -offset 0xA000000 bin\tfm_ns.bin -Binary -offset 0xA080000 -o tfm.hex -Intel
 
 - Linux::
 
-    srec_cat install/outputs/MUSCA_B1/tfm_s.bin -Binary -offset 0xA000000 install/outputs/MUSCA_B1/tfm_ns.bin -Binary -offset 0xA080000 -o tfm.hex -Intel
+    srec_cat bin/tfm_s.bin -Binary -offset 0xA000000 bin/tfm_ns.bin -Binary -offset 0xA080000 -o tfm.hex -Intel
+
+Example application or regression tests on Musca-B1 using the Secure Enclave
+============================================================================
+
+Follow the above procedures, but to create a unified hex please check the
+:doc:`Musca-B1 Secure Enclave readme </platform/ext/target/musca_b1/secure_enclave/readme>`.
 
 ********************************************************
 Execute TF-M example and regression tests on MPS3 boards
@@ -365,7 +462,7 @@ The MPS3 board tested is HBI0309B.
 
 Example application
 -------------------
-#. Copy ``mcuboot.bin`` and ``tfm_sign.bin`` files from
+#. Copy ``bl2.bin`` and ``tfm_s_ns_signed.bin`` files from
    build dir to ``<MPS3 device name>/SOFTWARE/``
 #. Open ``<MPS3 device name>/MB/HBI0309B/AN524/images.txt``
 #. Update the ``images.txt`` file as follows::
@@ -377,10 +474,10 @@ Example application
 
     IMAGE0UPDATE: AUTO                 ;Image Update:NONE/AUTO/FORCE
     IMAGE0ADDRESS: 0x00000000          ;Please select the required executable program
-    IMAGE0FILE: \SOFTWARE\mcuboot.bin
+    IMAGE0FILE: \SOFTWARE\bl2.bin
     IMAGE1UPDATE: AUTO
     IMAGE1ADDRESS: 0x00040000
-    IMAGE1FILE: \SOFTWARE\tfm_sign.bin
+    IMAGE1FILE: \SOFTWARE\tfm_s_ns_signed.bin
 
 #. Close ``<MPS3 device name>/MB/HBI0309B/AN524/images.txt``
 #. Unmount/eject the ``<MPS3 device name>`` unit
@@ -486,5 +583,12 @@ High level operation of BL2 bootloader and instructions for testing firmware
 upgrade is described in :doc:`secure boot <tfm_secure_boot>`.
 
 --------------
+
+.. _Arm Development Studio: https://developer.arm.com/tools-and-software/embedded/arm-development-studio
+.. _Arm Development Studio Documentation: https://developer.arm.com/tools-and-software/embedded/arm-development-studio/learn/docs
+.. _Fixed Virtual Platforms: https://developer.arm.com/tools-and-software/simulation-models/fixed-virtual-platforms
+.. _Fixed Virtual Platforms Documentation: https://developer.arm.com/documentation/100966/latest
+.. _Keil MDK: http://www2.keil.com/mdk5
+.. _Keil MDK Documentation: https://www2.keil.com/mdk5/docs
 
 *Copyright (c) 2017-2020, Arm Limited. All rights reserved.*

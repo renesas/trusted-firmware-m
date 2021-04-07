@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Copyright (c) 2018-2020, Arm Limited. All rights reserved.
+# Copyright (c) 2018-2021, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -22,9 +22,6 @@ donotedit_warning = \
                     "/*********** " + \
                     "WARNING: This is an auto-generated file. Do not edit!" + \
                     " ***********/"
-
-DEFAULT_MANIFEST_LIST = os.path.join('tools', 'tfm_manifest_list.yaml')
-DEFAULT_GEN_FILE_LIST = os.path.join('tools', 'tfm_generated_file_list.yaml')
 
 OUT_DIR = None # The root directory that files are generated to
 
@@ -53,46 +50,38 @@ class TemplateLoader(BaseLoader):
             source = f.read()
         return source, template, False
 
-def process_manifest(manifest_list_file, append):
+def process_manifest(manifest_list_files):
     """
     Parse the input manifest, generate the data base for genereated files
     and generate manifest header files.
 
     Parameters
     ----------
-    manifest_list_file:
-        The manifest list to parse.
-    append:
-        To append the manifest to original or not.
+    manifest_list_files:
+        The manifest lists to parse.
 
     Returns
     -------
-    The manifest header list and the data base.
+    The partition data base.
     """
 
-    db = []
-    manifest_header_list = []
+    partition_db = []
     manifest_list = []
 
-    if append:
-        # Load the default manifest first
-        with open(DEFAULT_MANIFEST_LIST) as default_manifest_list_yaml_file:
-            manifest_dic = yaml.safe_load(default_manifest_list_yaml_file)
+    for f in manifest_list_files:
+        with open(f) as manifest_list_yaml_file:
+            manifest_dic = yaml.safe_load(manifest_list_yaml_file)
             manifest_list.extend(manifest_dic["manifest_list"])
 
-    with open(manifest_list_file) as manifest_list_yaml_file:
-        manifest_dic = yaml.safe_load(manifest_list_yaml_file)
-        manifest_list.extend(manifest_dic["manifest_list"])
+    manifesttemplate = ENV.get_template('secure_fw/partitions/manifestfilename.template')
+    memorytemplate = ENV.get_template('secure_fw/partitions/partition_intermedia.template')
 
-    templatefile_name = 'secure_fw/partitions/manifestfilename.template'
-    template = ENV.get_template(templatefile_name)
-
+    print("Start to generate PSA manifests:")
     for manifest_item in manifest_list:
+        # Replace environment variables in the manifest path
         manifest_path = os.path.expandvars(manifest_item['manifest'])
         file = open(manifest_path)
         manifest = yaml.safe_load(file)
-
-        db.append({"manifest": manifest, "attr": manifest_item})
 
         utilities = {}
         utilities['donotedit_warning']=donotedit_warning
@@ -106,11 +95,23 @@ def process_manifest(manifest_list_file, append):
         outfile_name = manifest_name.replace('yaml', 'h').replace('json', 'h')
         context['file_name'] = outfile_name.replace('.h', '')
         outfile_name = os.path.join(manifest_dir, "psa_manifest", outfile_name).replace('\\', '/')
+        intermediafile_name = os.path.join(manifest_dir, "auto_generated", 'intermedia_' + context['file_name'] + '.c').replace('\\', '/')
 
-        manifest_header_list.append(outfile_name)
+        """
+        Remove the `source_path` portion of the filepaths, so that it can be
+        interpreted as a relative path from the OUT_DIR.
+        """
+        if 'source_path' in manifest_item:
+            # Replace environment variables in the source path
+            source_path = os.path.expandvars(manifest_item['source_path'])
+            outfile_name = os.path.relpath(outfile_name, start = source_path)
+            intermediafile_name = os.path.relpath(intermediafile_name, start = source_path)
+
+        partition_db.append({"manifest": manifest, "attr": manifest_item, "header_file": outfile_name})
 
         if OUT_DIR is not None:
             outfile_name = os.path.join(OUT_DIR, outfile_name)
+            intermediafile_name = os.path.join(OUT_DIR, intermediafile_name)
 
         outfile_path = os.path.dirname(outfile_name)
         if not os.path.exists(outfile_path):
@@ -119,41 +120,48 @@ def process_manifest(manifest_list_file, append):
         print ("Generating " + outfile_name)
 
         outfile = io.open(outfile_name, "w", newline=None)
-        outfile.write(template.render(context))
+        outfile.write(manifesttemplate.render(context))
         outfile.close()
 
-    return manifest_header_list, db
+        intermediafile_path = os.path.dirname(intermediafile_name)
+        if not os.path.exists(intermediafile_path):
+            os.makedirs(intermediafile_path)
 
-def gen_files(context, gen_file_list, append):
+        print ("Generating " + intermediafile_name)
+
+        memoutfile = io.open(intermediafile_name, "w", newline=None)
+        memoutfile.write(memorytemplate.render(context))
+        memoutfile.close()
+
+    return partition_db
+
+def gen_files(context, gen_file_lists):
     """
     Generate files according to the gen_file_list
 
     Parameters
     ----------
-    gen_file_list:
-        The list of files to generate
-    append:
-        To append the manifest to original or not
+    gen_file_lists:
+        The lists of files to generate
     """
     file_list = []
 
-    if append:
-        # read default file list first
-        with open(DEFAULT_GEN_FILE_LIST) as file_list_yaml_file:
+    for f in gen_file_lists:
+        with open(f) as file_list_yaml_file:
             file_list_yaml = yaml.safe_load(file_list_yaml_file)
             file_list.extend(file_list_yaml["file_list"])
 
-    with open(gen_file_list) as file_list_yaml_file:
-        # read list of files that need to be generated from templates using db
-        file_list_yaml = yaml.safe_load(file_list_yaml_file)
-        file_list.extend(file_list_yaml["file_list"])
-
+    print("Start to generate file from the generated list:")
     for file in file_list:
+        # Replace environment variables in the output filepath
         outfile_name = os.path.expandvars(file["output"])
+        # Replace environment variables in the template filepath
         templatefile_name = os.path.expandvars(file["template"])
 
         if OUT_DIR is not None:
             outfile_name = os.path.join(OUT_DIR, outfile_name)
+
+        print ("Generating " + outfile_name)
 
         outfile_path = os.path.dirname(outfile_name)
         if not os.path.exists(outfile_path):
@@ -167,8 +175,86 @@ def gen_files(context, gen_file_list, append):
 
     print ("Generation of files done")
 
+def process_stateless_services(partitions, static_handle_max_num):
+    """
+    This function collects all stateless services together, and allocates
+    stateless handle for them.
+    If the stateless handle is set to a valid value in yaml file, it is used as
+    the index directly, if the stateless handle is set as "auto" or not set,
+    framework will allocate a valid index for the service.
+    After that, framework puts each service into a stateless service list at
+    position of its "index". Other elements in list are left None.
+    """
+    stateless_services = []
+
+    # Collect all stateless services first.
+    for partition in partitions:
+        # Skip the FF-M 1.0 partitions
+        if partition['manifest']['psa_framework_version'] < 1.1:
+            continue
+        # Skip the Non-IPC partitions
+        if partition['attr']['tfm_partition_ipc'] is not True:
+            continue
+        for service in partition['manifest']['services']:
+            if 'connection_based' not in service:
+                raise Exception("'connection_based' is mandatory in FF-M 1.1 service!")
+            if service['connection_based'] is False:
+                stateless_services.append(service)
+
+    if len(stateless_services) == 0:
+        return []
+
+    if len(stateless_services) > static_handle_max_num:
+        raise Exception("Stateless service numbers range exceed.")
+
+    """
+    Allocate an empty stateless service list to store services and find the
+    service easily by handle.
+    Use service stateless handle values as indexes. Put service in the list
+    at index "handle - 1", since handle value starts from 1 and list index
+    starts from 0.
+    """
+    reordered_stateless_list = [None] * static_handle_max_num
+
+    # Fill in services with specified stateless handle, index is "handle - 1".
+    for service in stateless_services:
+        if service['stateless_handle'] == "auto":
+            continue
+        try:
+            if reordered_stateless_list[service['stateless_handle']-1] is not None:
+                raise Exception("Duplicated stateless service handle.")
+            reordered_stateless_list[service['stateless_handle']-1] = service
+        except IndexError:
+            raise Exception("Stateless service index out of range.")
+        # Remove recorded node from the existing list
+        stateless_services.remove(service)
+
+    # Auto-allocate stateless handle
+    for i in range(0, static_handle_max_num):
+        if reordered_stateless_list[i] == None and len(stateless_services) > 0:
+            service = stateless_services.pop(0)
+            service['stateless_handle'] = i + 1
+            reordered_stateless_list[i] = service
+        """
+        Encode stateless flag and version into stateless handle
+        bit 30: stateless handle indicator
+        bit 15-8: stateless service version
+        bit 7-0: stateless handle index
+        """
+        if reordered_stateless_list[i] != None:
+            stateless_handle_value = reordered_stateless_list[i]['stateless_handle']
+            stateless_flag = 1 << 30
+            stateless_handle_value |= stateless_flag
+            stateless_version = (reordered_stateless_list[i]['version'] & 0xFF) << 8
+            stateless_handle_value |= stateless_version
+            reordered_stateless_list[i]['stateless_handle'] = '0x%08x' % stateless_handle_value
+
+    return reordered_stateless_list
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='Parse secure partition manifest list and generate files listed by the file list')
+    parser = argparse.ArgumentParser(description='Parse secure partition manifest list and generate files listed by the file list',
+                                     epilog='Note that environment variables in template files will be replaced with their values')
+
     parser.add_argument('-o', '--outdir'
                         , dest='outdir'
                         , required=False
@@ -177,40 +263,22 @@ def parse_args():
                         , help='The root directory for generated files, the default is TF-M root folder.')
 
     parser.add_argument('-m', '--manifest'
-                        , nargs='*'
+                        , nargs='+'
                         , dest='manifest_args'
-                        , required=False
-                        , default=[]
+                        , required=True
                         , metavar='manifest'
-                        , help='The secure partition manifest list file to parse, the default is '+ DEFAULT_MANIFEST_LIST + '. \
-                                Or the manifest can be append to the default one by explicitly \"append\" it:\
-                                -m manifest_to_append append')
+                        , help='A set of secure partition manifest lists to parse')
 
     parser.add_argument('-f', '--file-list'
-                        , nargs='*'
+                        , nargs='+'
                         , dest='gen_file_args'
-                        , required=False
-                        , default=[]
+                        , required=True
                         , metavar='file-list'
-                        , help='The file descripes the file list to generate, the default is ' + DEFAULT_GEN_FILE_LIST + '. \
-                                Or the file list can be append to the default one by explicitly \"append\" it:\
-                                -f files_to_append append')
+                        , help='These files descripe the file list to generate')
 
     args = parser.parse_args()
     manifest_args = args.manifest_args
     gen_file_args = args.gen_file_args
-
-    if len(manifest_args) > 2 or len(gen_file_args) > 2:
-        parser.print_help()
-        exit(1)
-
-    if len(manifest_args) == 2 and (manifest_args[1] != 'append' and manifest_args[1] != ''):
-        parser.print_help()
-        exit(1)
-
-    if len(gen_file_args) == 2 and (gen_file_args[1] != 'append' and gen_file_args[1] != ''):
-        parser.print_help()
-        exit(1)
 
     return args
 
@@ -236,29 +304,9 @@ def main():
     manifest_args = args.manifest_args
     gen_file_args = args.gen_file_args
     OUT_DIR = args.outdir
-    append_manifest = False
-    append_gen_file = False
 
-    if len(manifest_args) == 2 and manifest_args[1] == 'append':
-        append_manifest = True
-
-    if len(gen_file_args) == 2 and gen_file_args[1] == 'append':
-        append_gen_file = True
-
-    if len(manifest_args) == 0:
-        manifest_list = DEFAULT_MANIFEST_LIST
-    else:
-        """
-        Only convert to abs path when value is not default
-        Because the default value is a fixed relative path to TF-M root folder,
-        it will be various to different execution path if converted to absolute path.
-        The same for gen_file_list
-        """
-        manifest_list = os.path.abspath(args.manifest_args[0])
-    if len(gen_file_args) == 0:
-        gen_file_list = DEFAULT_GEN_FILE_LIST
-    else:
-        gen_file_list = os.path.abspath(args.gen_file_args[0])
+    manifest_list = [os.path.abspath(x) for x in args.manifest_args]
+    gen_file_list = [os.path.abspath(x) for x in args.gen_file_args]
 
     # Arguments could be relative path.
     # Convert to absolute path as we are going to change diretory later
@@ -274,18 +322,18 @@ def main():
     """
     os.chdir(os.path.join(sys.path[0], ".."))
 
-    manifest_header_list, db = process_manifest(manifest_list, append_manifest)
+    partition_db = process_manifest(manifest_list)
 
     utilities = {}
     context = {}
 
-    utilities['donotedit_warning']=donotedit_warning
-    utilities['manifest_header_list']=manifest_header_list
+    utilities['donotedit_warning'] = donotedit_warning
 
-    context['manifests'] = db
+    context['partitions'] = partition_db
     context['utilities'] = utilities
+    context['stateless_services'] = process_stateless_services(partition_db, 32)
 
-    gen_files(context, gen_file_list, append_gen_file)
+    gen_files(context, gen_file_list)
 
 if __name__ == "__main__":
     main()

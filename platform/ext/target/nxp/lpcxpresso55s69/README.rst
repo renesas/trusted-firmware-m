@@ -4,21 +4,40 @@ LPCXpresso55S69
 Building TF-M
 -------------
 
-To build a S and NS application image for the LPCXpresso55S69 run the
-following commands:
-
-    **Note**: On OS X change ``readlink`` to ``greadlink``, available by
-    running ``brew install coreutils``.
+To build a S and NS application along with a BL2 (bootloader) image for the
+LPCXpresso55S69 run the following commands:
 
 .. code:: bash
 
     $ mkdir build && cd build
-    $ cmake -G"Unix Makefiles" \
-            -DPROJ_CONFIG=`readlink -f ../configs/ConfigDefault.cmake` \
-            -DTARGET_PLATFORM=LPC55S69 \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DBL2=False \
-            -DCOMPILER=GNUARM \
+    $ cmake -DTFM_PLATFORM=nxp/lpcxpresso55s69 \
+            -DTFM_TOOLCHAIN_FILE=../toolchain_GNUARM.cmake \
+            -DCMAKE_BUILD_TYPE=Relwithdebinfo ../
+    $ make install
+
+.. Note::
+
+    Currently ``Debug`` cannot be selected as build type and regression tests
+    cannot be run on the board without modifying the flash layout due to the
+    amount of available on-chip flash memory.
+    To run the S and NS regression tests (``TEST_S=ON`` and ``TEST_NS=ON``) the
+    secondary image areas must be set to 0 (firmware updates are not possible)
+    and in parallel the size of the primary regions must be increased in the
+    ``platform\ext\target\nxp\lpcxpresso55s69\partition\flash_layout.h`` file
+    in order for the S and NS images to fit in the flash.
+
+Building TF-M without BL2
+-------------------------
+
+To build a S and NS application image for the LPCXpresso55S69 run the
+following commands:
+
+.. code:: bash
+
+    $ mkdir build && cd build
+    $ cmake -DTFM_PLATFORM=nxp/lpcxpresso55s69 \
+            -DTFM_TOOLCHAIN_FILE=../toolchain_GNUARM.cmake \
+            -DBL2=OFF \
             ../
     $ make install
 
@@ -61,20 +80,11 @@ follows:
 Flash images with ``JLinkExe``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Generate Intel hex files from the output axf (elf) files as follows:
-
-.. code:: bash
-
-    $ arm-none-eabi-objcopy -S --gap-fill 0xff -O ihex \
-      install/outputs/LPC55S69/tfm_s.axf tfm_s.hex
-    $ arm-none-eabi-objcopy -S --gap-fill 0xff -O ihex \
-      install/outputs/LPC55S69/tfm_ns.axf tfm_ns.hex
-
 Connect to the board using ``JLinkExe``:
 
 ::
 
-    $ jlinkexe -device lpc55s69 -if swd -speed 2000 -autoconnect 1
+    $ JLinkExe -device lpc55s69 -if swd -speed 2000 -autoconnect 1
 
     SEGGER J-Link Commander V6.56d (Compiled Dec 12 2019 13:03:13)
     DLL version V6.56d, compiled Dec 12 2019 13:03:00
@@ -88,10 +98,23 @@ Connect to the board using ``JLinkExe``:
     ...
     Cortex-M33 identified.
 
-Flash the secure and non-secure hex files:
+Flash the BL2, secure and non-secure images:
 
 ::
 
+    J-Link> loadfile bin/bl2.hex
+    J-Link> loadfile bin/tfm_s_signed.bin 0x00008000
+    J-Link> loadfile bin/tfm_ns_signed.bin 0x00030000
+
+When BL2 is disabled, generate Intel hex files from the output axf (elf)
+files and then flash the secure and non-secure images:
+
+::
+
+    $ arm-none-eabi-objcopy -S --gap-fill 0xff -O ihex bin/tfm_s.axf tfm_s.hex
+    $ arm-none-eabi-objcopy -S --gap-fill 0xff -O ihex bin/tfm_ns.axf tfm_ns.hex
+    $ JLinkExe -device lpc55s69 -if swd -speed 2000 -autoconnect 1
+    ....
     J-Link> loadfile tfm_s.hex
     J-Link> loadfile tfm_ns.hex
 
@@ -102,12 +125,13 @@ Flash the secure and non-secure hex files:
 Complete ``JLinkExe`` Build/Flash Bash Scripts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The bash scripts in the ``platform/ext/target/nxp/lpcxpresso55s69`` folder can
-be saved in the ``build`` folder to rebuild and flash the TF-M S and NS
-binaries in one step.
+The bash scripts in the ``platform/ext/target/nxp/lpcxpresso55s69/scripts``
+folder can be saved in the ``build`` folder to rebuild and flash the BL2,
+the TF-M S and NS binaries in one step.
 
 The scripts assumes they are being run inside the ``build`` folder, which
-you have previously created at ``trusted-firmware-m/build``.
+you have previously created at ``trusted-firmware-m/build``. The build
+script must be run in an empty ``build`` folder for the first time.
 
 Debugging with Segger Ozone
 ---------------------------
@@ -117,7 +141,7 @@ license terms for it's use, `Segger's cross-platform Ozone
 tool <https://www.segger.com/products/development-tools/ozone-j-link-debugger/>`__
 can be used to debug TF-M firmware images.
 
-To debug, flash the S and NS firmware images using the ``flash.sh``
+To debug, flash the BL2, S and NS firmware images using the ``flash.sh``
 script or command-line options described earlier in this guide, and
 configure a new project on Ozone as follows:
 
@@ -145,8 +169,7 @@ Debugging with GDB
     building TF-M so that debug information is available to GDB.
 
     **NOTE**: When debugging with the mbed-crypto library, you also require an
-    additional ``-DMBEDCRYPTO_DEBUG=ON`` compile-time switch, as defined here:
-    :ref:`docs/getting_started/tfm_build_instruction:Configuring the build`
+    additional ``-DMBEDCRYPTO_BUILD_TYPE=DEBUG`` compile-time switch.
 
 
 Start the GDB server, pointing to the secure application image:
@@ -191,7 +214,7 @@ device (``monitor reset``), and continue (``c``) execution.
 
     Breakpoint 1, main ()
         at [path]/secure_fw/core/tfm_core.c:189
-    189     tfm_arch_set_msplim((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP,
+    189     tfm_arch_init_secure_msp((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP,
 
 Commonly used GDB commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -223,4 +246,5 @@ common problems.
 --------------
 
 *Copyright (c) 2020, Linaro. All rights reserved.*
+*Copyright (c) 2020, Arm Limited. All rights reserved.*
 *SPDX-License-Identifier: BSD-3-Clause*

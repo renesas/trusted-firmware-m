@@ -10,6 +10,7 @@ from copy import deepcopy
 
 import cbor
 import yaml
+import base64
 from ecdsa import SigningKey, VerifyingKey
 from pycose.sign1message import Sign1Message
 from pycose.mac0message import Mac0Message
@@ -46,7 +47,7 @@ def convert_map_to_token_files(mapfile, keyfile, outfile, method='sign'):
             signing_key = fh.read()
 
     with open(outfile, 'wb') as wfh:
-        convert_map_to_token(token_map, signing_key, wfh, raw)
+        convert_map_to_token(token_map, signing_key, wfh, method)
 
 
 def convert_map_to_token(token_map, signing_key, wfh, method='sign'):
@@ -138,7 +139,7 @@ def recursive_bytes_to_strings(d, in_place=False):
         result = [recursive_bytes_to_strings(r, in_place=True)
                   for r in result]
     elif isinstance(result, bytes):
-        result = str(result)[2:-1]
+        result = str(base64.b16encode(result))
 
     return result
 
@@ -171,6 +172,7 @@ def read_sign1_key(keyfile):
 
             msg = 'Bad key file "{}":\n\tpubkey error: {}\n\tprikey error: {}'
             raise ValueError(msg.format(keyfile, verifying_key_error, signing_key_error))
+    return key
 
 
 def read_hmac_key(keyfile):

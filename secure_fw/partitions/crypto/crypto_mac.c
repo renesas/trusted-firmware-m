@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -8,15 +8,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* FixMe: Use PSA_ERROR_CONNECTION_REFUSED when performing parameter
- *        integrity checks but this will have to be revised
- *        when the full set of error codes mandated by PSA FF
- *        is available.
- */
 #include "tfm_mbedcrypto_include.h"
 
 #include "tfm_crypto_api.h"
 #include "tfm_crypto_defs.h"
+#include "tfm_crypto_private.h"
 
 /*!
  * \defgroup public_psa Public functions, PSA
@@ -35,21 +31,20 @@ psa_status_t tfm_crypto_mac_sign_setup(psa_invec in_vec[],
     psa_status_t status = PSA_SUCCESS;
     psa_mac_operation_t *operation = NULL;
 
-    if ((in_len != 1) || (out_len != 1)) {
-        return PSA_ERROR_CONNECTION_REFUSED;
-    }
+    CRYPTO_IN_OUT_LEN_VALIDATE(in_len, 1, 1, out_len, 1, 1);
 
     if ((out_vec[0].len != sizeof(uint32_t)) ||
         (in_vec[0].len != sizeof(struct tfm_crypto_pack_iovec))) {
-        return PSA_ERROR_CONNECTION_REFUSED;
+        return PSA_ERROR_PROGRAMMER_ERROR;
     }
     const struct tfm_crypto_pack_iovec *iov = in_vec[0].base;
     uint32_t handle = iov->op_handle;
     uint32_t *handle_out = out_vec[0].base;
-    psa_key_handle_t key_handle = iov->key_handle;
+    psa_key_id_t key_id = iov->key_id;
     psa_algorithm_t alg = iov->alg;
+    mbedtls_svc_key_id_t encoded_key;
 
-    status = tfm_crypto_check_handle_owner(key_handle, NULL);
+    status = tfm_crypto_check_handle_owner(key_id, NULL);
     if (status != PSA_SUCCESS) {
         return status;
     }
@@ -67,7 +62,12 @@ psa_status_t tfm_crypto_mac_sign_setup(psa_invec in_vec[],
 
     *handle_out = handle;
 
-    status = psa_mac_sign_setup(operation, key_handle, alg);
+    status = tfm_crypto_encode_id_and_owner(key_id, &encoded_key);
+    if (status != PSA_SUCCESS) {
+        return status;
+    }
+
+    status = psa_mac_sign_setup(operation, encoded_key, alg);
     if (status != PSA_SUCCESS) {
         /* Release the operation context, ignore if the operation fails. */
         (void)tfm_crypto_operation_release(handle_out);
@@ -89,21 +89,20 @@ psa_status_t tfm_crypto_mac_verify_setup(psa_invec in_vec[],
     psa_status_t status = PSA_SUCCESS;
     psa_mac_operation_t *operation = NULL;
 
-    if ((in_len != 1) || (out_len != 1)) {
-        return PSA_ERROR_CONNECTION_REFUSED;
-    }
+    CRYPTO_IN_OUT_LEN_VALIDATE(in_len, 1, 1, out_len, 1, 1);
 
     if ((out_vec[0].len != sizeof(uint32_t)) ||
         (in_vec[0].len != sizeof(struct tfm_crypto_pack_iovec))) {
-        return PSA_ERROR_CONNECTION_REFUSED;
+        return PSA_ERROR_PROGRAMMER_ERROR;
     }
     const struct tfm_crypto_pack_iovec *iov = in_vec[0].base;
     uint32_t handle = iov->op_handle;
     uint32_t *handle_out = out_vec[0].base;
-    psa_key_handle_t key_handle = iov->key_handle;
+    psa_key_id_t key_id = iov->key_id;
     psa_algorithm_t alg = iov->alg;
+    mbedtls_svc_key_id_t encoded_key;
 
-    status = tfm_crypto_check_handle_owner(key_handle, NULL);
+    status = tfm_crypto_check_handle_owner(key_id, NULL);
     if (status != PSA_SUCCESS) {
         return status;
     }
@@ -121,7 +120,12 @@ psa_status_t tfm_crypto_mac_verify_setup(psa_invec in_vec[],
 
     *handle_out = handle;
 
-    status = psa_mac_verify_setup(operation, key_handle, alg);
+    status = tfm_crypto_encode_id_and_owner(key_id, &encoded_key);
+    if (status != PSA_SUCCESS) {
+        return status;
+    }
+
+    status = psa_mac_verify_setup(operation, encoded_key, alg);
     if (status != PSA_SUCCESS) {
         /* Release the operation context, ignore if the operation fails. */
         (void)tfm_crypto_operation_release(handle_out);
@@ -143,13 +147,11 @@ psa_status_t tfm_crypto_mac_update(psa_invec in_vec[],
     psa_status_t status = PSA_SUCCESS;
     psa_mac_operation_t *operation = NULL;
 
-    if ((in_len != 2) || (out_len != 1)) {
-        return PSA_ERROR_CONNECTION_REFUSED;
-    }
+    CRYPTO_IN_OUT_LEN_VALIDATE(in_len, 1, 2, out_len, 1, 1);
 
     if ((in_vec[0].len != sizeof(struct tfm_crypto_pack_iovec)) ||
         (out_vec[0].len != sizeof(uint32_t))) {
-        return PSA_ERROR_CONNECTION_REFUSED;
+        return PSA_ERROR_PROGRAMMER_ERROR;
     }
     const struct tfm_crypto_pack_iovec *iov = in_vec[0].base;
     uint32_t handle = iov->op_handle;
@@ -190,13 +192,11 @@ psa_status_t tfm_crypto_mac_sign_finish(psa_invec in_vec[],
     psa_status_t status = PSA_SUCCESS;
     psa_mac_operation_t *operation = NULL;
 
-    if ((in_len != 1) || (out_len != 2)) {
-        return PSA_ERROR_CONNECTION_REFUSED;
-    }
+    CRYPTO_IN_OUT_LEN_VALIDATE(in_len, 1, 1, out_len, 1, 2);
 
     if ((in_vec[0].len != sizeof(struct tfm_crypto_pack_iovec)) ||
         (out_vec[0].len != sizeof(uint32_t))) {
-        return PSA_ERROR_CONNECTION_REFUSED;
+        return PSA_ERROR_PROGRAMMER_ERROR;
     }
     const struct tfm_crypto_pack_iovec *iov = in_vec[0].base;
     uint32_t handle = iov->op_handle;
@@ -242,13 +242,11 @@ psa_status_t tfm_crypto_mac_verify_finish(psa_invec in_vec[],
     psa_status_t status = PSA_SUCCESS;
     psa_mac_operation_t *operation = NULL;
 
-    if ((in_len != 2) || (out_len != 1)) {
-        return PSA_ERROR_CONNECTION_REFUSED;
-    }
+    CRYPTO_IN_OUT_LEN_VALIDATE(in_len, 1, 2, out_len, 1, 1);
 
     if ((in_vec[0].len != sizeof(struct tfm_crypto_pack_iovec)) ||
         (out_vec[0].len != sizeof(uint32_t))) {
-        return PSA_ERROR_CONNECTION_REFUSED;
+        return PSA_ERROR_PROGRAMMER_ERROR;
     }
     const struct tfm_crypto_pack_iovec *iov = in_vec[0].base;
     uint32_t handle = iov->op_handle;
@@ -291,13 +289,11 @@ psa_status_t tfm_crypto_mac_abort(psa_invec in_vec[],
     psa_status_t status = PSA_SUCCESS;
     psa_mac_operation_t *operation = NULL;
 
-    if ((in_len != 1) || (out_len != 1)) {
-        return PSA_ERROR_CONNECTION_REFUSED;
-    }
+    CRYPTO_IN_OUT_LEN_VALIDATE(in_len, 1, 1, out_len, 1, 1);
 
     if ((in_vec[0].len != sizeof(struct tfm_crypto_pack_iovec)) ||
         (out_vec[0].len != sizeof(uint32_t))) {
-        return PSA_ERROR_CONNECTION_REFUSED;
+        return PSA_ERROR_PROGRAMMER_ERROR;
     }
     const struct tfm_crypto_pack_iovec *iov = in_vec[0].base;
     uint32_t handle = iov->op_handle;
