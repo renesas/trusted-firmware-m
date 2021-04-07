@@ -8,6 +8,9 @@
 #ifndef __TFM_MBEDCRYPTO_INCLUDE_H__
 #define __TFM_MBEDCRYPTO_INCLUDE_H__
 
+
+#include "tfm_common_config.h"
+
 /* Define PSA_CRYPTO_SECURE to signal that we are compiling for the SPE */
 #define PSA_CRYPTO_SECURE 1
 

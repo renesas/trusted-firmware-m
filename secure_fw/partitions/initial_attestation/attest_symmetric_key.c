@@ -9,9 +9,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "psa/crypto.h"
 #include "attest_key.h"
 #include "tfm_plat_crypto_keys.h"
-#include "psa/crypto.h"
 #include "tfm_memory_utils.h"
 
 /* Only support HMAC as MAC algorithm in COSE_Mac0 so far */
