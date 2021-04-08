@@ -140,7 +140,7 @@ static fih_int tfm_core_init(void)
     FIH_RET(fih_int_encode(TFM_SUCCESS));
 }
 
-int main(void)
+int tfm_main(void)
 {
     fih_int fih_rc = FIH_FAILURE;
 

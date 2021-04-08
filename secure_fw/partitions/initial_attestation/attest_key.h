@@ -9,8 +9,8 @@
 #define __ATTEST_KEY_H__
 
 #include "psa/crypto.h"
-#include "attest.h"
 #include "psa/initial_attestation.h"
+#include "attest.h"
 #include "q_useful_buf.h"
 
 #ifdef __cplusplus
