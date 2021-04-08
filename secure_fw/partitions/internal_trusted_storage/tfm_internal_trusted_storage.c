@@ -93,7 +93,6 @@ psa_status_t tfm_its_init(void)
     /* Initialise the PS context */
     status = its_flash_fs_prepare(&fs_ctx_ps,
                                   its_flash_get_info(ITS_FLASH_ID_EXTERNAL));
-#endif
 
 #ifdef PS_CREATE_FLASH_LAYOUT
     /* If PS_CREATE_FLASH_LAYOUT is set, it indicates that it is required to
