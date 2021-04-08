@@ -37,7 +37,7 @@
 
 // <e> MPC (Memory Protection Controller) [Driver_SMPU3]
 // <i> Configuration settings for Driver_SMPU3 in component ::Drivers:MPC
-#define   RTE_SMPU3                                 0
+#define   RTE_SMPU3                                 1
 // </e> MPC (Memory Protection Controller) [Driver_SMPU3]
 
 // <e> MPC (Memory Protection Controller) [Driver_SMPU4]
@@ -67,7 +67,7 @@
 
 // <e> MPC (Memory Protection Controller) [Driver_SMPU9]
 // <i> Configuration settings for Driver_SMPU9 in component ::Drivers:MPC
-#define   RTE_SMPU9                                 0
+#define   RTE_SMPU9                                 1
 // </e> MPC (Memory Protection Controller) [Driver_SMPU9]
 
 // <e> MPC (Memory Protection Controller) [Driver_SMPU10]

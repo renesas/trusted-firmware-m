@@ -11,23 +11,19 @@ multiple services that are used by the core test suites. The services are
 defined in the ``test/test_services`` folder.
 
 Currently there are two test suites, *interactive* and *positive*. The positive
-test suite can be run, by building using ``ConfigCoreTest.cmake`` as cmake
-config file. The interactive test suite is only available by manually setting
-CORE_TEST_INTERACTIVE to ON in the following block in ``CommonConfig.cmake``:
+test suite can be run by building using non-secure regression tests using
+``-DTEST_NS``.
 
-.. code-block:: cmake
+The interactive test suite is only available by setting
+``-DTFM_INTERACTIVE_TEST=ON`` while the non-secure regression testsuite is
+enabled.
 
-	if (CORE_TEST)
-		set(CORE_TEST_POSITIVE ON)
-		set(CORE_TEST_INTERACTIVE OFF)
-	endif()
+In order to enable the IRQ test module of the postive testsuite, the non-secure
+regression testsuite must be enabled and ``-DTFM_IRQ_TEST=ON`` must be set.
 
-A platform can skip Core Test by setting ``CORE_TEST`` to ``OFF`` in its cmake
-configuration file, even though ``CORE_TEST`` is enabled by default in current
-configuration.
-
-After making the change, the tests can be run by building using
-``ConfigCoreTest.cmake`` as cmake config file.
+In order to enable the peripheral access test module of the positive testsuite,
+the non-secure regression testsuite must be enabled and
+``-DTFM_PERIPH_ACCESS_TEST=ON`` must be set.
 
 **************************
 Platform specific features
@@ -57,7 +53,7 @@ or all of the functions, by returning the values expected by the test cases,
 without actually executing the action expected by the test. A platform can also
 set the corresponding control flag to ``OFF`` to skip a test case. For example,
 A platform can skip peripheral access test case by setting
-``TFM_ENABLE_PERIPH_ACCESS_TEST`` to ``OFF`` in its cmake configuration file.
+``TFM_PERIPH_ACCESS_TEST`` to ``OFF`` in its cmake configuration file.
 
 ******************
 IRQ handling tests
@@ -105,7 +101,7 @@ non-secure memory location.
 For scenario 5 a Non-secure timer is set up and ``TFM_SP_CORE_TEST_2`` waits for
 it to be triggered
 
-A platform can skip IRQ handling test by setting ``TFM_ENABLE_IRQ_TEST`` to
+A platform can skip IRQ handling test by setting ``TFM_IRQ_TEST`` to
 ``OFF`` in its cmake configuration file.
 
 The irq test services also demonstrate how to use the ``IRQ_TEST_TOOL_*``
@@ -115,4 +111,4 @@ script in the `IRQ testing tool <https://git.trustedfirmware.org/TF-M/tf-m-tools
 
 --------------
 
-*Copyright (c) 2019, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*

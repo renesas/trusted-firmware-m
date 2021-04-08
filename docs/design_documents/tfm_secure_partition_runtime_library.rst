@@ -47,7 +47,7 @@ The following requirements are mandatory for SPRTL implementation:
   - **Security first** - SPRTL is designed for security and it may come with
     some performance loss.
 
-API Catagories
+API Categories
 ==============
 Several known types of functions are included in SPRTL:
 
@@ -167,7 +167,7 @@ This would simplify the caller logic into this:
   }
 
 This is the simplest case of encapsulating PSA Client API. If a RoT Service API
-is contect heavy, then, the encapsulation can be changed to include a connection
+is connect heavy, then, the encapsulation can be changed to include a connection
 handle inside a context data structure. This context data structure type is
 defined in RoT Service headers and the instance is allocated by API caller since
 API implementation does not have private data.
@@ -308,17 +308,14 @@ of SPM and SPRTL implementation. The pseudo code of a tooling result:
 Implementation
 ==============
 The SPRTL C Runtime sources are put under:
-'$TFM_ROOT/secure_fw/lib/sprt/'
+'$TFM_ROOT/secure_fw/partitions/lib/sprt/'
 
-All sources with the fixed prefix for easy symbol collecting:
-'tfm\_libsprt\_c\_'
-
-The output of this folder is a static library named as 'libtfmsprt.a'. The code
-of 'libtfmsprt.a' is put into a dedicated section so that a hardware protected
+The output of this folder is a static library named as 'libtfm_sprt.a'. The code
+of 'libtfm_sprt.a' is put into a dedicated section so that a hardware protected
 region can be applied to contain it.
 
 The RoT Service API are put under service interface folder. These APIs are
-marked with the same section attribute where 'libtfmsprt.a' is put.
+marked with the same section attribute where 'libtfm_sprt.a' is put.
 
 The Formatting API - 'printf' and variants
 ------------------------------------------

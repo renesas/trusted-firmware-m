@@ -111,7 +111,7 @@ Michel JAOUEN
     :github: `jamike <https://github.com/jamike>`__
 
 
-Cypress Platform: 
+Cypress Platform:
 ~~~~~~~~~~~~~~~~~
 
 Chris Brand
@@ -122,6 +122,29 @@ Raymond Ngun
     :email: `Raymond.Ngunn@cypress.com <raymond.ngunn@cypress.com>`__
     :github: `RaymondNgun <https://github.com/RaymondNgun>`__
 
+
+Nordic Semiconductor Platforms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Ioannis Glaropoulos
+    :email: `ioannis.glaropoulos@nordicsemi.no <ioannis.glaropoulos@nordicsemi.no>`__
+    :github: `ioannisg <https://github.com/ioannisg>`__
+
+Andrzej Głąbek
+    :email: `andrzej.glabek@nordicsemi.no <andrzej.glabek@nordicsemi.no>`__
+    :github: `anangl <https://github.com/anangl>`__
+
+Øyvind Rønningstad
+    :email: `oyvind.ronningstad@nordicsemi.no <oyvind.ronningstad@nordicsemi.no>`__
+    :github: `oyvindronningstad <https://github.com/oyvindronningstad>`__
+
+
+Nuvoton Platform:
+~~~~~~~~~~~~~~~~~
+
+WS Chang
+    :email: `MS20 WSChang0@nuvoton.com <wschang0@nuvoton.com>`__
+    :github: `wschang0 <https://github.com/wschang0>`__
 
 =============
 

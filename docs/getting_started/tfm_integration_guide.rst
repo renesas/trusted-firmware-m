@@ -22,13 +22,16 @@ The hardware platforms currently supported are:
 - Soft Macro Model (SMM) Cortex-M33 SSE-200 subsystem for MPS2+ (AN521)
 - Cortex-M23 IoT Kit subsystem for MPS2+ (AN519)
 - Arm SSE-123 Example Subsystem for MPS2+ (AN539)
-- Cortex-M55 SSE-300 subsystem for MPS2+ FVP
+- Corstone-300 Ecosystem FVP (Cortex-M55 SSE-300 MPS2+)
+- Corstone-300 Ethos-U55 FVP (Cortex-M55 plus Ethos-U55 SSE-300 MPS3)
 - Musca-A test chip board (Cortex-M33 SSE-200 subsystem)
 - Musca-B1 test chip board (Cortex-M33 SSE-200 subsystem)
 - Musca-S1 test chip board (Cortex-M33 SSE-200 subsystem)
 - CoreLink SSE-200 Subsystem for MPS3 (AN524)
 - DesignStart FPGA on Cloud: Cortex-M33 based platform (SSE-200_AWS)
 - STM32L5xx: Cortex-M33 based platform (STM32L562 and STM32L552 socs)
+- nRF9160 DK (Cortex-M33)
+- nRF5340 PDK/DK (Cortex-M33 Application MCU)
 
 The files related to the supported platforms are contained under the
 ``platform`` subfolder. The platform specific files are under
@@ -54,8 +57,17 @@ More information about subsystems supported by the MPS3 board can be found in:
 More information about the SSE-200_AWS platform can be found in:
 `SSE-200_AWS product page <https://aws.amazon.com/marketplace/pp/ARM-DesignStart-FPGA-on-Cloud-Cortex-M33-based-pla/B082DMMTLW>`__
 
+More information about the Corstone-300 FVPs can be found in:
+`Arm Ecosystem FVPs homepage <https://developer.arm.com/tools-and-software/open-source-software/arm-platforms-software/arm-ecosystem-fvps>`__
+
 More information about the STM32L5xx platform can be found in:
 `STM32L5 series product page <https://www.st.com/content/st_com/en/products/microcontrollers-microprocessors/stm32-32-bit-arm-cortex-mcus/stm32-ultra-low-power-mcus/stm32l5-series.html>`__
+
+More information about the nRF5340 PDK platform can be found in:
+`nRF5340 PDK product page <https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF5340-PDK>`__
+
+More information about the nRF9160 DK platform can be found in:
+`nRF9160 DK product page <https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK>`__
 
 Generic drivers and startup/scatter files
 =========================================
@@ -149,6 +161,24 @@ Note, that ``AIRCR.PRIS`` is still set to restrict the priority range available
 to NS interrupts to the lower half of available priorities so that it wouldn't
 be possible for any non-secure interrupt to preempt a higher-priority secure
 interrupt.
+
+**********************************
+Integration with non-Cmake systems
+**********************************
+
+Generated Files
+===============
+
+Files that are derived from PSA manifests are generated at build-time by cmake.
+For integration with systems that do no use cmake, the files must be generated
+manually.
+
+The ``tools/tfm_parse_manifest_list.py`` script can be invoked manually. Some
+arguments will be needed to be provided. Please refer to
+``tfm_parse_manifest_list.py --help`` for more details.
+
+Some variables are used in the template files, these will need to be set in the
+environment before the script will succeed when the script is not run via cmake.
 
 --------------
 

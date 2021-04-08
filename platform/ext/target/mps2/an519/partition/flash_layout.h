@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2020 Arm Limited. All rights reserved.
+ * Copyright (c) 2020 Cypress Semiconductor Corporation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -178,15 +179,12 @@
 #define PS_FLASH_AREA_ADDR     FLASH_PS_AREA_OFFSET
 /* Dedicated flash area for PS */
 #define PS_FLASH_AREA_SIZE     FLASH_PS_AREA_SIZE
+#define PS_RAM_FS_SIZE         PS_FLASH_AREA_SIZE
 #define PS_SECTOR_SIZE         FLASH_AREA_IMAGE_SECTOR_SIZE
 /* Number of PS_SECTOR_SIZE per block */
 #define PS_SECTORS_PER_BLOCK   (0x1)
 /* Specifies the smallest flash programmable unit in bytes */
 #define PS_FLASH_PROGRAM_UNIT  (0x1)
-/* The maximum asset size to be stored in the PS area */
-#define PS_MAX_ASSET_SIZE      (2048)
-/* The maximum number of assets to be stored in the PS area */
-#define PS_NUM_ASSETS          (10)
 
 /* Internal Trusted Storage (ITS) Service definitions
  * Note: Further documentation of these definitions can be found in the
@@ -202,15 +200,12 @@
 #define ITS_FLASH_AREA_ADDR     FLASH_ITS_AREA_OFFSET
 /* Dedicated flash area for ITS */
 #define ITS_FLASH_AREA_SIZE     FLASH_ITS_AREA_SIZE
+#define ITS_RAM_FS_SIZE         ITS_FLASH_AREA_SIZE
 #define ITS_SECTOR_SIZE         FLASH_AREA_IMAGE_SECTOR_SIZE
 /* Number of ITS_SECTOR_SIZE per block */
 #define ITS_SECTORS_PER_BLOCK   (0x1)
 /* Specifies the smallest flash programmable unit in bytes */
 #define ITS_FLASH_PROGRAM_UNIT  (0x1)
-/* The maximum asset size to be stored in the ITS area */
-#define ITS_MAX_ASSET_SIZE      (512)
-/* The maximum number of assets to be stored in the ITS area */
-#define ITS_NUM_ASSETS          (10)
 
 /* NV Counters definitions */
 #define TFM_NV_COUNTERS_AREA_ADDR    FLASH_NV_COUNTERS_AREA_OFFSET

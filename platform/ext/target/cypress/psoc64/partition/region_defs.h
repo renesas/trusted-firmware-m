@@ -20,6 +20,10 @@
 
 #include "flash_layout.h"
 
+#ifdef BL2
+#error "BL2 configuration is not supported"
+#endif /* BL2 */
+
 #define TOTAL_ROM_SIZE FLASH_TOTAL_SIZE
 /* 2KB of RAM (at the end of the SRAM) are reserved for system use. Using
  * this memory region for other purposes will lead to unexpected behavior.
@@ -28,9 +32,6 @@
 /* FixMe: confirm exact available amount of RAM based on the actual
    system allocation */
 #define TOTAL_RAM_SIZE (0x000E8000) /* CY_SRAM_SIZE - 96KB */
-
-#define BL2_HEAP_SIZE           0x0001000
-#define BL2_MSP_STACK_SIZE      0x0001000
 
 #define S_HEAP_SIZE             0x0001000
 #define S_MSP_STACK_SIZE_INIT   0x0000400
@@ -41,7 +42,7 @@
 #define NS_MSP_STACK_SIZE       (0x0000200)
 
 /* Relocation of vectors to RAM support */
-/* #define RAM_VECTORS_SUPPORT */
+#define RAM_VECTORS_SUPPORT
 
 /*
  * This size of buffer is big enough to store an attestation
@@ -54,18 +55,15 @@
  * of partitions is defined in accordance with this constraint.
  */
 
-#ifdef BL2
-#error "BL2 configuration is not supported"
-#else
 #define S_IMAGE_PRIMARY_PARTITION_OFFSET  SECURE_IMAGE_OFFSET
 #define NS_IMAGE_PRIMARY_PARTITION_OFFSET NON_SECURE_IMAGE_OFFSET
-#endif /* BL2 */
 
 /* TFM PSoC6 CY8CKIT_064 RAM layout:
  *
  * 0x0800_0000 - 0x0802_FFFF Secure (192KB)
  *    0x0800_0000 - 0x0800_7FFF Secure unprivileged data (S_UNPRIV_DATA_SIZE, 32KB)
- *    0x0800_8000 - 0x0802_FFFF Secure priviliged data (S_PRIV_DATA_SIZE, 160KB)
+ *    0x0800_8000 - 0x0802_F7FF Secure priviliged data (S_PRIV_DATA_SIZE, 158KB)
+ *    0x0802_F800 - 0x0802_FFFF Secure priv code executable from RAM (S_RAM_CODE_SIZE, 2KB)
  *
  * 0x0803_0000 - 0x080E_7FFF Non-secure (736KB)
  *    0x0803_0000 - 0x080E_6FFF Non-secure OS/App (732KB)
@@ -85,22 +83,17 @@
  * because we reserve space for the image header and trailer introduced by the
  * bootloader.
  */
-#ifdef BL2
-#error "BL2 configuration is not supported"
-#else
 /* Even though TFM BL2 is excluded from the build,
  * CY BL built externally is used and it needs offsets for header and trailer
  * to be taken in account.
  * */
-#define BL2_HEADER_SIZE      (0x400)
-#define BL2_TRAILER_SIZE     (0x400)
-
-#endif /* BL2 */
+#define CYBL_HEADER_SIZE      (0x400)
+#define CYBL_TRAILER_SIZE     (0x400)
 
 #define IMAGE_S_CODE_SIZE \
-            (FLASH_S_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+            (FLASH_S_PARTITION_SIZE - CYBL_HEADER_SIZE - CYBL_TRAILER_SIZE)
 #define IMAGE_NS_CODE_SIZE \
-            (FLASH_NS_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+            (FLASH_NS_PARTITION_SIZE - CYBL_HEADER_SIZE - CYBL_TRAILER_SIZE)
 
 /* Alias definitions for secure and non-secure areas*/
 #define S_ROM_ALIAS(x)  (S_ROM_ALIAS_BASE + (x))
@@ -111,17 +104,19 @@
 
 /* Secure regions */
 #define S_IMAGE_PRIMARY_AREA_OFFSET \
-             (S_IMAGE_PRIMARY_PARTITION_OFFSET + BL2_HEADER_SIZE)
+             (S_IMAGE_PRIMARY_PARTITION_OFFSET + CYBL_HEADER_SIZE)
 #define S_CODE_START    (S_ROM_ALIAS(S_IMAGE_PRIMARY_AREA_OFFSET))
 #define S_CODE_SIZE     IMAGE_S_CODE_SIZE
 #define S_CODE_LIMIT    (S_CODE_START + S_CODE_SIZE - 1)
 
 #define S_DATA_START    (S_RAM_ALIAS(0))
 #define S_UNPRIV_DATA_SIZE  0x08000
-#define S_PRIV_DATA_SIZE    0x28000
+#define S_PRIV_DATA_SIZE    0x27800
+/* Reserve 2KB for RAM-based executable code */
+#define S_RAM_CODE_SIZE     0x800
 
 /* Secure data area */
-#define S_DATA_SIZE  (S_UNPRIV_DATA_SIZE + S_PRIV_DATA_SIZE)
+#define S_DATA_SIZE  (S_UNPRIV_DATA_SIZE + S_PRIV_DATA_SIZE + S_RAM_CODE_SIZE)
 #define S_DATA_LIMIT (S_DATA_START + S_DATA_SIZE - 1)
 
 /* We need the privileged data area to be aligned so that an SMPU
@@ -142,9 +137,14 @@
 #define S_DATA_PRIV_OFFSET   (S_DATA_UNPRIV_OFFSET + S_UNPRIV_DATA_SIZE)
 #define S_DATA_PRIV_START    S_RAM_ALIAS(S_DATA_PRIV_OFFSET)
 
+/* Reserve area for RAM-based executable code right after secure unprivileged
+ * and privileged data areas*/
+#define S_RAM_CODE_OFFSET    (S_DATA_PRIV_OFFSET + S_PRIV_DATA_SIZE)
+#define S_RAM_CODE_START     S_RAM_ALIAS(S_RAM_CODE_OFFSET)
+
 /* Non-secure regions */
 #define NS_IMAGE_PRIMARY_AREA_OFFSET \
-                        (NS_IMAGE_PRIMARY_PARTITION_OFFSET + BL2_HEADER_SIZE)
+                        (NS_IMAGE_PRIMARY_PARTITION_OFFSET + CYBL_HEADER_SIZE)
 #define NS_CODE_START   (NS_ROM_ALIAS(NS_IMAGE_PRIMARY_AREA_OFFSET))
 #define NS_CODE_SIZE    IMAGE_NS_CODE_SIZE
 #define NS_CODE_LIMIT   (NS_CODE_START + NS_CODE_SIZE - 1)
@@ -171,10 +171,6 @@
             (NS_ROM_ALIAS(NS_IMAGE_PRIMARY_PARTITION_OFFSET))
 
 #define NS_PARTITION_SIZE (FLASH_NS_PARTITION_SIZE)
-
-#ifdef BL2
-#error "BL2 configuration is not supported"
-#endif /* BL2 */
 
 /* Shared data area between bootloader and runtime firmware.
  * Shared data area is allocated at the beginning of the privileged data area,

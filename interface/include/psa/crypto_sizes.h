@@ -80,13 +80,8 @@
 /* Note: for HMAC-SHA-3, the block size is 144 bytes for HMAC-SHA3-226,
  * 136 bytes for HMAC-SHA3-256, 104 bytes for SHA3-384, 72 bytes for
  * HMAC-SHA3-512. */
-#if defined(MBEDTLS_SHA512_C)
 #define PSA_HASH_MAX_SIZE 64
 #define PSA_HMAC_MAX_HASH_BLOCK_SIZE 128
-#else
-#define PSA_HASH_MAX_SIZE 32
-#define PSA_HMAC_MAX_HASH_BLOCK_SIZE 64
-#endif
 
 /** \def PSA_MAC_MAX_SIZE
  *
@@ -138,37 +133,8 @@
  * operations, and does not need to accept all key sizes up to the limit. */
 #define PSA_VENDOR_RSA_MAX_KEY_BITS 4096
 
-/* The maximum size of an ECC key on this implementation, in bits.
- * This is a vendor-specific macro. */
-#if defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED)
+/* The maximum size of an ECC key on this implementation, in bits */
 #define PSA_VENDOR_ECC_MAX_CURVE_BITS 521
-#elif defined(MBEDTLS_ECP_DP_BP512R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 512
-#elif defined(MBEDTLS_ECP_DP_CURVE448_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 448
-#elif defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 384
-#elif defined(MBEDTLS_ECP_DP_BP384R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 384
-#elif defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 256
-#elif defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 256
-#elif defined(MBEDTLS_ECP_DP_BP256R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 256
-#elif defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 255
-#elif defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 224
-#elif defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 224
-#elif defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 192
-#elif defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED)
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 192
-#else
-#define PSA_VENDOR_ECC_MAX_CURVE_BITS 0
-#endif
 
 /** \def PSA_ALG_TLS12_PSK_TO_MS_MAX_PSK_LEN
  *
@@ -411,7 +377,7 @@
  * \param key_type  An asymmetric key type (this may indifferently be a
  *                  key pair type or a public key type).
  * \param key_bits  The size of the key in bits.
- * \param alg       The signature algorithm.
+ * \param alg       The asymmetric encryption algorithm.
  *
  * \return If the parameters are valid and supported, return
  *         a buffer size in bytes that guarantees that
@@ -430,9 +396,9 @@
 
 /** Sufficient output buffer size for psa_asymmetric_decrypt().
  *
- * This macro returns a sufficient buffer size for a ciphertext produced using
+ * This macro returns a sufficient buffer size for a plaintext produced using
  * a key of the specified type and size, with the specified algorithm.
- * Note that the actual size of the ciphertext may be smaller, depending
+ * Note that the actual size of the plaintext may be smaller, depending
  * on the algorithm.
  *
  * \warning This function may call its arguments multiple times or
@@ -442,7 +408,7 @@
  * \param key_type  An asymmetric key type (this may indifferently be a
  *                  key pair type or a public key type).
  * \param key_bits  The size of the key in bits.
- * \param alg       The signature algorithm.
+ * \param alg       The asymmetric encryption algorithm.
  *
  * \return If the parameters are valid and supported, return
  *         a buffer size in bytes that guarantees that
