@@ -115,7 +115,7 @@ static int32_t tfm_core_init(void)
     return TFM_SUCCESS;
 }
 
-int main(void)
+int tfm_main(void)
 {
     /* set Main Stack Pointer limit */
     tfm_arch_init_secure_msp((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP,
