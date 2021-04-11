@@ -17,6 +17,54 @@
 
 const struct tfm_spm_service_db_t service_db[] =
 {
+#ifdef TFM_PARTITION_PROTECTED_STORAGE
+    /******** TFM_SP_PS ********/
+    {
+        .name = "TFM_PS_SET",
+        .partition_id = TFM_SP_PS,
+        .signal = TFM_PS_SET_SIGNAL,
+        .sid = 0x00000060,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "TFM_PS_GET",
+        .partition_id = TFM_SP_PS,
+        .signal = TFM_PS_GET_SIGNAL,
+        .sid = 0x00000061,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "TFM_PS_GET_INFO",
+        .partition_id = TFM_SP_PS,
+        .signal = TFM_PS_GET_INFO_SIGNAL,
+        .sid = 0x00000062,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "TFM_PS_REMOVE",
+        .partition_id = TFM_SP_PS,
+        .signal = TFM_PS_REMOVE_SIGNAL,
+        .sid = 0x00000063,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "TFM_PS_GET_SUPPORT",
+        .partition_id = TFM_SP_PS,
+        .signal = TFM_PS_GET_SUPPORT_SIGNAL,
+        .sid = 0x00000064,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_PROTECTED_STORAGE */
 
 #ifdef TFM_PARTITION_INTERNAL_TRUSTED_STORAGE
     /******** TFM_SP_ITS ********/
@@ -140,6 +188,39 @@ const struct tfm_spm_service_db_t service_db[] =
 /**************************************************************************/
 struct tfm_spm_service_t service[] =
 {
+#ifdef TFM_PARTITION_PROTECTED_STORAGE
+    /******** TFM_SP_PS ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_PROTECTED_STORAGE */
 
 #ifdef TFM_PARTITION_INTERNAL_TRUSTED_STORAGE
     /******** TFM_SP_ITS ********/

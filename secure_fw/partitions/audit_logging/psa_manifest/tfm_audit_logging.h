@@ -7,17 +7,16 @@
 
 /*********** WARNING: This is an auto-generated file. Do not edit! ***********/
 
-#ifndef __PSA_MANIFEST_TFM_CRYPTO_H__
-#define __PSA_MANIFEST_TFM_CRYPTO_H__
+#ifndef __PSA_MANIFEST_TFM_AUDIT_LOGGING_H__
+#define __PSA_MANIFEST_TFM_AUDIT_LOGGING_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define TFM_CRYPTO_SIGNAL                                       (1U << (0 + 4))
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __PSA_MANIFEST_TFM_CRYPTO_H__ */
+#endif /* __PSA_MANIFEST_TFM_AUDIT_LOGGING_H__ */

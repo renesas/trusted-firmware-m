@@ -11,6 +11,7 @@
 #include "secure_fw/partitions/crypto/psa_manifest/tfm_crypto.h"
 #include "secure_fw/partitions/platform/psa_manifest/tfm_platform.h"
 #include "secure_fw/partitions/initial_attestation/psa_manifest/tfm_initial_attestation.h"
+
 #include "cmsis_compiler.h"
 
 /* Definitions of the signals of the IRQs (if any) */
