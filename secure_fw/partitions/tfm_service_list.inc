@@ -10,6 +10,7 @@
 #ifndef __TFM_SERVICE_LIST_INC__
 #define __TFM_SERVICE_LIST_INC__
 
+#include "tfm_common_config.h"
 #include "secure_fw/partitions/internal_trusted_storage/psa_manifest/tfm_internal_trusted_storage.h"
 #include "secure_fw/partitions/crypto/psa_manifest/tfm_crypto.h"
 #include "secure_fw/partitions/platform/psa_manifest/tfm_platform.h"
@@ -181,6 +182,326 @@ const struct tfm_spm_service_db_t service_db[] =
     },
 #endif /* TFM_PARTITION_INITIAL_ATTESTATION */
 
+#ifdef TFM_PARTITION_TEST_CORE
+    /******** TFM_SP_CORE_TEST ********/
+    {
+        .name = "SPM_CORE_TEST_INIT_SUCCESS",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_INIT_SUCCESS_SIGNAL,
+        .sid = 0x0000F020,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_DIRECT_RECURSION",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_DIRECT_RECURSION_SIGNAL,
+        .sid = 0x0000F021,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_SS_TO_SS",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_SS_TO_SS_SIGNAL,
+        .sid = 0x0000F024,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_SS_TO_SS_BUFFER",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_SS_TO_SS_BUFFER_SIGNAL,
+        .sid = 0x0000F025,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_OUTVEC_WRITE",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_OUTVEC_WRITE_SIGNAL,
+        .sid = 0x0000F026,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_PERIPHERAL_ACCESS",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_PERIPHERAL_ACCESS_SIGNAL,
+        .sid = 0x0000F027,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_GET_CALLER_CLIENT_ID",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_GET_CALLER_CLIENT_ID_SIGNAL,
+        .sid = 0x0000F028,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_SPM_REQUEST",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_SPM_REQUEST_SIGNAL,
+        .sid = 0x0000F029,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_BLOCK",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_BLOCK_SIGNAL,
+        .sid = 0x0000F02A,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_NS_THREAD",
+        .partition_id = TFM_SP_CORE_TEST,
+        .signal = SPM_CORE_TEST_NS_THREAD_SIGNAL,
+        .sid = 0x0000F02B,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_CORE */
+
+#ifdef TFM_PARTITION_TEST_CORE
+    /******** TFM_SP_CORE_TEST_2 ********/
+    {
+        .name = "SPM_CORE_TEST_2_SLAVE_SERVICE",
+        .partition_id = TFM_SP_CORE_TEST_2,
+        .signal = SPM_CORE_TEST_2_SLAVE_SERVICE_SIGNAL,
+        .sid = 0x0000F040,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_2_CHECK_CALLER_CLIENT_ID",
+        .partition_id = TFM_SP_CORE_TEST_2,
+        .signal = SPM_CORE_TEST_2_CHECK_CALLER_CLIENT_ID_SIGNAL,
+        .sid = 0x0000F041,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_2_GET_EVERY_SECOND_BYTE",
+        .partition_id = TFM_SP_CORE_TEST_2,
+        .signal = SPM_CORE_TEST_2_GET_EVERY_SECOND_BYTE_SIGNAL,
+        .sid = 0x0000F042,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_2_INVERT",
+        .partition_id = TFM_SP_CORE_TEST_2,
+        .signal = SPM_CORE_TEST_2_INVERT_SIGNAL,
+        .sid = 0x0000F043,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_2_PREPARE_TEST_SCENARIO",
+        .partition_id = TFM_SP_CORE_TEST_2,
+        .signal = SPM_CORE_TEST_2_PREPARE_TEST_SCENARIO_SIGNAL,
+        .sid = 0x0000F044,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_TEST_2_EXECUTE_TEST_SCENARIO",
+        .partition_id = TFM_SP_CORE_TEST_2,
+        .signal = SPM_CORE_TEST_2_EXECUTE_TEST_SCENARIO_SIGNAL,
+        .sid = 0x0000F045,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_CORE */
+
+#ifdef TFM_PARTITION_TEST_SECURE_SERVICES
+    /******** TFM_SP_SECURE_TEST_PARTITION ********/
+    {
+        .name = "TFM_SECURE_CLIENT_SFN_RUN_TESTS",
+        .partition_id = TFM_SP_SECURE_TEST_PARTITION,
+        .signal = TFM_SECURE_CLIENT_SFN_RUN_TESTS_SIGNAL,
+        .sid = 0x0000F000,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
+#ifdef TFM_PARTITION_TEST_CORE_IPC
+    /******** TFM_SP_IPC_SERVICE_TEST ********/
+    {
+        .name = "IPC_SERVICE_TEST_BASIC",
+        .partition_id = TFM_SP_IPC_SERVICE_TEST,
+        .signal = IPC_SERVICE_TEST_BASIC_SIGNAL,
+        .sid = 0x0000F080,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_SERVICE_TEST_PSA_ACCESS_APP_MEM",
+        .partition_id = TFM_SP_IPC_SERVICE_TEST,
+        .signal = IPC_SERVICE_TEST_PSA_ACCESS_APP_MEM_SIGNAL,
+        .sid = 0x0000F081,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_SERVICE_TEST_PSA_ACCESS_APP_READ_ONLY_MEM",
+        .partition_id = TFM_SP_IPC_SERVICE_TEST,
+        .signal = IPC_SERVICE_TEST_PSA_ACCESS_APP_READ_ONLY_MEM_SIGNAL,
+        .sid = 0x0000F082,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_SERVICE_TEST_APP_ACCESS_PSA_MEM",
+        .partition_id = TFM_SP_IPC_SERVICE_TEST,
+        .signal = IPC_SERVICE_TEST_APP_ACCESS_PSA_MEM_SIGNAL,
+        .sid = 0x0000F083,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_SERVICE_TEST_CLIENT_PROGRAMMER_ERROR",
+        .partition_id = TFM_SP_IPC_SERVICE_TEST,
+        .signal = IPC_SERVICE_TEST_CLIENT_PROGRAMMER_ERROR_SIGNAL,
+        .sid = 0x0000F084,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_CORE_IPC */
+
+#ifdef TFM_PARTITION_TEST_CORE_IPC
+    /******** TFM_SP_IPC_CLIENT_TEST ********/
+    {
+        .name = "IPC_CLIENT_TEST_BASIC",
+        .partition_id = TFM_SP_IPC_CLIENT_TEST,
+        .signal = IPC_CLIENT_TEST_BASIC_SIGNAL,
+        .sid = 0x0000F060,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_CLIENT_TEST_PSA_ACCESS_APP_MEM",
+        .partition_id = TFM_SP_IPC_CLIENT_TEST,
+        .signal = IPC_CLIENT_TEST_PSA_ACCESS_APP_MEM_SIGNAL,
+        .sid = 0x0000F061,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_CLIENT_TEST_PSA_ACCESS_APP_READ_ONLY_MEM",
+        .partition_id = TFM_SP_IPC_CLIENT_TEST,
+        .signal = IPC_CLIENT_TEST_PSA_ACCESS_APP_READ_ONLY_MEM_SIGNAL,
+        .sid = 0x0000F062,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_CLIENT_TEST_APP_ACCESS_PSA_MEM",
+        .partition_id = TFM_SP_IPC_CLIENT_TEST,
+        .signal = IPC_CLIENT_TEST_APP_ACCESS_PSA_MEM_SIGNAL,
+        .sid = 0x0000F063,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_CLIENT_TEST_MEM_CHECK",
+        .partition_id = TFM_SP_IPC_CLIENT_TEST,
+        .signal = IPC_CLIENT_TEST_MEM_CHECK_SIGNAL,
+        .sid = 0x0000F064,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "IPC_CLIENT_TEST_RETRIEVE_APP_MEM",
+        .partition_id = TFM_SP_IPC_CLIENT_TEST,
+        .signal = IPC_CLIENT_TEST_RETRIEVE_APP_MEM_SIGNAL,
+        .sid = 0x0000F065,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_CORE_IPC */
+
+#ifdef TFM_ENABLE_IRQ_TEST
+    /******** TFM_IRQ_TEST_1 ********/
+    {
+        .name = "SPM_CORE_IRQ_TEST_1_PREPARE_TEST_SCENARIO",
+        .partition_id = TFM_IRQ_TEST_1,
+        .signal = SPM_CORE_IRQ_TEST_1_PREPARE_TEST_SCENARIO_SIGNAL,
+        .sid = 0x0000F0A0,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+    {
+        .name = "SPM_CORE_IRQ_TEST_1_EXECUTE_TEST_SCENARIO",
+        .partition_id = TFM_IRQ_TEST_1,
+        .signal = SPM_CORE_IRQ_TEST_1_EXECUTE_TEST_SCENARIO_SIGNAL,
+        .sid = 0x0000F0A1,
+        .non_secure_client = true,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_ENABLE_IRQ_TEST */
+
+#ifdef TFM_PARTITION_TEST_PS
+    /******** TFM_SP_PS_TEST ********/
+    {
+        .name = "TFM_PS_TEST_PREPARE",
+        .partition_id = TFM_SP_PS_TEST,
+        .signal = TFM_PS_TEST_PREPARE_SIGNAL,
+        .sid = 0x0000F0C0,
+        .non_secure_client = false,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_PS */
+
+#ifdef TFM_PARTITION_TEST_SECURE_SERVICES
+    /******** TFM_SP_SECURE_CLIENT_2 ********/
+    {
+        .name = "TFM_SECURE_CLIENT_2",
+        .partition_id = TFM_SP_SECURE_CLIENT_2,
+        .signal = TFM_SECURE_CLIENT_2_SIGNAL,
+        .sid = 0x0000F0E0,
+        .non_secure_client = false,
+        .version = 1,
+        .version_policy = TFM_VERSION_POLICY_STRICT
+    },
+#endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
 };
 
 /**************************************************************************/
@@ -303,6 +624,230 @@ struct tfm_spm_service_t service[] =
         .list = {0},
     },
 #endif /* TFM_PARTITION_INITIAL_ATTESTATION */
+
+#ifdef TFM_PARTITION_TEST_CORE
+    /******** TFM_SP_CORE_TEST ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_CORE */
+
+#ifdef TFM_PARTITION_TEST_CORE
+    /******** TFM_SP_CORE_TEST_2 ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_CORE */
+
+#ifdef TFM_PARTITION_TEST_SECURE_SERVICES
+    /******** TFM_SP_SECURE_TEST_PARTITION ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
+#ifdef TFM_PARTITION_TEST_CORE_IPC
+    /******** TFM_SP_IPC_SERVICE_TEST ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_CORE_IPC */
+
+#ifdef TFM_PARTITION_TEST_CORE_IPC
+    /******** TFM_SP_IPC_CLIENT_TEST ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_CORE_IPC */
+
+#ifdef TFM_ENABLE_IRQ_TEST
+    /******** TFM_IRQ_TEST_1 ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_ENABLE_IRQ_TEST */
+
+#ifdef TFM_PARTITION_TEST_PS
+    /******** TFM_SP_PS_TEST ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_PS */
+
+#ifdef TFM_PARTITION_TEST_SECURE_SERVICES
+    /******** TFM_SP_SECURE_CLIENT_2 ********/
+    {
+        .service_db = NULL,
+        .partition = NULL,
+        .handle_list = {0},
+        .list = {0},
+    },
+#endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
 
 };
 
