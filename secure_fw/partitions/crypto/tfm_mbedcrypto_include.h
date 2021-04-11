@@ -16,6 +16,6 @@
  * Mbed Crypto
  */
 #include "crypto_spe.h"
-#include "psa/crypto.h"
+#include "mbedtls/include/psa/crypto.h"
 
 #endif /* __TFM_MBEDCRYPTO_INCLUDE_H__ */
