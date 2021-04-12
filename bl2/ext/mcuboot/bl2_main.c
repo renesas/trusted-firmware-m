@@ -118,7 +118,8 @@ int main(void)
     BOOT_LOG_INF("Bootloader chainload address offset: 0x%x",
                  rsp.br_image_off);
     BOOT_LOG_INF("Jumping to the first image slot");
-    do_boot(&rsp);
+    // do_boot(&rsp);
+    RM_MCUBOOT_PORT_BootApp(&rsp);
 
     BOOT_LOG_ERR("Never should get here");
     FIH_PANIC;
