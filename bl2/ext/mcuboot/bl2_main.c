@@ -29,6 +29,7 @@
 #include "flash_map_backend/flash_map_backend.h"
 #include "boot_hal.h"
 #include "uart_stdout.h"
+#include "rm_mcuboot_port.h"
 
 /* Avoids the semihosting issue */
 #if defined (__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
@@ -43,43 +44,7 @@ __asm("  .global __ARM_use_no_argv\n");
 
 /* Static buffer to be used by mbedtls for memory allocation */
 static uint8_t mbedtls_mem_buf[BL2_MBEDTLS_MEM_BUF_LEN];
-
-static void do_boot(struct boot_rsp *rsp)
-{
-    struct boot_arm_vector_table *vt;
-    uintptr_t flash_base;
-    int rc;
-
-    /* The beginning of the image is the ARM vector table, containing
-     * the initial stack pointer address and the reset vector
-     * consecutively. Manually set the stack pointer and jump into the
-     * reset vector
-     */
-    rc = flash_device_base(rsp->br_flash_dev_id, &flash_base);
-    assert(rc == 0);
-
-    if (rsp->br_hdr->ih_flags & IMAGE_F_RAM_LOAD) {
-       /* The image has been copied to SRAM, find the vector table
-        * at the load address instead of image's address in flash
-        */
-        vt = (struct boot_arm_vector_table *)(rsp->br_hdr->ih_load_addr +
-                                         rsp->br_hdr->ih_hdr_size);
-    } else {
-        /* Using the flash address as not executing in SRAM */
-        vt = (struct boot_arm_vector_table *)(flash_base +
-                                         rsp->br_image_off +
-                                         rsp->br_hdr->ih_hdr_size);
-    }
-
-#if MCUBOOT_LOG_LEVEL > MCUBOOT_LOG_LEVEL_OFF
-    stdio_uninit();
-#endif
-
-    /* This function never returns, because it calls the secure application
-     * Reset_Handler().
-     */
-    boot_platform_quit(vt);
-}
+int bl2_main(void);
 
 int bl2_main(void)
 {
