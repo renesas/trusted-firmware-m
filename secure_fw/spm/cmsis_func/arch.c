@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2018-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
 
 #include "arch.h"
+#include "exception_info.h"
 #include "tfm_secure_api.h"
 #include "tfm/tfm_spm_services.h"
 
@@ -268,7 +269,7 @@ void tfm_arch_set_secure_exception_priorities(void)
 #error Function based model works on V8M series only.
 #endif
 
-void tfm_arch_configure_coprocessors(void)
+void tfm_arch_config_extensions(void)
 {
 #if defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)
     /* Configure Secure access to the FPU only if the secure image is being
@@ -297,6 +298,10 @@ void tfm_arch_configure_coprocessors(void)
      * the NSPE. This configuration is left to NS privileged software.
      */
     SCB->NSACR |= SCB_NSACR_CP10_Msk | SCB_NSACR_CP11_Msk;
+#endif
+
+#if defined(__ARM_ARCH_8_1M_MAIN__)
+    SCB->CCR |= SCB_CCR_TRD_Msk;
 #endif
 #endif
 }
@@ -353,6 +358,8 @@ __attribute__((naked)) void SVC_Handler(void)
 
 __attribute__((naked)) void HardFault_Handler(void)
 {
+    EXCEPTION_INFO(EXCEPTION_TYPE_HARDFAULT);
+
     /* A HardFault may indicate corruption of secure state, so it is essential
      * that Non-secure code does not regain control after one is raised.
      * Returning from this exception could allow a pending NS exception to be
@@ -363,6 +370,8 @@ __attribute__((naked)) void HardFault_Handler(void)
 
 __attribute__((naked)) void MemManage_Handler(void)
 {
+    EXCEPTION_INFO(EXCEPTION_TYPE_MEMFAULT);
+
     /* A MemManage fault may indicate corruption of secure state, so it is
      * essential that Non-secure code does not regain control after one is
      * raised. Returning from this exception could allow a pending NS exception
@@ -373,6 +382,8 @@ __attribute__((naked)) void MemManage_Handler(void)
 
 __attribute__((naked)) void BusFault_Handler(void)
 {
+    EXCEPTION_INFO(EXCEPTION_TYPE_BUSFAULT);
+
     /* A BusFault may indicate corruption of secure state, so it is essential
      * that Non-secure code does not regain control after one is raised.
      * Returning from this exception could allow a pending NS exception to be
@@ -383,10 +394,18 @@ __attribute__((naked)) void BusFault_Handler(void)
 
 __attribute__((naked)) void SecureFault_Handler(void)
 {
+    EXCEPTION_INFO(EXCEPTION_TYPE_SECUREFAULT);
+
     /* A SecureFault may indicate corruption of secure state, so it is essential
      * that Non-secure code does not regain control after one is raised.
      * Returning from this exception could allow a pending NS exception to be
      * taken, so the current solution is not to return.
      */
+    __ASM volatile("b    .");
+}
+
+__attribute__((naked)) void UsageFault_Handler(void)
+{
+    EXCEPTION_INFO(EXCEPTION_TYPE_USAGEFAULT);
     __ASM volatile("b    .");
 }

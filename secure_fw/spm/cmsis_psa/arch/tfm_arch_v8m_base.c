@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -9,6 +9,7 @@
 #include "spm_ipc.h"
 #include "tfm_hal_device_header.h"
 #include "tfm_arch.h"
+#include "exception_info.h"
 #include "tfm_secure_api.h"
 #include "tfm/tfm_core_svc.h"
 
@@ -91,8 +92,10 @@ void tfm_arch_init_actx(struct tfm_arch_ctx_t *p_actx,
  * In case of a baseline implementation fault conditions that would generate a
  * SecureFault in a mainline implementation instead generate a Secure HardFault.
  */
-void HardFault_Handler(void)
+__attribute__((naked)) void HardFault_Handler(void)
 {
+    EXCEPTION_INFO(EXCEPTION_TYPE_HARDFAULT);
+
     /* In a baseline implementation there is no way, to find out whether this is
      * a hard fault triggered directly, or another fault that has been
      * escalated.
@@ -102,9 +105,8 @@ void HardFault_Handler(void)
      * Returning from this exception could allow a pending NS exception to be
      * taken, so the current solution is not to return.
      */
-    while (1) {
-        ;
-    }
+
+    __ASM volatile("b    .");
 }
 
 #if defined(__ICCARM__)
@@ -160,7 +162,7 @@ void tfm_arch_set_secure_exception_priorities(void)
 }
 
 /* There are no coprocessors in Armv8-M Baseline implementations */
-void tfm_arch_configure_coprocessors(void)
+void tfm_arch_config_extensions(void)
 {
 }
 
