@@ -11,7 +11,9 @@
 #include "tfm_common_config.h"
 
 /* Define PSA_CRYPTO_SECURE to signal that we are compiling for the SPE */
+#ifndef PSA_CRYPTO_SECURE
 #define PSA_CRYPTO_SECURE 1
+#endif
 
 /* Include the crypto_spe.h header before including the PSA Crypto header from
  * Mbed Crypto
