@@ -151,10 +151,6 @@ const struct mpu_armv8m_region_cfg_t region_cfg[] = {
 
 enum tfm_hal_status_t tfm_hal_set_up_static_boundaries(void)
 {
-    /* Set up isolation boundaries between SPE and NSPE */
-    gtzc_init_cfg();
-    sau_and_idau_cfg();
-    pinmux_init_cfg();
 
     /* Set up static isolation boundaries inside SPE */
 #ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT

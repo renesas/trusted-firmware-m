@@ -9,7 +9,6 @@
 #include "tfm_spm_hal.h"
 #include "tfm_platform_core_api.h"
 #include "target_cfg.h"
-#include "Driver_MPC.h"
 #include "mpu_armv8m_drv.h"
 #include "region_defs.h"
 #include "utilities.h"

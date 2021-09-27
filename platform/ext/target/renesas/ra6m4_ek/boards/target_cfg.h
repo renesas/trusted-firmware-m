@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __STM32L5XX_CFG_H__
-#define __STM32L5XX_CFG_H__
+#ifndef __RA6M4_CFG_H__
+#define __RA6M4_CFG_H__
 
 #include "uart_stdout.h"
 #include "tfm_peripherals_def.h"
@@ -72,4 +72,4 @@ enum tfm_plat_err_t enable_fault_handlers(void);
  */
 enum tfm_plat_err_t nvic_interrupt_target_state_cfg();
 
-#endif /* __STM32L5XX_CFG_H__ */
+#endif /* __RA6M4_CFG_H__ */

@@ -17,8 +17,8 @@
 #ifndef __CMSIS_H__
 #define __CMSIS_H__
 
-/* CMSIS wrapper for stm32l5xx  */
+/* CMSIS wrapper for renesas  */
 
-#include "stm32l5xx.h"
+#include "renesas.h"
 
 #endif /*__CMSIS_H__*/

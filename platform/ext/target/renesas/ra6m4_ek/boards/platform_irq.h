@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __ARM_LTD_STM32L5XX_IRQN_H__
-#define  __ARM_LTD_STM32L5XX_IRQN_H__
+#ifndef __ARM_LTD_RA6M4_IRQN_H__
+#define  __ARM_LTD_RA6M4_IRQN_H__
 /*  fix me to rework to get L5 support  */
-#include "stm32l5xx.h"
-#endif  /*  __ARM_LTD_STM32L5XX_IRQN_H__*/
+#include "renesas.h"
+#endif  /*  __ARM_LTD_RA6M4_IRQN_H__*/
