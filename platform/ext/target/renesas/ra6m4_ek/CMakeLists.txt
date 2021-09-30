@@ -71,35 +71,18 @@ target_include_directories(platform_s
 
 target_sources(platform_s
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/secure/system_ra6m4.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Device/Source/system_ra6m4.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Device/Source/bsp_clocks.c
         ${CMAKE_CURRENT_SOURCE_DIR}/Native_Driver/mpu_armv8m_drv.c
         ${CMAKE_CURRENT_SOURCE_DIR}/secure/spm_hal.c
         ${CMAKE_CURRENT_SOURCE_DIR}/secure/tfm_hal_isolation.c
         ${CMAKE_CURRENT_SOURCE_DIR}/secure/target_cfg.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/secure/low_level_device.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/secure/tfm_ioctl_s_api.c
         ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_Driver/low_level_flash.c
         ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_Driver/low_level_com.c
         ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_flash.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_flash_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_dma.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pwr.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pwr_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_gpio.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_uart.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_uart_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rcc.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rcc_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_gtzc.c
         ${CMAKE_SOURCE_DIR}/platform/ext/common/tfm_hal_isolation_mpu_v8m.c
         $<$<BOOL:${TFM_PARTITION_PLATFORM}>:${CMAKE_CURRENT_SOURCE_DIR}/secure/tfm_platform_system>
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rng.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rng_ex.c
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_hash.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_hash_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pka.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/Native_Driver/low_level_rng.c
 )
 
 target_compile_options(platform_s
@@ -107,15 +90,6 @@ target_compile_options(platform_s
         ${COMPILER_CMSE_FLAG}
 )
 
-# GNU ld has some strange behaviour to do with weak functions, and does not deal
-# well with strong functions in static libraries overriding weak functions in
-# object files. For this reason, the file mailbox_ipc_intr is linked directly to
-# the ns binary as an object file. This issue does not affect armclang, but the
-# fix is compatible.
-target_sources(tfm_s
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Native_Driver/tick.c
-)
 
 #========================= Platform Non-Secure ================================#
 
@@ -128,16 +102,8 @@ target_include_directories(platform_ns
 target_sources(platform_ns
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/Device/Source/Templates/system_ra6m4.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Device/Source/system_ra6m4.c
         ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_Driver/low_level_com.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_dma.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pwr.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pwr_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rcc.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_gpio.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_uart.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_uart_ex.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_cortex.c
 )
 
 #========================= Platform BL2 =======================================#
@@ -157,7 +123,7 @@ if(BL2)
 
     target_sources(platform_bl2
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/Device/Source/Templates/system_ra6m4.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/Device/Source/system_ra6m4.c
             ${CMAKE_CURRENT_SOURCE_DIR}/bl2/boot_hal.c
             ${CMAKE_CURRENT_SOURCE_DIR}/Native_Driver/mpu_armv8m_drv.c
             ${CMAKE_CURRENT_SOURCE_DIR}/bl2/tfm_low_level_security.c
@@ -165,23 +131,6 @@ if(BL2)
             ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_Driver/low_level_flash.c
             ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_Driver/low_level_com.c
             ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_flash.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_flash_ex.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pwr_ex.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_dma.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pwr.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rcc.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rcc_ex.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_cortex.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_gpio.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_uart.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_uart_ex.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_gtzc.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_hash.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_hash_ex.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_pka.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rng.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_hal/Src/ra6m4_hal_rng_ex.c
             ${CMAKE_CURRENT_SOURCE_DIR}/Native_Driver/low_level_rng.c
     )
 
@@ -190,15 +139,6 @@ if(BL2)
             ${COMPILER_CMSE_FLAG}
     )
 
-    # GNU ld has some strange behaviour to do with weak functions, and does not deal
-    # well with strong functions in static libraries overriding weak functions in
-    # object files. For this reason, the file mailbox_ipc_intr is linked directly to
-    # the ns binary as an object file. This issue does not affect armclang, but the
-    # fix is compatible.
-    target_sources(bl2
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/Native_Driver/tick.c
-    )
 endif()
 
 install(FILES
@@ -285,15 +225,6 @@ if(BL2)
     target_sources(bl2
         PRIVATE
             ${RENESAS_COMMON_DIR}/Device/Source/startup_ra6m4_bl2.c
-            ${RENESAS_COMMON_DIR}/bl2/low_level_ospi_device.c
-            ${RENESAS_COMMON_DIR}/CMSIS_Driver/low_level_ospi_flash.c
-            ${RENESAS_COMMON_DIR}/ra6m4_hal/Src/ra6m4_hal_ospi.c
-            ${RENESAS_COMMON_DIR}/Components/mx25lm51245g/mx25lm51245g.c
-            ${RA6M4_EK_DIR}/src/stm32l562e_discovery_ospi.c
-    )
-    target_include_directories(bl2
-        PRIVATE
-            ${RENESAS_COMMON_DIR}/Components/mx25lm51245g
     )
 endif()
 
