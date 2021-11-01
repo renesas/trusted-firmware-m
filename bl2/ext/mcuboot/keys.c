@@ -26,6 +26,7 @@
 
 #include <stddef.h>
 #include <bootutil/sign_key.h>
+#include "rm_bl2_cfg.h"
 #include "mcuboot_config/mcuboot_config.h"
 #include "tfm_plat_crypto_keys.h"
 

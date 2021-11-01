@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 #include <limits.h>
+#include "tfm_common_config.h"
 
 enum tfm_plat_err_t {
     TFM_PLAT_ERR_SUCCESS = 0,

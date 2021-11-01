@@ -12,7 +12,10 @@
 #include "psa/storage_common.h"
 #include "tfm_internal_trusted_storage.h"
 #include "its_utils.h"
+
+#ifdef TFM_PARTITION_PROTECTED_STORAGE
 #include "ps_object_defs.h"
+#endif
 
 #ifdef TFM_PSA_API
 #include "psa/service.h"

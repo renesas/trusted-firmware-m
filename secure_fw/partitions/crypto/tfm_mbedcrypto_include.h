@@ -8,12 +8,14 @@
 #ifndef __TFM_MBEDCRYPTO_INCLUDE_H__
 #define __TFM_MBEDCRYPTO_INCLUDE_H__
 
+#include "tfm_common_config.h"
+
 /* Define PSA_CRYPTO_SECURE to signal that we are compiling for the SPE */
 #define PSA_CRYPTO_SECURE 1
 /* Include the crypto_spe.h header before including the PSA Crypto header from
  * Mbed Crypto
  */
 #include "crypto_spe.h"
-#include "psa/crypto.h"
+#include "mbedtls/include/psa/crypto.h"
 
 #endif /* __TFM_MBEDCRYPTO_INCLUDE_H__ */

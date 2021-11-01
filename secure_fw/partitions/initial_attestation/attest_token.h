@@ -13,6 +13,7 @@
 #define __ATTEST_TOKEN_H__
 
 #include <stdint.h>
+#include "tfm_common_config.h"
 #include "qcbor.h"
 #ifdef SYMMETRIC_INITIAL_ATTESTATION
 #include "t_cose_mac0_sign.h"

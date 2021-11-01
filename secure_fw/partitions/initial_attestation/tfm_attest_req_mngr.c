@@ -6,8 +6,8 @@
  */
 
 #include <string.h>
-#include "psa/initial_attestation.h"
 #include "psa/crypto.h"
+#include "psa/initial_attestation.h"
 #include "attest.h"
 
 #ifdef TFM_PSA_API
