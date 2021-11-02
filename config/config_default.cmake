@@ -24,6 +24,8 @@ set(TFM_FIH_PROFILE                     OFF         CACHE STRING    "Fault injec
 set(TFM_NS_CLIENT_IDENTIFICATION        OFF         CACHE BOOL      "Enable NS client identification")
 
 set(TFM_EXTRA_CONFIG_PATH               ""          CACHE PATH      "Path to extra cmake config file")
+
+set(TFM_MANIFEST_LIST                   ${CMAKE_SOURCE_DIR}/tools/tfm_manifest_list.yaml CACHE FILEPATH "TF-M native Secure Partition manifests list file")
 set(TFM_EXTRA_MANIFEST_LIST_PATH        ""          CACHE PATH      "Path to extra manifest file, used to declare extra partitions. Appended to standard TFM manifest")
 set(TFM_EXTRA_GENERATED_FILE_LIST_PATH  ""          CACHE PATH      "Path to extra generated file list. Appended to stardard TFM generated file list.")
 
@@ -50,6 +52,7 @@ set(MCUBOOT_EXECUTION_SLOT              1           CACHE STRING    "Slot from w
 set(MCUBOOT_LOG_LEVEL                   "INFO"      CACHE STRING    "Level of logging to use for MCUboot [OFF, ERROR, WARNING, INFO, DEBUG]")
 set(MCUBOOT_HW_KEY                      ON          CACHE BOOL      "Whether to embed the entire public key in the image metadata instead of the hash only")
 set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Upgrade strategy for images")
+set(MCUBOOT_DIRECT_XIP_REVERT           ON          CACHE BOOL      "Enable the revert mechanism in direct-xip mode")
 set(MCUBOOT_MEASURED_BOOT               ON          CACHE BOOL      "Add boot measurement values to boot status. Used for initial attestation token")
 set(MCUBOOT_HW_ROLLBACK_PROT            ON          CACHE BOOL      "Enable security counter validation against non-volatile HW counters")
 set(MCUBOOT_ENC_IMAGES                  OFF         CACHE BOOL      "Enable encrypted image upgrade support")
@@ -72,6 +75,8 @@ set(MCUBOOT_SECURITY_COUNTER_NS         "auto"      CACHE STRING    "Security co
 set(MCUBOOT_S_IMAGE_MIN_VER             0.0.0+0     CACHE STRING    "Minimum version of secure image required by the non-secure image for upgrade to this non-secure image. If MCUBOOT_IMAGE_NUMBER == 1 this option has no effect")
 set(MCUBOOT_NS_IMAGE_MIN_VER            0.0.0+0     CACHE STRING    "Minimum version of non-secure image required by the secure image for upgrade to this secure image. If MCUBOOT_IMAGE_NUMBER == 1 this option has no effect")
 
+set(MCUBOOT_MBEDCRYPTO_CONFIG_FILEPATH  "${CMAKE_SOURCE_DIR}/bl2/ext/mcuboot/config/mcuboot-mbedtls-cfg.h" CACHE FILEPATH "Mbedtls config file to use with MCUboot")
+
 ############################ Platform ##########################################
 
 set(TFM_MULTI_CORE_TOPOLOGY             OFF         CACHE BOOL      "Whether to build for a dual-cpu architecture")
@@ -89,6 +94,7 @@ set(PLATFORM_DUMMY_CRYPTO_KEYS          TRUE        CACHE BOOL      "Use dummy c
 set(PLATFORM_DUMMY_ROTPK                TRUE        CACHE BOOL      "Use dummy root of trust public key. Dummy key is the public key for the default keys in bl2. Should not be used in production.")
 set(PLATFORM_DUMMY_IAK                  TRUE        CACHE BOOL      "Use dummy initial attestation_key. Should not be used in production.")
 set(PLATFORM_DEFAULT_UART_STDOUT        TRUE        CACHE BOOL      "Use default uart stdout implementation.")
+set(PLATFORM_DUMMY_NV_SEED              TRUE        CACHE BOOL      "Use dummy NV seed implementation. Should not be used in production.")
 
 ############################ Partitions ########################################
 
@@ -114,15 +120,19 @@ set(TFM_PARTITION_CRYPTO                ON          CACHE BOOL      "Enable Cryp
 # CRYPTO_ENGINE_BUF_SIZE needs to be >8KB for EC signing by attest module.
 set(CRYPTO_ENGINE_BUF_SIZE              0x2080      CACHE STRING    "Heap size for the crypto backend")
 set(CRYPTO_CONC_OPER_NUM                8           CACHE STRING    "The max number of concurrent operations that can be active (allocated) at any time in Crypto")
+set(CRYPTO_RNG_MODULE_DISABLED          FALSE       CACHE BOOL      "Disable PSA Crypto random number generator module")
 set(CRYPTO_KEY_MODULE_DISABLED          FALSE       CACHE BOOL      "Disable PSA Crypto Key module")
 set(CRYPTO_AEAD_MODULE_DISABLED         FALSE       CACHE BOOL      "Disable PSA Crypto AEAD module")
 set(CRYPTO_MAC_MODULE_DISABLED          FALSE       CACHE BOOL      "Disable PSA Crypto MAC module")
 set(CRYPTO_HASH_MODULE_DISABLED         FALSE       CACHE BOOL      "Disable PSA Crypto Hash module")
 set(CRYPTO_CIPHER_MODULE_DISABLED       FALSE       CACHE BOOL      "Disable PSA Crypto Cipher module")
-set(CRYPTO_GENERATOR_MODULE_DISABLED    FALSE       CACHE BOOL      "Disable PSA Crypto Key Derivation module")
-set(CRYPTO_ASYMMETRIC_MODULE_DISABLED   FALSE       CACHE BOOL      "Disable PSA Crypto Asymmetric key module")
+set(CRYPTO_ASYM_SIGN_MODULE_DISABLED    FALSE       CACHE BOOL      "Disable PSA Crypto asymmetric key signature module")
+set(CRYPTO_ASYM_ENCRYPT_MODULE_DISABLED FALSE       CACHE BOOL      "Disable PSA Crypto asymmetric key encryption module")
 set(CRYPTO_KEY_DERIVATION_MODULE_DISABLED FALSE     CACHE BOOL      "Disable PSA Crypto key derivation module")
 set(CRYPTO_IOVEC_BUFFER_SIZE            5120        CACHE STRING    "Default size of the internal scratch buffer used for PSA FF IOVec allocations")
+# TODO CRYPTO_KEY_ID_ENCODES_OWNER shall be aligned with underlying crypto
+# library key ID encoding configuration
+set(CRYPTO_KEY_ID_ENCODES_OWNER         ON          CACHE BOOL      "Encode client ID into Crypto PSA key ID")
 
 set(TFM_PARTITION_INITIAL_ATTESTATION   ON          CACHE BOOL      "Enable Initial Attestation partition")
 set(SYMMETRIC_INITIAL_ATTESTATION       OFF         CACHE BOOL      "Use symmetric crypto for inital attestation")
@@ -135,12 +145,13 @@ set(TFM_PARTITION_AUDIT_LOG             ON          CACHE BOOL      "Enable Audi
 
 set(FORWARD_PROT_MSG                    OFF         CACHE BOOL      "Whether to forward all PSA RoT messages to a Secure Enclave")
 set(TFM_PARTITION_FIRMWARE_UPDATE       OFF         CACHE BOOL      "Enable firmware update partition")
-set(TFM_FWU_BOOTLOADER_LIB             ${CMAKE_SOURCE_DIR}/secure_fw/partitions/firmware_update/bootloader/mcuboot/mcuboot_utilities.cmake CACHE FILEPATH    "Bootloader configure file for Firmware Update partition")
+set(TFM_FWU_BOOTLOADER_LIB              "mcuboot"   CACHE STRING    "Bootloader configure file for Firmware Update partition")
 
 ################################## Tests #######################################
 
 set(TFM_INTERACTIVE_TEST                OFF         CACHE BOOL      "Enable interactive tests")
-set(TFM_IRQ_TEST                        OFF         CACHE BOOL      "Enable IRQ tests")
+set(TFM_ENABLE_SLIH_TEST                OFF         CACHE BOOL      "Enable Second-Level Interrupt Handling tests")
+set(TFM_ENABLE_FLIH_TEST                OFF         CACHE BOOL      "Enable First-Level Interrupt Handling tests")
 set(TFM_PERIPH_ACCESS_TEST              OFF         CACHE BOOL      "Enable peripheral access tests")
 
 set(PS_TEST_NV_COUNTERS                 ON          CACHE BOOL      "Use the test NV counters to test Protected Storage rollback scenarios")
@@ -151,30 +162,33 @@ set(TFM_CRYPTO_TEST_ALG_CFB             ON          CACHE BOOL      "Test CFB cr
 set(TFM_CRYPTO_TEST_ALG_CTR             ON          CACHE BOOL      "Test CTR cryptography mode")
 set(TFM_CRYPTO_TEST_ALG_GCM             ON          CACHE BOOL      "Test GCM cryptography mode")
 set(TFM_CRYPTO_TEST_ALG_SHA_512         ON          CACHE BOOL      "Test SHA-512 cryptography algorithm")
-set(TFM_CRYPTO_TEST_HKDF                ON          CACHE BOOL      "Test SHA-512 cryptography algorithm")
-
+set(TFM_CRYPTO_TEST_HKDF                ON          CACHE BOOL      "Test the HKDF key derivation algorithm")
+set(TFM_CRYPTO_TEST_ECDH                ON          CACHE BOOL      "Test the ECDH key agreement algorithm")
 set(TFM_FWU_TEST_REQUEST_REBOOT         OFF         CACHE BOOL      "Test psa_fwu_request_reboot")
 set(TFM_FWU_TEST_WRITE_WITH_NULL        OFF         CACHE BOOL      "Test psa_fwu_write with data block NULL")
 set(TFM_FWU_TEST_QUERY_WITH_NULL        OFF         CACHE BOOL      "Test psa_fwu_query with info NULL")
+set(TFM_FWU_TEST_SECURE                 OFF         CACHE BOOL      "Enable the secure firmware update tests")
+
+set(ATTEST_TEST_GET_PUBLIC_KEY          OFF         CACHE BOOL      "Require to retrieve Initial Attestation public in runtime for test purpose")
 
 ################################## Dependencies ################################
 
 set(MBEDCRYPTO_PATH                     "DOWNLOAD"  CACHE PATH      "Path to Mbed Crypto (or DOWNLOAD to fetch automatically")
-set(MBEDCRYPTO_VERSION                  "mbedtls-2.25.0" CACHE STRING "The version of Mbed Crypto to use")
+set(MBEDCRYPTO_VERSION                  "mbedtls-3.0.0" CACHE STRING "The version of Mbed Crypto to use")
 set(MBEDCRYPTO_GIT_REMOTE               "https://github.com/ARMmbed/mbedtls.git" CACHE STRING "The URL (or path) to retrieve MbedTLS from.")
 set(MBEDCRYPTO_BUILD_TYPE               "${CMAKE_BUILD_TYPE}" CACHE STRING "Build type of Mbed Crypto library")
 set(TFM_MBEDCRYPTO_CONFIG_PATH          "${CMAKE_SOURCE_DIR}/lib/ext/mbedcrypto/mbedcrypto_config/tfm_mbedcrypto_config_default.h" CACHE PATH "Config to use for Mbed Crypto")
 set(TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH "" CACHE PATH "Config to append to standard Mbed Crypto config, used by platforms to cnfigure feature support")
 
 set(TFM_TEST_REPO_PATH                  "DOWNLOAD"  CACHE PATH      "Path to TFM-TEST repo (or DOWNLOAD to fetch automatically")
-set(TFM_TEST_REPO_VERSION               "TF-Mv1.3.0-RC2"   CACHE STRING    "The version of tf-m-tests to use")
+set(TFM_TEST_REPO_VERSION               "e1a8c9f"   CACHE STRING    "The version of tf-m-tests to use")
 set(CMSIS_5_PATH                        "DOWNLOAD"  CACHE PATH      "Path to CMSIS_5 (or DOWNLOAD to fetch automatically")
 
-set(MCUBOOT_PATH                        "DOWNLOAD"  CACHE PATH      "Path to MCUboot (or DOWNLOAD to fetch automatically")
-set(MCUBOOT_VERSION                     "v1.7.2"   CACHE STRING    "The version of MCUboot to use")
+set(MCUBOOT_PATH                        "DOWNLOAD"        CACHE PATH      "Path to MCUboot (or DOWNLOAD to fetch automatically")
+set(MCUBOOT_VERSION                     "TF-Mv1.4-integ"  CACHE STRING    "The version of MCUboot to use")
 
 set(PSA_ARCH_TESTS_PATH                 "DOWNLOAD"  CACHE PATH      "Path to PSA arch tests (or DOWNLOAD to fetch automatically")
-set(PSA_ARCH_TESTS_VERSION              "b0635d9"  CACHE STRING    "The version of PSA arch tests to use")
+set(PSA_ARCH_TESTS_VERSION              "51ff2bd"  CACHE STRING    "The version of PSA arch tests to use")
 
 ################################################################################
 ################################################################################

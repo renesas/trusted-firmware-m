@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Copyright (c) 2020, Arm Limited. All rights reserved.
+# Copyright (c) 2020-2021, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -36,8 +36,8 @@ add_custom_target(tfm_docs_sphinx_cfg
 )
 add_custom_command(OUTPUT ${SPHINX_TMP_DOC_DIR}/conf.py
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SPHINX_TMP_DOC_DIR}
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/build_docs/conf.py ${SPHINX_TMP_DOC_DIR}/conf.py
-    MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/build_docs/conf.py
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/docs/conf.py ${SPHINX_TMP_DOC_DIR}/conf.py
+    MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/docs/conf.py
     BYPRODUCTS ${SPHINX_TMP_DOC_DIR}
 )
 
@@ -49,7 +49,7 @@ if (SPHINX_FOUND AND PLANTUML_FOUND AND PY_M2R_FOUND AND PY_SPHINX-RTD-THEME_FOU
 
     add_custom_command(OUTPUT "${SPHINXCFG_OUTPUT_PATH}/html/index.html"
         OUTPUT "${SPHINXCFG_OUTPUT_PATH}/html/"
-        COMMAND "${SPHINX_EXECUTABLE}" -b html "${SPHINX_TMP_DOC_DIR}" "${SPHINXCFG_OUTPUT_PATH}/html"
+        COMMAND "${SPHINX_EXECUTABLE}" -W -b html "${SPHINX_TMP_DOC_DIR}" "${SPHINXCFG_OUTPUT_PATH}/html"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         DEPENDS tfm_docs_sphinx_cfg
         DEPENDS ${SPHINXCFG_DOC_FILES}

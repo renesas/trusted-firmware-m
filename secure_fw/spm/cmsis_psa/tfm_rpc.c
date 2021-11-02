@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -9,6 +9,7 @@
 #include "ffm/spm_psa_client_call.h"
 #include "tfm_rpc.h"
 #include "utilities.h"
+#include "load/partition_defs.h"
 
 static void default_handle_req(void)
 {
@@ -85,7 +86,7 @@ int32_t tfm_rpc_register_ops(const struct tfm_rpc_ops_t *ops_ptr)
 
     /* Currently, one and only one mailbox implementation is supported. */
     if ((rpc_ops.handle_req != default_handle_req) ||
-        (rpc_ops.reply != default_mailbox_reply) || \
+        (rpc_ops.reply != default_mailbox_reply) ||
         (rpc_ops.get_caller_data != default_get_caller_data)) {
         return TFM_RPC_CONFLICT_CALLBACK;
     }

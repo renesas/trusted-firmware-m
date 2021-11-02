@@ -9,16 +9,15 @@
 #include "spm_ipc.h"
 #include "tfm_core_utils.h"
 #include "tfm_memory_utils.h"
+#include "load/service_defs.h"
 #include "spm_psa_client_call.h"
 #include "utilities.h"
 #include "tfm_wait.h"
 #include "tfm_nspm.h"
 #include "ffm/spm_error_base.h"
 
-#define GET_STATELESS_SERVICE(index)    (stateless_service_ref[index].p_service)
-#define GET_STATELESS_SID(index)        (stateless_service_ref[index].sid)
-
-extern struct stateless_service_tracking_t stateless_service_ref[];
+#define GET_STATELESS_SERVICE(index)    (stateless_services_ref_tbl[index])
+extern struct service_t *stateless_services_ref_tbl[];
 
 uint32_t tfm_spm_client_psa_framework_version(void)
 {
@@ -27,7 +26,7 @@ uint32_t tfm_spm_client_psa_framework_version(void)
 
 uint32_t tfm_spm_client_psa_version(uint32_t sid, bool ns_caller)
 {
-    struct tfm_spm_service_t *service;
+    struct service_t *service;
 
     /*
      * It should return PSA_VERSION_NONE if the RoT Service is not
@@ -46,13 +45,13 @@ uint32_t tfm_spm_client_psa_version(uint32_t sid, bool ns_caller)
         return PSA_VERSION_NONE;
     }
 
-    return service->service_db->version;
+    return service->p_ldinf->version;
 }
 
 psa_status_t tfm_spm_client_psa_connect(uint32_t sid, uint32_t version,
                                         bool ns_caller)
 {
-    struct tfm_spm_service_t *service;
+    struct service_t *service;
     struct tfm_msg_body_t *msg;
     struct tfm_conn_handle_t *connect_handle;
     int32_t client_id;
@@ -65,6 +64,11 @@ psa_status_t tfm_spm_client_psa_connect(uint32_t sid, uint32_t version,
     service = tfm_spm_get_service_by_sid(sid);
     if (!service) {
         TFM_PROGRAMMER_ERROR(ns_caller, PSA_ERROR_CONNECTION_REFUSED);
+    }
+
+    /* It is a PROGRAMMER ERROR if connecting to a stateless service. */
+    if (SERVICE_IS_STATELESS(service->p_ldinf->flags)) {
+        TFM_PROGRAMMER_ERROR(ns_caller, PSA_ERROR_PROGRAMMER_ERROR);
     }
 
     /*
@@ -81,11 +85,6 @@ psa_status_t tfm_spm_client_psa_connect(uint32_t sid, uint32_t version,
      */
     if (tfm_spm_check_client_version(service, version) != SPM_SUCCESS) {
         TFM_PROGRAMMER_ERROR(ns_caller, PSA_ERROR_CONNECTION_REFUSED);
-    }
-
-    /* It is a PROGRAMMER ERROR if connecting to a stateless service. */
-    if (!service->service_db->connection_based) {
-        TFM_PROGRAMMER_ERROR(ns_caller, PSA_ERROR_PROGRAMMER_ERROR);
     }
 
     if (ns_caller) {
@@ -131,7 +130,7 @@ psa_status_t tfm_spm_client_psa_call(psa_handle_t handle, int32_t type,
     psa_invec invecs[PSA_MAX_IOVEC];
     psa_outvec outvecs[PSA_MAX_IOVEC];
     struct tfm_conn_handle_t *conn_handle;
-    struct tfm_spm_service_t *service;
+    struct service_t *service;
     struct tfm_msg_body_t *msg;
     int i, j;
     int32_t client_id;
@@ -151,10 +150,19 @@ psa_status_t tfm_spm_client_psa_call(psa_handle_t handle, int32_t type,
     }
 
     /* Allocate space from handle pool for static handle. */
-    if (IS_VALID_STATIC_HANDLE(handle)) {
+    if (IS_STATIC_HANDLE(handle)) {
         index = GET_INDEX_FROM_STATIC_HANDLE(handle);
+
+        if (!IS_VALID_STATIC_HANDLE_IDX(index)) {
+            TFM_PROGRAMMER_ERROR(ns_caller, PSA_ERROR_PROGRAMMER_ERROR);
+        }
+
         service = GET_STATELESS_SERVICE(index);
-        sid = GET_STATELESS_SID(index);
+        if (!service) {
+            tfm_core_panic();
+        }
+
+        sid = service->p_ldinf->sid;
 
         /*
          * It is a PROGRAMMER ERROR if the caller is not authorized to access
@@ -301,7 +309,7 @@ psa_status_t tfm_spm_client_psa_call(psa_handle_t handle, int32_t type,
 
 void tfm_spm_client_psa_close(psa_handle_t handle, bool ns_caller)
 {
-    struct tfm_spm_service_t *service;
+    struct service_t *service;
     struct tfm_msg_body_t *msg;
     struct tfm_conn_handle_t *conn_handle;
     int32_t client_id;
@@ -312,7 +320,7 @@ void tfm_spm_client_psa_close(psa_handle_t handle, bool ns_caller)
     }
 
     /* It is a PROGRAMMER ERROR if called with a stateless handle. */
-    if (IS_VALID_STATIC_HANDLE(handle)) {
+    if (IS_STATIC_HANDLE(handle)) {
         TFM_PROGRAMMER_ERROR(ns_caller, PROGRAMMER_ERROR_NULL);
     }
 

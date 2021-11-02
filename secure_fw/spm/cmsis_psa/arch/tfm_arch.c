@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2018-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
 
+#include "svc_num.h"
 #include "tfm_arch.h"
 #include "tfm_core_utils.h"
-#include "tfm/tfm_core_svc.h"
 #include "tfm/tfm_spm_services.h"
 
 __attribute__((naked))
@@ -42,7 +42,7 @@ void tfm_arch_init_context(struct tfm_arch_ctx_t *p_actx,
                            void *param, uintptr_t pfn,
                            uintptr_t stk_btm, uintptr_t stk_top)
 {
-    struct tfm_state_context_t *p_stat_ctx=
+    struct tfm_state_context_t *p_stat_ctx =
             (struct tfm_state_context_t *)tfm_arch_seal_thread_stack(stk_top);
 
     /*

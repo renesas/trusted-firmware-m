@@ -24,6 +24,7 @@ target_include_directories(tfm_spm
         $<$<NOT:$<BOOL:${TFM_PSA_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/cmsis_func/include>
     PRIVATE
         ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/secure_fw/include/tfm
         ${CMAKE_BINARY_DIR}/generated
         $<$<BOOL:${TFM_PSA_API}>:${CMAKE_BINARY_DIR}/generated/secure_fw/spm/cmsis_psa>
         $<$<NOT:$<BOOL:${TFM_PSA_API}>>:${CMAKE_BINARY_DIR}/generated/secure_fw/spm/cmsis_func>
@@ -44,6 +45,7 @@ target_sources(tfm_spm
         $<$<BOOL:${TFM_PSA_API}>:cmsis_psa/arch/tfm_arch.c>
         $<$<BOOL:${TFM_PSA_API}>:cmsis_psa/main.c>
         $<$<BOOL:${TFM_PSA_API}>:cmsis_psa/spm_ipc.c>
+        $<$<BOOL:${TFM_PSA_API}>:cmsis_psa/static_load.c>
         $<$<BOOL:${TFM_PSA_API}>:ffm/spm_psa_client_call.c>
         $<$<BOOL:${TFM_PSA_API}>:ffm/psa_client_service_apis.c>
         $<$<BOOL:${TFM_PSA_API}>:cmsis_psa/tfm_core_svcalls_ipc.c>
@@ -65,14 +67,22 @@ target_sources(tfm_spm
         $<$<AND:$<BOOL:${TFM_PSA_API}>,$<STREQUAL:${CMAKE_SYSTEM_ARCHITECTURE},armv7-m>>:cmsis_psa/arch/tfm_arch_v6m_v7m.c>
 )
 
+target_include_directories(tfm_partitions INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_psa)
+
 #workaround for arch-test
 if (TEST_PSA_API STREQUAL IPC)
+    target_include_directories(tfm_partitions INTERFACE ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests)
     target_sources(tfm_psa_rot_partition_driver_partition PRIVATE
         ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests/auto_generated/intermedia_driver_partition_psa.c)
     target_sources(tfm_app_rot_partition_client_partition PRIVATE
         ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests/auto_generated/intermedia_client_partition_psa.c)
     target_sources(tfm_app_rot_partition_server_partition PRIVATE
         ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests/auto_generated/intermedia_server_partition_psa.c)
+    target_sources(tfm_partitions INTERFACE
+        ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests/auto_generated/load_info_driver_partition_psa.c
+        ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests/auto_generated/load_info_client_partition_psa.c
+        ${CMAKE_BINARY_DIR}/generated/api-tests/platform/manifests/auto_generated/load_info_server_partition_psa.c
+    )
 endif()
 
 target_link_libraries(tfm_spm
@@ -150,7 +160,8 @@ target_link_libraries(tfm_secure_api
 target_include_directories(tfm_secure_api
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<$<BOOL:${TFM_PSA_API}>:${CMAKE_CURRENT_SOURCE_DIR}/model_ipc/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/interface>
+        $<$<NOT:$<BOOL:${TFM_PSA_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/cmsis_func/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/arch/include>
 )
 

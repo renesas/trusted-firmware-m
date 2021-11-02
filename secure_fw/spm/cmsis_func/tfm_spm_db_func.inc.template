@@ -10,6 +10,7 @@
 #ifndef __TFM_SPM_DB_FUNC_INC__
 #define __TFM_SPM_DB_FUNC_INC__
 
+#include "array.h"
 #include "psa_manifest/sid.h"
 
 {# Produce a build error if heap_size is presented in the manifest, because of the dynamic memory allocation is not supported now. #}
@@ -142,11 +143,7 @@ const struct spm_partition_static_data_t static_data_list[] =
     {% endif %}
     {{'{'}}
         .partition_id         = {{partition.manifest.name}},
-    {% if partition.attr.tfm_partition_ipc %}
-        .partition_flags      = SPM_PART_FLAG_IPC
-    {% else %}
         .partition_flags      = 0
-    {% endif %}
     {% if partition.manifest.type == "APPLICATION-ROT" %}
                               | SPM_PART_FLAG_APP_ROT
     {% elif partition.manifest.type == "PSA-ROT" %}
@@ -250,7 +247,7 @@ static struct spm_partition_desc_t partition_list [] =
 
 struct spm_partition_db_t g_spm_partition_db = {
     .is_init = 0,
-    .partition_count = sizeof(partition_list) / sizeof(partition_list[0]),
+    .partition_count = ARRAY_SIZE(partition_list),
     .running_partition_idx = 0,
     .partitions = partition_list,
 };
