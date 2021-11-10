@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -10,6 +10,7 @@
 #ifndef __TFM_SPM_DB_FUNC_INC__
 #define __TFM_SPM_DB_FUNC_INC__
 
+#include "array.h"
 #include "psa_manifest/sid.h"
 
 /**************************************************************************/
@@ -59,10 +60,6 @@
 #define TFM_PARTITION_TFM_SP_IPC_CLIENT_TEST_IRQ_COUNT 0
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
 
-#ifdef TFM_ENABLE_IRQ_TEST
-#define TFM_PARTITION_TFM_IRQ_TEST_1_IRQ_COUNT 1
-#endif /* TFM_ENABLE_IRQ_TEST */
-
 #ifdef TFM_PARTITION_TEST_PS
 #define TFM_PARTITION_TFM_SP_PS_TEST_IRQ_COUNT 0
 #endif /* TFM_PARTITION_TEST_PS */
@@ -70,6 +67,26 @@
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
 #define TFM_PARTITION_TFM_SP_SECURE_CLIENT_2_IRQ_COUNT 0
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+#define TFM_PARTITION_TFM_SP_FWU_IRQ_COUNT 0
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+#ifdef TFM_PARTITION_FFM11
+#define TFM_PARTITION_TFM_SP_FFM11_IRQ_COUNT 0
+#endif /* TFM_PARTITION_FFM11 */
+
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+#define TFM_PARTITION_TFM_SP_ATTEST_TEST_IRQ_COUNT 0
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
+#ifdef TFM_ENABLE_SLIH_TEST
+#define TFM_PARTITION_TFM_SP_SLIH_TEST_IRQ_COUNT 1
+#endif /* TFM_ENABLE_SLIH_TEST */
+
+#ifdef TFM_ENABLE_FLIH_TEST
+#define TFM_PARTITION_TFM_SP_FLIH_TEST_IRQ_COUNT 1
+#endif /* TFM_ENABLE_FLIH_TEST */
 
 /**************************************************************************/
 /** Declarations of partition init functions */
@@ -118,10 +135,6 @@ extern void ipc_service_test_main(void);
 extern void ipc_client_test_main(void);
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
 
-#ifdef TFM_ENABLE_IRQ_TEST
-extern void tfm_irq_test_1_init(void);
-#endif /* TFM_ENABLE_IRQ_TEST */
-
 #ifdef TFM_PARTITION_TEST_PS
 extern void tfm_ps_test_init(void);
 #endif /* TFM_PARTITION_TEST_PS */
@@ -129,6 +142,26 @@ extern void tfm_ps_test_init(void);
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
 extern void tfm_secure_client_2_init(void);
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+extern void tfm_fwu_init(void);
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+#ifdef TFM_PARTITION_FFM11
+extern void tfm_ffm11_partition_main(void);
+#endif /* TFM_PARTITION_FFM11 */
+
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+extern void tfm_attest_test_service_init(void);
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
+#ifdef TFM_ENABLE_SLIH_TEST
+extern void tfm_slih_test_service_entry(void);
+#endif /* TFM_ENABLE_SLIH_TEST */
+
+#ifdef TFM_ENABLE_FLIH_TEST
+extern void tfm_flih_test_service_entry(void);
+#endif /* TFM_ENABLE_FLIH_TEST */
 
 /**************************************************************************/
 /** Context stacks for IRQ handling */
@@ -247,15 +280,6 @@ static uint32_t ctx_stack_TFM_SP_IPC_CLIENT_TEST[
         )) / sizeof(uint32_t)];
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
 
-#ifdef TFM_ENABLE_IRQ_TEST
-static uint32_t ctx_stack_TFM_IRQ_TEST_1[
-        (sizeof(struct interrupted_ctx_stack_frame_t) +
-            (TFM_PARTITION_TFM_IRQ_TEST_1_IRQ_COUNT) * (
-                sizeof(struct interrupted_ctx_stack_frame_t) +
-                sizeof(struct handler_ctx_stack_frame_t)
-        )) / sizeof(uint32_t)];
-#endif /* TFM_ENABLE_IRQ_TEST */
-
 #ifdef TFM_PARTITION_TEST_PS
 static uint32_t ctx_stack_TFM_SP_PS_TEST[
         (sizeof(struct interrupted_ctx_stack_frame_t) +
@@ -273,6 +297,51 @@ static uint32_t ctx_stack_TFM_SP_SECURE_CLIENT_2[
                 sizeof(struct handler_ctx_stack_frame_t)
         )) / sizeof(uint32_t)];
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+static uint32_t ctx_stack_TFM_SP_FWU[
+        (sizeof(struct interrupted_ctx_stack_frame_t) +
+            (TFM_PARTITION_TFM_SP_FWU_IRQ_COUNT) * (
+                sizeof(struct interrupted_ctx_stack_frame_t) +
+                sizeof(struct handler_ctx_stack_frame_t)
+        )) / sizeof(uint32_t)];
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+#ifdef TFM_PARTITION_FFM11
+static uint32_t ctx_stack_TFM_SP_FFM11[
+        (sizeof(struct interrupted_ctx_stack_frame_t) +
+            (TFM_PARTITION_TFM_SP_FFM11_IRQ_COUNT) * (
+                sizeof(struct interrupted_ctx_stack_frame_t) +
+                sizeof(struct handler_ctx_stack_frame_t)
+        )) / sizeof(uint32_t)];
+#endif /* TFM_PARTITION_FFM11 */
+
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+static uint32_t ctx_stack_TFM_SP_ATTEST_TEST[
+        (sizeof(struct interrupted_ctx_stack_frame_t) +
+            (TFM_PARTITION_TFM_SP_ATTEST_TEST_IRQ_COUNT) * (
+                sizeof(struct interrupted_ctx_stack_frame_t) +
+                sizeof(struct handler_ctx_stack_frame_t)
+        )) / sizeof(uint32_t)];
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
+#ifdef TFM_ENABLE_SLIH_TEST
+static uint32_t ctx_stack_TFM_SP_SLIH_TEST[
+        (sizeof(struct interrupted_ctx_stack_frame_t) +
+            (TFM_PARTITION_TFM_SP_SLIH_TEST_IRQ_COUNT) * (
+                sizeof(struct interrupted_ctx_stack_frame_t) +
+                sizeof(struct handler_ctx_stack_frame_t)
+        )) / sizeof(uint32_t)];
+#endif /* TFM_ENABLE_SLIH_TEST */
+
+#ifdef TFM_ENABLE_FLIH_TEST
+static uint32_t ctx_stack_TFM_SP_FLIH_TEST[
+        (sizeof(struct interrupted_ctx_stack_frame_t) +
+            (TFM_PARTITION_TFM_SP_FLIH_TEST_IRQ_COUNT) * (
+                sizeof(struct interrupted_ctx_stack_frame_t) +
+                sizeof(struct handler_ctx_stack_frame_t)
+        )) / sizeof(uint32_t)];
+#endif /* TFM_ENABLE_FLIH_TEST */
 
 uint32_t *ctx_stack_list[] =
 {
@@ -311,15 +380,27 @@ uint32_t *ctx_stack_list[] =
 #ifdef TFM_PARTITION_TEST_CORE_IPC
     ctx_stack_TFM_SP_IPC_CLIENT_TEST,
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
-#ifdef TFM_ENABLE_IRQ_TEST
-    ctx_stack_TFM_IRQ_TEST_1,
-#endif /* TFM_ENABLE_IRQ_TEST */
 #ifdef TFM_PARTITION_TEST_PS
     ctx_stack_TFM_SP_PS_TEST,
 #endif /* TFM_PARTITION_TEST_PS */
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
     ctx_stack_TFM_SP_SECURE_CLIENT_2,
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+    ctx_stack_TFM_SP_FWU,
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+#ifdef TFM_PARTITION_FFM11
+    ctx_stack_TFM_SP_FFM11,
+#endif /* TFM_PARTITION_FFM11 */
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+    ctx_stack_TFM_SP_ATTEST_TEST,
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+#ifdef TFM_ENABLE_SLIH_TEST
+    ctx_stack_TFM_SP_SLIH_TEST,
+#endif /* TFM_ENABLE_SLIH_TEST */
+#ifdef TFM_ENABLE_FLIH_TEST
+    ctx_stack_TFM_SP_FLIH_TEST,
+#endif /* TFM_ENABLE_FLIH_TEST */
 };
 
 /**************************************************************************/
@@ -379,7 +460,6 @@ static int32_t dependencies_TFM_SP_SECURE_TEST_PARTITION[] =
     TFM_ITS_REMOVE_SID,
     TFM_ATTEST_GET_TOKEN_SID,
     TFM_ATTEST_GET_TOKEN_SIZE_SID,
-    TFM_ATTEST_GET_PUBLIC_KEY_SID,
     TFM_PS_TEST_PREPARE_SID,
     TFM_SP_PLATFORM_SYSTEM_RESET_SID,
     TFM_SP_PLATFORM_IOCTL_SID,
@@ -390,6 +470,7 @@ static int32_t dependencies_TFM_SP_SECURE_TEST_PARTITION[] =
     TFM_FWU_REQUEST_REBOOT_SID,
     TFM_FWU_ACCEPT_SID,
     TFM_FFM11_SERVICE1_SID,
+    TFM_ATTEST_TEST_GET_PUBLIC_KEY_SID,
 };
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
 
@@ -421,6 +502,21 @@ static int32_t dependencies_TFM_SP_SECURE_CLIENT_2[] =
 };
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
 
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+static int32_t dependencies_TFM_SP_FWU[] =
+{
+    TFM_CRYPTO_SID,
+    TFM_SP_PLATFORM_SYSTEM_RESET_SID,
+};
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+static int32_t dependencies_TFM_SP_ATTEST_TEST[] =
+{
+    TFM_CRYPTO_SID,
+};
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
 /**************************************************************************/
 /** The static data of the partition list */
 /**************************************************************************/
@@ -439,7 +535,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_PROTECTED_STORAGE
     {
         .partition_id         = TFM_SP_PS,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -452,7 +548,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_INTERNAL_TRUSTED_STORAGE
     {
         .partition_id         = TFM_SP_ITS,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -478,7 +574,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_CRYPTO
     {
         .partition_id         = TFM_SP_CRYPTO,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -491,7 +587,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_PLATFORM
     {
         .partition_id         = TFM_SP_PLATFORM,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -504,7 +600,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_INITIAL_ATTESTATION
     {
         .partition_id         = TFM_SP_INITIAL_ATTESTATION,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -517,7 +613,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_TEST_CORE
     {
         .partition_id         = TFM_SP_CORE_TEST,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -530,7 +626,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_TEST_CORE
     {
         .partition_id         = TFM_SP_CORE_TEST_2,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -543,7 +639,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
     {
         .partition_id         = TFM_SP_SECURE_TEST_PARTITION,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -556,7 +652,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_TEST_CORE_IPC
     {
         .partition_id         = TFM_SP_IPC_SERVICE_TEST,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(HIGH),
@@ -569,7 +665,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_TEST_CORE_IPC
     {
         .partition_id         = TFM_SP_IPC_CLIENT_TEST,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -579,23 +675,10 @@ const struct spm_partition_static_data_t static_data_list[] =
     },
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
 
-#ifdef TFM_ENABLE_IRQ_TEST
-    {
-        .partition_id         = TFM_IRQ_TEST_1,
-        .partition_flags      = SPM_PART_FLAG_IPC
-                              | SPM_PART_FLAG_APP_ROT
-                              ,
-        .partition_priority   = TFM_PRIORITY(NORMAL),
-        .partition_init       = tfm_irq_test_1_init,
-        .dependencies_num     = 0,
-        .p_dependencies       = NULL,
-    },
-#endif /* TFM_ENABLE_IRQ_TEST */
-
 #ifdef TFM_PARTITION_TEST_PS
     {
         .partition_id         = TFM_SP_PS_TEST,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -608,7 +691,7 @@ const struct spm_partition_static_data_t static_data_list[] =
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
     {
         .partition_id         = TFM_SP_SECURE_CLIENT_2,
-        .partition_flags      = SPM_PART_FLAG_IPC
+        .partition_flags      = 0
                               | SPM_PART_FLAG_APP_ROT
                               ,
         .partition_priority   = TFM_PRIORITY(NORMAL),
@@ -618,13 +701,78 @@ const struct spm_partition_static_data_t static_data_list[] =
     },
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
 
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+    {
+        .partition_id         = TFM_SP_FWU,
+        .partition_flags      = 0
+                              | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
+                              ,
+        .partition_priority   = TFM_PRIORITY(NORMAL),
+        .partition_init       = tfm_fwu_init,
+        .dependencies_num     = 2,
+        .p_dependencies       = dependencies_TFM_SP_FWU,
+    },
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+#ifdef TFM_PARTITION_FFM11
+    {
+        .partition_id         = TFM_SP_FFM11,
+        .partition_flags      = 0
+                              | SPM_PART_FLAG_APP_ROT
+                              ,
+        .partition_priority   = TFM_PRIORITY(NORMAL),
+        .partition_init       = tfm_ffm11_partition_main,
+        .dependencies_num     = 0,
+        .p_dependencies       = NULL,
+    },
+#endif /* TFM_PARTITION_FFM11 */
+
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+    {
+        .partition_id         = TFM_SP_ATTEST_TEST,
+        .partition_flags      = 0
+                              | SPM_PART_FLAG_PSA_ROT | SPM_PART_FLAG_APP_ROT
+                              ,
+        .partition_priority   = TFM_PRIORITY(NORMAL),
+        .partition_init       = tfm_attest_test_service_init,
+        .dependencies_num     = 1,
+        .p_dependencies       = dependencies_TFM_SP_ATTEST_TEST,
+    },
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
+#ifdef TFM_ENABLE_SLIH_TEST
+    {
+        .partition_id         = TFM_SP_SLIH_TEST,
+        .partition_flags      = 0
+                              | SPM_PART_FLAG_APP_ROT
+                              ,
+        .partition_priority   = TFM_PRIORITY(NORMAL),
+        .partition_init       = tfm_slih_test_service_entry,
+        .dependencies_num     = 0,
+        .p_dependencies       = NULL,
+    },
+#endif /* TFM_ENABLE_SLIH_TEST */
+
+#ifdef TFM_ENABLE_FLIH_TEST
+    {
+        .partition_id         = TFM_SP_FLIH_TEST,
+        .partition_flags      = 0
+                              | SPM_PART_FLAG_APP_ROT
+                              ,
+        .partition_priority   = TFM_PRIORITY(NORMAL),
+        .partition_init       = tfm_flih_test_service_entry,
+        .dependencies_num     = 0,
+        .p_dependencies       = NULL,
+    },
+#endif /* TFM_ENABLE_FLIH_TEST */
+
 };
 
 /**************************************************************************/
 /** The platform data of the partition list */
 /**************************************************************************/
 #ifdef TFM_PARTITION_AUDIT_LOG
-const struct tfm_spm_partition_platform_data_t *
+const struct platform_data_t *
     platform_data_list_TFM_SP_AUDIT_LOG[] =
 {
 #ifdef AUDIT_UART_REDIRECTION
@@ -635,7 +783,7 @@ const struct tfm_spm_partition_platform_data_t *
 #endif /* TFM_PARTITION_AUDIT_LOG */
 
 #ifdef TFM_PARTITION_TEST_CORE
-const struct tfm_spm_partition_platform_data_t *
+const struct platform_data_t *
     platform_data_list_TFM_SP_CORE_TEST[] =
 {
     TFM_PERIPHERAL_FPGA_IO,
@@ -644,7 +792,7 @@ const struct tfm_spm_partition_platform_data_t *
 #endif /* TFM_PARTITION_TEST_CORE */
 
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
-const struct tfm_spm_partition_platform_data_t *
+const struct platform_data_t *
     platform_data_list_TFM_SP_SECURE_TEST_PARTITION[] =
 {
     TFM_PERIPHERAL_STD_UART,
@@ -652,16 +800,25 @@ const struct tfm_spm_partition_platform_data_t *
 };
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
 
-#ifdef TFM_ENABLE_IRQ_TEST
-const struct tfm_spm_partition_platform_data_t *
-    platform_data_list_TFM_IRQ_TEST_1[] =
+#ifdef TFM_ENABLE_SLIH_TEST
+const struct platform_data_t *
+    platform_data_list_TFM_SP_SLIH_TEST[] =
 {
     TFM_PERIPHERAL_TIMER0,
     NULL
 };
-#endif /* TFM_ENABLE_IRQ_TEST */
+#endif /* TFM_ENABLE_SLIH_TEST */
 
-const struct tfm_spm_partition_platform_data_t **platform_data_list_list[] =
+#ifdef TFM_ENABLE_FLIH_TEST
+const struct platform_data_t *
+    platform_data_list_TFM_SP_FLIH_TEST[] =
+{
+    TFM_PERIPHERAL_TIMER0,
+    NULL
+};
+#endif /* TFM_ENABLE_FLIH_TEST */
+
+const struct platform_data_t **platform_data_list_list[] =
 {
     NULL,
     NULL,
@@ -710,10 +867,6 @@ const struct tfm_spm_partition_platform_data_t **platform_data_list_list[] =
     NULL,
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
 
-#ifdef TFM_ENABLE_IRQ_TEST
-    platform_data_list_TFM_IRQ_TEST_1,
-#endif /* TFM_ENABLE_IRQ_TEST */
-
 #ifdef TFM_PARTITION_TEST_PS
     NULL,
 #endif /* TFM_PARTITION_TEST_PS */
@@ -721,6 +874,26 @@ const struct tfm_spm_partition_platform_data_t **platform_data_list_list[] =
 #ifdef TFM_PARTITION_TEST_SECURE_SERVICES
     NULL,
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
+
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+    NULL,
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+#ifdef TFM_PARTITION_FFM11
+    NULL,
+#endif /* TFM_PARTITION_FFM11 */
+
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+    NULL,
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
+#ifdef TFM_ENABLE_SLIH_TEST
+    platform_data_list_TFM_SP_SLIH_TEST,
+#endif /* TFM_ENABLE_SLIH_TEST */
+
+#ifdef TFM_ENABLE_FLIH_TEST
+    platform_data_list_TFM_SP_FLIH_TEST,
+#endif /* TFM_ENABLE_FLIH_TEST */
 
 };
 
@@ -865,18 +1038,6 @@ static struct spm_partition_desc_t partition_list [] =
 #endif /* TFM_PARTITION_TEST_CORE_IPC */
 
     /* -----------------------------------------------------------------------*/
-    /* - Partition DB record for TFM_IRQ_TEST_1 */
-    /* -----------------------------------------------------------------------*/
-#ifdef TFM_ENABLE_IRQ_TEST
-    {
-    /* Runtime data */
-        .runtime_data             = {0},
-        .static_data              = NULL,
-        .platform_data_list       = NULL,
-    },
-#endif /* TFM_ENABLE_IRQ_TEST */
-
-    /* -----------------------------------------------------------------------*/
     /* - Partition DB record for TFM_SP_PS_TEST */
     /* -----------------------------------------------------------------------*/
 #ifdef TFM_PARTITION_TEST_PS
@@ -900,11 +1061,71 @@ static struct spm_partition_desc_t partition_list [] =
     },
 #endif /* TFM_PARTITION_TEST_SECURE_SERVICES */
 
+    /* -----------------------------------------------------------------------*/
+    /* - Partition DB record for TFM_SP_FWU */
+    /* -----------------------------------------------------------------------*/
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
+    {
+    /* Runtime data */
+        .runtime_data             = {0},
+        .static_data              = NULL,
+        .platform_data_list       = NULL,
+    },
+#endif /* TFM_PARTITION_FIRMWARE_UPDATE */
+
+    /* -----------------------------------------------------------------------*/
+    /* - Partition DB record for TFM_SP_FFM11 */
+    /* -----------------------------------------------------------------------*/
+#ifdef TFM_PARTITION_FFM11
+    {
+    /* Runtime data */
+        .runtime_data             = {0},
+        .static_data              = NULL,
+        .platform_data_list       = NULL,
+    },
+#endif /* TFM_PARTITION_FFM11 */
+
+    /* -----------------------------------------------------------------------*/
+    /* - Partition DB record for TFM_SP_ATTEST_TEST */
+    /* -----------------------------------------------------------------------*/
+#ifdef ATTEST_TEST_GET_PUBLIC_KEY
+    {
+    /* Runtime data */
+        .runtime_data             = {0},
+        .static_data              = NULL,
+        .platform_data_list       = NULL,
+    },
+#endif /* ATTEST_TEST_GET_PUBLIC_KEY */
+
+    /* -----------------------------------------------------------------------*/
+    /* - Partition DB record for TFM_SP_SLIH_TEST */
+    /* -----------------------------------------------------------------------*/
+#ifdef TFM_ENABLE_SLIH_TEST
+    {
+    /* Runtime data */
+        .runtime_data             = {0},
+        .static_data              = NULL,
+        .platform_data_list       = NULL,
+    },
+#endif /* TFM_ENABLE_SLIH_TEST */
+
+    /* -----------------------------------------------------------------------*/
+    /* - Partition DB record for TFM_SP_FLIH_TEST */
+    /* -----------------------------------------------------------------------*/
+#ifdef TFM_ENABLE_FLIH_TEST
+    {
+    /* Runtime data */
+        .runtime_data             = {0},
+        .static_data              = NULL,
+        .platform_data_list       = NULL,
+    },
+#endif /* TFM_ENABLE_FLIH_TEST */
+
 };
 
 struct spm_partition_db_t g_spm_partition_db = {
     .is_init = 0,
-    .partition_count = sizeof(partition_list) / sizeof(partition_list[0]),
+    .partition_count = ARRAY_SIZE(partition_list),
     .running_partition_idx = 0,
     .partitions = partition_list,
 };

@@ -25,14 +25,15 @@ extern "C" {
 #define TFM_SP_SECURE_TEST_PARTITION                                   (264)
 #define TFM_SP_IPC_SERVICE_TEST                                        (265)
 #define TFM_SP_IPC_CLIENT_TEST                                         (266)
-#define TFM_IRQ_TEST_1                                                 (267)
 #define TFM_SP_PS_TEST                                                 (268)
 #define TFM_SP_SECURE_CLIENT_2                                         (269)
-#define TFM_SP_PSA_PROXY                                               (270)
 #define TFM_SP_FWU                                                     (271)
 #define TFM_SP_FFM11                                                   (272)
+#define TFM_SP_ATTEST_TEST                                             (273)
+#define TFM_SP_SLIH_TEST                                               (267)
+#define TFM_SP_FLIH_TEST                                               (270)
 
-#define TFM_MAX_USER_PARTITIONS                                        (17)
+#define TFM_MAX_USER_PARTITIONS                                        (18)
 
 #ifdef __cplusplus
 }
