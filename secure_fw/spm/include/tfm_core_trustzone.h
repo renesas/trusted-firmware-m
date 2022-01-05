@@ -16,6 +16,7 @@
  * of it. The Armv8-M Architecture Reference Manual recommends to use seal value
  * 0xFEF5EDA5.
  */
+#define RA_MSP_OFFSET_VALUE             32U
 #define TFM_STACK_SEALED_SIZE           8
 #define TFM_STACK_SEAL_VALUE            0xFEF5EDA5
 

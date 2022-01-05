@@ -293,7 +293,7 @@ uint32_t tfm_core_svc_handler(uint32_t *msp, uint32_t exc_return,
         break;
     default:
         if (((uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK_MSP, $$ZI$$Limit)
-                                     - (uint32_t)msp) > TFM_STACK_SEALED_SIZE) {
+                                     - ((uint32_t)msp + (uint32_t)RA_MSP_OFFSET_VALUE)) > TFM_STACK_SEALED_SIZE) {
             /* The Main Stack has contents, not calling from Partition thread */
             tfm_core_panic();
         }
