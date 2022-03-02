@@ -28,9 +28,20 @@ add_subdirectory(partitions/internal_trusted_storage)
 add_subdirectory(partitions/platform)
 add_subdirectory(partitions/psa_proxy)
 add_subdirectory(partitions/firmware_update)
-add_subdirectory(partitions/tfm_ffm11_partition)
-add_subdirectory(partitions/ns_proxy_partition)
+add_subdirectory(partitions/ns_agent)
 add_subdirectory(partitions/idle_partition)
+if (TFM_EXTRA_PARTITION_PATHS)
+    set(POSTFIX 1)
+
+    foreach(EXTRA_PARTITION IN LISTS TFM_EXTRA_PARTITION_PATHS)
+        get_filename_component(EXTRA_PARTITION_NAME ${EXTRA_PARTITION} NAME_WLE)
+        set(TEMP_BINARY_EXTRA_PARTITION
+            ${CMAKE_CURRENT_BINARY_DIR}/partitions/${EXTRA_PARTITION_NAME}_${POSTFIX})
+        add_subdirectory(${EXTRA_PARTITION} ${TEMP_BINARY_EXTRA_PARTITION})
+
+        math(EXPR POSTFIX "${POSTFIX} + 1")
+    endforeach()
+endif()
 
 target_include_directories(secure_fw
     INTERFACE
@@ -58,12 +69,19 @@ set_target_properties(tfm_s
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+target_compile_options(tfm_s
+    PUBLIC
+        ${COMPILER_CP_FLAG}
+)
+
 target_link_options(tfm_s
     PRIVATE
         --entry=Reset_Handler
         $<$<C_COMPILER_ID:GNU>:-Wl,-Map=${CMAKE_BINARY_DIR}/bin/tfm_s.map>
         $<$<C_COMPILER_ID:ARMClang>:--map>
         $<$<C_COMPILER_ID:IAR>:--map\;${CMAKE_BINARY_DIR}/bin/tfm_s.map>
+    PUBLIC
+        ${LINKER_CP_OPTION}
 )
 
 add_convert_to_bin_target(tfm_s)
@@ -81,11 +99,26 @@ target_link_libraries(tfm_secure_api
 )
 
 set_source_files_properties(
-    ${CMAKE_SOURCE_DIR}/interface/src/psa/psa_client.c
-    ${CMAKE_SOURCE_DIR}/interface/src/psa/psa_service.c
+    ${CMAKE_SOURCE_DIR}/secure_fw/spm/cmsis_psa/psa_interface_svc.c
+    ${CMAKE_SOURCE_DIR}/secure_fw/spm/cmsis_psa/psa_interface_thread.c
+    ${CMAKE_SOURCE_DIR}/secure_fw/spm/cmsis_psa/psa_interface_sfn.c
     PROPERTIES
     COMPILE_FLAGS $<$<C_COMPILER_ID:GNU>:-Wno-unused-parameter>
     COMPILE_FLAGS $<$<C_COMPILER_ID:ARMClang>:-Wno-unused-parameter>
+)
+
+# Secure component relies on 'tfm_secure_api', append headers/sources
+# into this target, also the SPE build indicator.
+target_sources(tfm_secure_api
+    INTERFACE
+        $<$<BOOL:${TFM_PSA_API}>:${CMAKE_SOURCE_DIR}/secure_fw/spm/cmsis_psa/psa_interface_svc.c>
+        $<$<BOOL:${TFM_PSA_API}>:${CMAKE_SOURCE_DIR}/secure_fw/spm/cmsis_psa/psa_interface_thread.c>
+        $<$<BOOL:${TFM_PSA_API}>:${CMAKE_SOURCE_DIR}/secure_fw/spm/cmsis_psa/psa_interface_sfn.c>
+)
+
+target_compile_definitions(tfm_secure_api
+    INTERFACE
+        CONFIG_TFM_BUILDING_SPE=1
 )
 
 ############################# Secure veneers ###################################

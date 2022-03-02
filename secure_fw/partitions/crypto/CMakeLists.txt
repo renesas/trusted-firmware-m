@@ -25,6 +25,7 @@ target_sources(tfm_psa_rot_partition_crypto
         crypto_aead.c
         crypto_asymmetric.c
         crypto_key_derivation.c
+        crypto_key_management.c
         crypto_rng.c
 )
 
@@ -75,7 +76,6 @@ target_compile_definitions(tfm_psa_rot_partition_crypto
         $<$<BOOL:${CRYPTO_ENGINE_BUF_SIZE}>:TFM_CRYPTO_ENGINE_BUF_SIZE=${CRYPTO_ENGINE_BUF_SIZE}>
         $<$<BOOL:${CRYPTO_CONC_OPER_NUM}>:TFM_CRYPTO_CONC_OPER_NUM=${CRYPTO_CONC_OPER_NUM}>
         $<$<AND:$<BOOL:${TFM_PSA_API}>,$<BOOL:${CRYPTO_IOVEC_BUFFER_SIZE}>>:TFM_CRYPTO_IOVEC_BUFFER_SIZE=${CRYPTO_IOVEC_BUFFER_SIZE}>
-        $<$<BOOL:${CRYPTO_KEY_ID_ENCODES_OWNER}>:CRYPTO_KEY_ID_ENCODES_OWNER>
 )
 
 ################ Display the configuration being applied #######################
@@ -93,7 +93,6 @@ message(STATUS "CRYPTO_ASYM_SIGN_MODULE_DISABLED is set to ${CRYPTO_ASYM_SIGN_MO
 message(STATUS "CRYPTO_ASYM_ENCRYPT_MODULE_DISABLED is set to ${CRYPTO_ASYM_ENCRYPT_MODULE_DISABLED}")
 message(STATUS "CRYPTO_ENGINE_BUF_SIZE is set to ${CRYPTO_ENGINE_BUF_SIZE}")
 message(STATUS "CRYPTO_CONC_OPER_NUM is set to ${CRYPTO_CONC_OPER_NUM}")
-message(STATUS "CRYPTO_KEY_ID_ENCODES_OWNER is set to ${CRYPTO_KEY_ID_ENCODES_OWNER}")
 if (${TFM_PSA_API})
     message(STATUS "CRYPTO_IOVEC_BUFFER_SIZE is set to ${CRYPTO_IOVEC_BUFFER_SIZE}")
 endif()
@@ -110,7 +109,10 @@ target_sources(tfm_sprt
 # to not overshadow _real_ warnings.
 set_source_files_properties(tfm_crypto_secure_api.c
     PROPERTIES
-        COMPILE_FLAGS -Wno-implicit-function-declaration
+        COMPILE_FLAGS
+            $<$<C_COMPILER_ID:ARMClang>:-Wno-implicit-function-declaration>
+            $<$<C_COMPILER_ID:GNU>:-Wno-implicit-function-declaration>
+            $<$<C_COMPILER_ID:IAR>:>
 )
 
 # Pick up configuration definitions
@@ -141,8 +143,9 @@ target_compile_definitions(crypto_service_mbedcrypto_config
         $<$<BOOL:${TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH}>:MBEDTLS_USER_CONFIG_FILE="${TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH}">
         PSA_CRYPTO_SECURE
         # Workaround for https://github.com/ARMmbed/mbedtls/issues/1077
-        $<$<OR:$<STREQUAL:${CMAKE_SYSTEM_ARCHITECTURE},armv8-m.base>,$<STREQUAL:${CMAKE_SYSTEM_ARCHITECTURE},armv6-m>>:MULADDC_CANNOT_USE_R7>
-        $<$<BOOL:${PLATFORM_DUMMY_NV_SEED}>:PLATFORM_DUMMY_NV_SEED>
+        $<$<OR:$<STREQUAL:${TFM_SYSTEM_ARCHITECTURE},armv8-m.base>,$<STREQUAL:${TFM_SYSTEM_ARCHITECTURE},armv6-m>>:MULADDC_CANNOT_USE_R7>
+        $<$<BOOL:${CRYPTO_NV_SEED}>:CRYPTO_NV_SEED>
+        $<$<BOOL:${PLATFORM_DEFAULT_NV_SEED}>:PLATFORM_DEFAULT_NV_SEED>
 )
 cmake_policy(SET CMP0079 NEW)
 
@@ -155,10 +158,7 @@ set(ENABLE_DOCS OFF)
 set(INSTALL_MBEDTLS_HEADERS OFF)
 set(LIB_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/mbedcrypto/install)
 
-set(lib_target crypto_service_mbedcrypto_libs)
-set(mbedcrypto_target crypto_service_mbedcrypto)
-set(mbedtls_target crypto_service_mbedtls)
-set(mbedx509_target crypto_service_mbedx509)
+# Set the prefix to be used by mbedTLS targets
 set(MBEDTLS_TARGET_PREFIX crypto_service_)
 
 # Mbedcrypto is quite a large lib, and it uses too much memory for it to be
@@ -167,7 +167,7 @@ set(MBEDTLS_TARGET_PREFIX crypto_service_)
 # symbols whild optimizing space.
 set(SAVED_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 set(CMAKE_BUILD_TYPE ${MBEDCRYPTO_BUILD_TYPE})
-add_subdirectory(${MBEDCRYPTO_PATH} ${CMAKE_CURRENT_BINARY_DIR}/mbedcrypto)
+add_subdirectory(${MBEDCRYPTO_PATH} ${CMAKE_CURRENT_BINARY_DIR}/mbedcrypto EXCLUDE_FROM_ALL)
 set(CMAKE_BUILD_TYPE ${SAVED_BUILD_TYPE} CACHE STRING "Build type: [Debug, Release, RelWithDebInfo, MinSizeRel]" FORCE)
 
 if(NOT TARGET crypto_service_mbedcrypto)
@@ -198,4 +198,14 @@ target_link_libraries(crypto_service_mbedcrypto
         platform_s
     PUBLIC
         crypto_service_mbedcrypto_config
+)
+
+target_link_libraries(crypto_service_mbedtls
+    PRIVATE
+        platform_s
+)
+
+target_link_libraries(crypto_service_mbedx509
+    PRIVATE
+        platform_s
 )

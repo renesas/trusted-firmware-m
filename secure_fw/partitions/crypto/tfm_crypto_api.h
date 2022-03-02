@@ -96,37 +96,6 @@ psa_status_t tfm_crypto_key_attributes_to_client(
                         struct psa_client_key_attributes_s *client_key_attr);
 
 /**
- * \brief Checks that the requested handle belongs to the requesting
- *        partition
- *
- * \param[in]  key    key given as input
- *
- * \return Return values as described in \ref psa_status_t
- */
-psa_status_t tfm_crypto_check_handle_owner(psa_key_id_t key);
-
-/**
- * \brief Checks that there is enough local storage in RAM to keep another key,
- *        and returns the index of the storage to use.
- *
- * \param[out] index  Index of the local storage to use
- *
- * \return Return values as described in \ref psa_status_t
- */
-psa_status_t tfm_crypto_check_key_storage(uint32_t *index);
-
-/**
- * \brief Sets the index of the local storage in use with a key requested by the
- *        calling partition, and stores the corresponding key_handle.
- *
- * \param[in] index       Index of the local storage to use
- * \param[in] key_handle  Corresponding key handle to associate
- *
- * \return Return values as described in \ref psa_status_t
- */
-psa_status_t tfm_crypto_set_key_storage(uint32_t index,
-                                        psa_key_id_t key_handle);
-/**
  * \brief Allocate an operation context in the backend
  *
  * \param[in]  type   Type of the operation context to allocate
@@ -236,8 +205,6 @@ psa_status_t tfm_crypto_encode_id_and_owner(psa_key_id_t key_id,
     X(tfm_crypto_raw_key_agreement)           \
     X(tfm_crypto_generate_random)             \
     X(tfm_crypto_generate_key)                \
-    X(tfm_crypto_set_key_domain_parameters)   \
-    X(tfm_crypto_get_key_domain_parameters)   \
 
 #define X(api_name) UNIFORM_SIGNATURE_API(api_name);
 LIST_TFM_CRYPTO_UNIFORM_SIGNATURE_API
