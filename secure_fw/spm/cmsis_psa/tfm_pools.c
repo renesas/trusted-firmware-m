@@ -7,7 +7,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include "thread.h"
+#include "tfm_thread.h"
+#include "tfm_wait.h"
 #include "psa/client.h"
 #include "psa/service.h"
 #include "internal_errors.h"

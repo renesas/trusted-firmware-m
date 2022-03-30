@@ -17,7 +17,6 @@
 #ifdef TFM_PSA_API
 #include "psa/service.h"
 #include "psa_manifest/tfm_protected_storage.h"
-#include "tfm_ps_defs.h"
 #endif
 
 #ifndef TFM_PSA_API
@@ -360,31 +359,21 @@ static psa_status_t tfm_ps_get_support_ipc(void)
     return PSA_SUCCESS;
 }
 
-static void ps_signal_handle(psa_signal_t signal)
+static void ps_signal_handle(psa_signal_t signal, ps_func_t pfn)
 {
     psa_status_t status;
 
     status = psa_get(signal, &msg);
     switch (msg.type) {
-    case TFM_PS_SET:
-        status = tfm_ps_set_ipc();
+    case PSA_IPC_CONNECT:
+        psa_reply(msg.handle, PSA_SUCCESS);
+        break;
+    case PSA_IPC_CALL:
+        status = pfn();
         psa_reply(msg.handle, status);
         break;
-    case TFM_PS_GET:
-        status = tfm_ps_get_ipc();
-        psa_reply(msg.handle, status);
-        break;
-    case TFM_PS_GET_INFO:
-        status = tfm_ps_get_info_ipc();
-        psa_reply(msg.handle, status);
-        break;
-    case TFM_PS_REMOVE:
-        status = tfm_ps_remove_ipc();
-        psa_reply(msg.handle, status);
-        break;
-    case TFM_PS_GET_SUPPORT:
-        status = tfm_ps_get_support_ipc();
-        psa_reply(msg.handle, status);
+    case PSA_IPC_DISCONNECT:
+        psa_reply(msg.handle, PSA_SUCCESS);
         break;
     default:
         psa_panic();
@@ -403,8 +392,17 @@ psa_status_t tfm_ps_req_mngr_init(void)
 
     while (1) {
         signals = psa_wait(PSA_WAIT_ANY, PSA_BLOCK);
-        if (signals & TFM_PROTECTED_STORAGE_SERVICE_SIGNAL) {
-            ps_signal_handle(TFM_PROTECTED_STORAGE_SERVICE_SIGNAL);
+        if (signals & TFM_PS_SET_SIGNAL) {
+            ps_signal_handle(TFM_PS_SET_SIGNAL, tfm_ps_set_ipc);
+        } else if (signals & TFM_PS_GET_SIGNAL) {
+            ps_signal_handle(TFM_PS_GET_SIGNAL, tfm_ps_get_ipc);
+        } else if (signals & TFM_PS_GET_INFO_SIGNAL) {
+            ps_signal_handle(TFM_PS_GET_INFO_SIGNAL, tfm_ps_get_info_ipc);
+        } else if (signals & TFM_PS_REMOVE_SIGNAL) {
+            ps_signal_handle(TFM_PS_REMOVE_SIGNAL, tfm_ps_remove_ipc);
+        } else if (signals & TFM_PS_GET_SUPPORT_SIGNAL) {
+            ps_signal_handle(TFM_PS_GET_SUPPORT_SIGNAL,
+                             tfm_ps_get_support_ipc);
         } else {
             psa_panic();
         }

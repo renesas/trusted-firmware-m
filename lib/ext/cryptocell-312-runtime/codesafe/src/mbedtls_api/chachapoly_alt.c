@@ -11,7 +11,6 @@
 
 #if defined(MBEDTLS_CHACHAPOLY_C)
 #include "mbedtls/chachapoly.h"
-#include "mbedtls/error.h"
 #include "poly.h"
 #include "mbedtls/chacha20.h"
 #include "mbedtls/platform_util.h"
@@ -68,7 +67,7 @@ int mbedtls_chachapoly_starts( mbedtls_chachapoly_context *ctx,
     CC_UNUSED_PARAM(ctx);
     CC_UNUSED_PARAM(nonce);
     CC_UNUSED_PARAM(mode);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 /* Cryptocell only supports integrated chachapoly operations  */
 int mbedtls_chachapoly_update_aad( mbedtls_chachapoly_context *ctx,
@@ -78,7 +77,7 @@ int mbedtls_chachapoly_update_aad( mbedtls_chachapoly_context *ctx,
     CC_UNUSED_PARAM(ctx);
     CC_UNUSED_PARAM(aad);
     CC_UNUSED_PARAM(aad_len);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 
 /* Cryptocell only supports integrated chachapoly operations  */
@@ -91,7 +90,7 @@ int mbedtls_chachapoly_update( mbedtls_chachapoly_context *ctx,
     CC_UNUSED_PARAM(len);
     CC_UNUSED_PARAM(input);
     CC_UNUSED_PARAM(output);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 
 /* Cryptocell only supports integrated chachapoly operations  */
@@ -100,7 +99,7 @@ int mbedtls_chachapoly_finish( mbedtls_chachapoly_context *ctx,
 {
     CC_UNUSED_PARAM(ctx);
     CC_UNUSED_PARAM(mac);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 
 static int chachapoly_crypt_and_tag( mbedtls_chachapoly_mode_t mode,

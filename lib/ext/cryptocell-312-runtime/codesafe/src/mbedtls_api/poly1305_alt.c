@@ -11,7 +11,6 @@
 
 #if defined(MBEDTLS_POLY1305_C)
 #include "mbedtls/poly1305.h"
-#include "mbedtls/error.h"
 #include "poly.h"
 #include "mbedtls/platform_util.h"
 #include "chacha_driver.h"
@@ -48,7 +47,7 @@ int mbedtls_poly1305_starts( mbedtls_poly1305_context *ctx,
 {
     CC_UNUSED_PARAM(ctx);
     CC_UNUSED_PARAM(key);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 
 /* Cryptocell only supports integrated poly1305 operations  */
@@ -59,7 +58,7 @@ int mbedtls_poly1305_update( mbedtls_poly1305_context *ctx,
     CC_UNUSED_PARAM(ctx);
     CC_UNUSED_PARAM(input);
     CC_UNUSED_PARAM(ilen);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 
 /* Cryptocell only supports integrated poly1305 operations  */
@@ -68,7 +67,7 @@ int mbedtls_poly1305_finish( mbedtls_poly1305_context *ctx,
 {
     CC_UNUSED_PARAM(ctx);
     CC_UNUSED_PARAM(mac);
-    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
+    return MBEDTLS_ERR_POLY1305_FEATURE_UNAVAILABLE;
 }
 
 int mbedtls_poly1305_mac( const unsigned char key[32],
@@ -92,7 +91,7 @@ int mbedtls_poly1305_mac( const unsigned char key[32],
 
     rc = PolyMacCalc(pKey, NULL, 0, input, ilen, macRes, false);
     if (rc != 0) {
-        return MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
+        return MBEDTLS_ERR_POLY1305_HW_ACCEL_FAILED;
     }
 
     CC_PalMemCopy(mac, (unsigned char *)macRes, MBEDTLS_POLY_MAC_SIZE_BYTES);

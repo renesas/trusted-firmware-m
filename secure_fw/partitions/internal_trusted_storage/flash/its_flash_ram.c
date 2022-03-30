@@ -54,15 +54,12 @@ static psa_status_t its_flash_ram_write(const struct its_flash_fs_config_t *cfg,
     return PSA_SUCCESS;
 }
 
-static psa_status_t its_flash_ram_flush(const struct its_flash_fs_config_t *cfg,
-                                        uint32_t block_id)
-
+static psa_status_t its_flash_ram_flush(const struct its_flash_fs_config_t *cfg)
 {
     /* Nothing needs to be done for flash emulated in RAM, as writes are
      * commited immediately.
      */
     (void)cfg;
-    (void)block_id;
     return PSA_SUCCESS;
 }
 

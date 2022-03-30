@@ -80,8 +80,6 @@ target_include_directories(platform_s
         Native_Driver/generated_source
         ./CMSIS_Driver/Config
         mailbox
-    PRIVATE
-        ${CY_PDL_LIB_PATH}/cmsis/include
 )
 
 target_sources(platform_s
@@ -118,18 +116,16 @@ target_sources(platform_s
         ./Native_Driver/generated_source/cycfg_system.c
         ./Native_Driver/generated_source/cycfg_qspi_memslot.c
         ./spm_hal.c
-        ./tfm_interrupts.c
-        ./tfm_hal_multi_core.c
         ./tfm_hal_isolation.c
-        ./tfm_hal_platform.c
         ./CMSIS_Driver/Driver_Flash.c
         ./CMSIS_Driver/Driver_USART.c
         ./target_cfg.c
         ./driver_smpu.c
         ./driver_ppu.c
         ./driver_dap.c
+        ./nv_counters.c
+        ./services/src/tfm_platform_system.c
         ./Device/Source/device_definition.c
-        ${CMAKE_SOURCE_DIR}/platform/ext/common/tfm_hal_nvic.c
         $<$<BOOL:${TFM_PARTITION_PLATFORM}>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
         $<$<BOOL:${TFM_PARTITION_PLATFORM}>:${CMAKE_CURRENT_SOURCE_DIR}/services/src/tfm_platform_system.c>
 )
@@ -193,6 +189,7 @@ target_sources(platform_ns
         ./CMSIS_Driver/Driver_USART.c
         ./Device/Source/device_definition.c
         $<$<BOOL:${TFM_PARTITION_PLATFORM}>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
+        $<$<BOOL:${TFM_PARTITION_PLATFORM}>:${CMAKE_CURRENT_SOURCE_DIR}/services/src/tfm_platform_system.c>
 )
 
 target_include_directories(platform_ns
@@ -205,8 +202,6 @@ target_include_directories(platform_ns
         ${CY_CORE_LIB_PATH}/include
         Native_Driver/generated_source
         ./CMSIS_Driver/Config
-    PRIVATE
-        ${CY_PDL_LIB_PATH}/cmsis/include
 )
 
 target_compile_definitions(platform_ns
@@ -216,17 +211,15 @@ target_compile_definitions(platform_ns
 
 # device_cfg.h defines the number of mailbox queue slots to support multiple
 # PSA client calls feature.
-if (NS)
-    target_include_directories(tfm_ns_interface
-        INTERFACE
-            Device/Config
-    )
+target_include_directories(tfm_ns_interface
+    INTERFACE
+        Device/Config
+)
 
-    target_link_libraries(platform_ns
-        PRIVATE
-            tfm_ns_interface
-    )
-endif()
+target_link_libraries(platform_ns
+    PRIVATE
+        tfm_ns_interface
+)
 
 ########################### export sources #####################################
 

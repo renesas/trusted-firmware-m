@@ -16,7 +16,7 @@ add_library(tfm_psa_rot_partition_fwu STATIC)
 
 target_include_directories(tfm_psa_rot_partition_fwu
     INTERFACE
-        ${CMAKE_SOURCE_DIR}/secure_fw/include
+        ${CMAKE_SOURCE_DIR}/secure_fw/include/tfm
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/firmware_update
@@ -56,7 +56,6 @@ target_link_libraries(tfm_psa_rot_partition_fwu
 target_compile_definitions(tfm_psa_rot_partition_fwu
     PRIVATE
         $<$<BOOL:${TFM_PSA_API}>:TFM_PSA_API>
-        $<$<BOOL:${DEFAULT_MCUBOOT_FLASH_MAP}>:DEFAULT_MCUBOOT_FLASH_MAP>
 )
 
 ############################ Secure API ########################################
@@ -70,10 +69,7 @@ target_sources(tfm_secure_api
 # to not overshadow _real_ warnings.
 set_source_files_properties(tfm_fwu_secure_api.c
     PROPERTIES
-        COMPILE_FLAGS
-            $<$<C_COMPILER_ID:ARMClang>:-Wno-implicit-function-declaration>
-            $<$<C_COMPILER_ID:GNU>:-Wno-implicit-function-declaration>
-            $<$<C_COMPILER_ID:IAR>:>
+        COMPILE_FLAGS -Wno-implicit-function-declaration
 )
 
 ############################ Partition Defs ####################################

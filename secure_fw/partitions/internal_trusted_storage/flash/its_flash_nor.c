@@ -68,14 +68,12 @@ static psa_status_t its_flash_nor_write(const struct its_flash_fs_config_t *cfg,
     return PSA_SUCCESS;
 }
 
-static psa_status_t its_flash_nor_flush(const struct its_flash_fs_config_t *cfg,
-                                        uint32_t block_id)
+static psa_status_t its_flash_nor_flush(const struct its_flash_fs_config_t *cfg)
 {
     /* Nothing needs to be done for NOR flash, as writes are commited to flash
      * immediately.
      */
     (void)cfg;
-    (void)block_id;
     return PSA_SUCCESS;
 }
 

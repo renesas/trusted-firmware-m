@@ -20,7 +20,7 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        'cbor2',
+        'cbor',
         'cryptography',
         'ecdsa',
         'pycose>=0.1.2',

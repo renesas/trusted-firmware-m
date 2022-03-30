@@ -30,7 +30,6 @@
 #define ARM_FLASH_DRV_VERSION    ARM_DRIVER_VERSION_MAJOR_MINOR(1, 0)
 #define QSPI_MIN_READ_SIZE       4
 #define QSPI_READ_SIZE_ALIGNMENT 4
-#define QSPI_READ_BUFFER_SIZE    512
 
 #if RTE_QSPI0
 
@@ -62,8 +61,6 @@ static const nrfx_qspi_config_t pQSPIConf = NRFX_QSPI_DEFAULT_CONFIG(RTE_QSPI0_S
                                                                      RTE_QSPI0_IO3_PIN);
 
 static bool bQSPIInit = false;
-
-__ALIGN(4) uint8_t baTmpRAMBuffer[QSPI_READ_BUFFER_SIZE];
 
 static bool is_range_valid(uint32_t addr, uint32_t cnt)
 {
@@ -113,9 +110,6 @@ static int32_t ARM_QSPI_Flash_Uninitialize(void)
         bQSPIInit = false;
     }
 
-    /* Clear the QSPI read buffer to prevent information leakage */
-    memset(baTmpRAMBuffer, 0, sizeof(baTmpRAMBuffer));
-
     return ARM_DRIVER_OK;
 }
 
@@ -135,53 +129,51 @@ static int32_t ARM_QSPI_Flash_PowerControl(ARM_POWER_STATE state)
 
 static int32_t ARM_QSPI_Flash_ReadData(uint32_t addr, void *data, uint32_t cnt)
 {
-    uint32_t data_index = 0;
-    uint8_t *buffer = (uint8_t *)data;
+    uint8_t nOrigCnt = 0;
+    uint8_t nExtCnt = 0;
+    __ALIGN(4) uint8_t baTmpRAMBuffer[QSPI_MIN_READ_SIZE];
 
-    if ((addr % QSPI_READ_SIZE_ALIGNMENT) != 0)
+    /* Workaround for TF-M bug T905 */
+    if (cnt < QSPI_MIN_READ_SIZE)
     {
-        /* Read beginning part prior to requested data which is before the word boundary */
-        uint8_t off_by = (addr % QSPI_READ_SIZE_ALIGNMENT);
-        uint8_t needed = QSPI_READ_SIZE_ALIGNMENT - off_by;
-        uint32_t read_pos = addr - off_by;
-
-        if (nrfx_qspi_read(baTmpRAMBuffer, QSPI_MIN_READ_SIZE, read_pos) != NRFX_SUCCESS)
-        {
-             return ARM_DRIVER_ERROR_PARAMETER;
-        }
-
-        memcpy(&buffer[data_index], &baTmpRAMBuffer[off_by], needed);
-        data_index += needed;
-        addr += needed;
-        cnt -= needed;
+        nOrigCnt = cnt;
+        cnt = QSPI_MIN_READ_SIZE;
+    }
+    else if ((cnt % QSPI_READ_SIZE_ALIGNMENT) != 0)
+    {
+        nExtCnt = cnt & (QSPI_READ_SIZE_ALIGNMENT - 1);
+        cnt = cnt ^ (uint32_t)nExtCnt;
     }
 
-    while (cnt > 0)
+    if (!is_range_valid(addr, cnt)) {
+        return ARM_DRIVER_ERROR_PARAMETER;
+    }
+
+    if (nOrigCnt == 0)
     {
-        /* Read in chunks of data to the temporary buffer and copy to the supplied buffer */
-        uint32_t read_size = sizeof(baTmpRAMBuffer);
-        uint32_t save_size = read_size;
-        if (cnt < read_size)
+        if (nrfx_qspi_read(data, cnt, addr) != NRFX_SUCCESS)
         {
-            read_size = cnt;
-            save_size = cnt;
-
-            if ((read_size % QSPI_READ_SIZE_ALIGNMENT) != 0)
-            {
-                /* Ensure read size is a multiple of the word size */
-                read_size += QSPI_READ_SIZE_ALIGNMENT - (read_size % QSPI_READ_SIZE_ALIGNMENT);
-            }
+            return ARM_DRIVER_ERROR_PARAMETER;
         }
+    }
+    else
+    {
+        if (nrfx_qspi_read(baTmpRAMBuffer, QSPI_MIN_READ_SIZE, addr) != NRFX_SUCCESS)
+        {
+            return ARM_DRIVER_ERROR_PARAMETER;
+        }
+        memcpy(data, baTmpRAMBuffer, nOrigCnt);
+    }
 
-        if (nrfx_qspi_read(baTmpRAMBuffer, read_size, addr) != NRFX_SUCCESS)
+    /* Workaround for TF-M bug T905 */
+    if (nExtCnt != 0)
+    {
+        if (nrfx_qspi_read(baTmpRAMBuffer, QSPI_MIN_READ_SIZE, (addr + cnt)) != NRFX_SUCCESS)
         {
             return ARM_DRIVER_ERROR_PARAMETER;
         }
 
-        memcpy(&buffer[data_index], baTmpRAMBuffer, save_size);
-        data_index += save_size;
-        addr += save_size;
-        cnt -= save_size;
+        memcpy(data + cnt, baTmpRAMBuffer, nExtCnt);
     }
 
     return ARM_DRIVER_OK;

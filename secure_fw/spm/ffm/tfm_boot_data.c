@@ -12,12 +12,13 @@
 #include "tfm_memory_utils.h"
 #include "tfm_api.h"
 #include "tfm_core_utils.h"
-#include "psa_manifest/pid.h"
+#include "spm_partition_defs.h"
 #ifdef TFM_PSA_API
 #include "internal_errors.h"
 #include "utilities.h"
 #include "psa/service.h"
-#include "thread.h"
+#include "tfm_thread.h"
+#include "tfm_wait.h"
 #include "tfm_spm_hal.h"
 #include "spm_ipc.h"
 #include "load/partition_defs.h"
@@ -56,7 +57,7 @@ static uint32_t is_boot_data_valid = BOOT_DATA_INVALID;
  *        data area (between bootloader and runtime firmware).
  */
 struct boot_data_access_policy {
-    int32_t partition_id;
+    uint32_t partition_id;
     uint32_t major_type;
 };
 
@@ -86,7 +87,7 @@ static const struct boot_data_access_policy access_policy_table[] = {
  */
 static int32_t tfm_core_check_boot_data_access_policy(uint8_t major_type)
 {
-    int32_t partition_id;
+    uint32_t partition_id;
     uint32_t i;
     int32_t rc = -1;
     const uint32_t array_size = ARRAY_SIZE(access_policy_table);

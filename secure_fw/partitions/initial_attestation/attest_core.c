@@ -544,20 +544,16 @@ static enum psa_attest_err_t
 attest_add_verification_service(struct attest_token_encode_ctx *token_ctx)
 {
     struct q_useful_buf_c service;
-    uint8_t buf[VERIFICATION_URL_MAX_SIZE];
-    uint32_t size = sizeof(buf);
-    enum tfm_plat_err_t err;
+    uint32_t size;
 
-    err = tfm_attest_hal_get_verification_service(&size, buf);
-    if (err != TFM_PLAT_ERR_SUCCESS) {
-        return PSA_ATTEST_ERR_GENERAL;
+    service.ptr = tfm_attest_hal_get_verification_service(&size);
+
+    if (service.ptr) {
+        service.len = size;
+        attest_token_encode_add_tstr(token_ctx,
+                                     EAT_CBOR_ARM_LABEL_ORIGINATION,
+                                     &service);
     }
-
-    service.ptr = &buf;
-    service.len = size;
-    attest_token_encode_add_tstr(token_ctx,
-                                 EAT_CBOR_ARM_LABEL_ORIGINATION,
-                                 &service);
 
     return PSA_ATTEST_ERR_SUCCESS;
 }
@@ -573,20 +569,16 @@ static enum psa_attest_err_t
 attest_add_profile_definition(struct attest_token_encode_ctx *token_ctx)
 {
     struct q_useful_buf_c profile;
-    uint8_t buf[PROFILE_DEFINITION_MAX_SIZE];
-    uint32_t size = sizeof(buf);
-    enum tfm_plat_err_t err;
+    uint32_t size;
 
-    err = tfm_attest_hal_get_profile_definition(&size, buf);
-    if (err != TFM_PLAT_ERR_SUCCESS) {
-        return PSA_ATTEST_ERR_GENERAL;
+    profile.ptr = tfm_attest_hal_get_profile_definition(&size);
+
+    if (profile.ptr) {
+        profile.len = size;
+        attest_token_encode_add_tstr(token_ctx,
+                                     EAT_CBOR_ARM_LABEL_PROFILE_DEFINITION,
+                                     &profile);
     }
-
-    profile.ptr = &buf;
-    profile.len = size;
-    attest_token_encode_add_tstr(token_ctx,
-                                 EAT_CBOR_ARM_LABEL_PROFILE_DEFINITION,
-                                 &profile);
 
     return PSA_ATTEST_ERR_SUCCESS;
 }

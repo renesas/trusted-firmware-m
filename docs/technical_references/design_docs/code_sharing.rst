@@ -2,7 +2,7 @@
 Code sharing between independently linked XIP binaries
 ######################################################
 
-:Author: Tamas Ban
+:Authors: Tamas Ban
 :Organization: Arm Limited
 :Contact: tamas.ban@arm.com
 

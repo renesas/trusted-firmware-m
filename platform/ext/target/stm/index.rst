@@ -18,7 +18,6 @@ This document contains SOC and boards supported by stm32.
 
     nucleo*/**
     stm32*/**
-    b_*/**
 
 --------------
 

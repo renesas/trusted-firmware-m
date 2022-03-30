@@ -2,7 +2,7 @@
 Communication Prototype Between NSPE And SPE In Dual Core System
 ################################################################
 
-:Author: David Hu
+:Authors: David Hu
 :Organization: Arm Limited
 :Contact: david.hu@arm.com
 

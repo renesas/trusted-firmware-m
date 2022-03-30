@@ -10,6 +10,7 @@ import argparse
 import os
 import sys
 
+import cbor
 import yaml
 from iatverifier.util import convert_token_to_map
 

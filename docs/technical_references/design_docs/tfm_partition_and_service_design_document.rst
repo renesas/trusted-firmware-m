@@ -2,9 +2,10 @@
 Partition and Service Design Document
 #####################################
 
-:Author: Summer Qin
+:Authors: Summer Qin
 :Organization: Arm Limited
 :Contact: summer.qin@arm.com
+:Status: Accepted
 
 ***********
 Terminology
@@ -53,26 +54,28 @@ partition information:
 - Static data contains partition id, flags, priority and init function entry.
 - Platform data contains a single peripheral's information this partition owns.
   This is a little different from the PSA Firmware Framework defines.
+- Memory data contains partition memory region address and size.
 
 These data types with different names also have different accessing attribute
-requirements and can be put in memory with different attributes. The listed
+requirements and can be put in memory with different attributes. The listed four
 types of data can be defined with a different qualifier to indicate the
 accessing attribute and finally, these data are linked into a global structure
 type 'spm_partition_desc_t' for usage. Define the global partition_list array to
 store all the partitions information and all members are set to zero so that
 partition_list will be stored in bss segment. For static information, like
-static member and platform member, assign this information
+static member, platform member, and some memory data, assign this information
 with 'const' qualifier. This would avoid involving unnecessary read-only data
 into the read-write area and cause storage waste. The partition's database is
 managed by the following steps:
 
-#. The three types of data are defined with different qualifier in
+#. The four types of data are defined with different qualifier in
    'tfm_spm_db.inc'. For example, static data is qualified with 'const' to
    indicate it is a read-only data.
 #. Include partition predefined static information in spm_api.c by adding the
    tfm_spm_db.inc file.
 #. Initialize the partition runtime information
-#. Assign the static data and platform data to corresponding partition.
+#. Assign the static data, platform data and memory data to corresponding
+   partition.
 
 Partition Database Generating
 =============================

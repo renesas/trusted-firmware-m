@@ -2,7 +2,7 @@
 Symmetric key algorithm based Initial Attestation
 #################################################
 
-:Author: David Hu
+:Authors: David Hu
 :Organization: Arm Limited
 :Contact: david.hu@arm.com
 

@@ -4,6 +4,7 @@ Crypto Service design
 :Author: Antonio de Angelis
 :Organization: Arm Limited
 :Contact: Antonio de Angelis <antonio.deangelis@arm.com>
+:Status: Accepted
 
 .. contents:: Table of Contents
 
@@ -49,9 +50,11 @@ components, which are listed below:
    +-----------------------------+---------------------------------------------------------------+----------------------------------------------------------------------+
    | Init module                 | This module handles the initialisation of the service objects | ``./secure_fw/partitions/crypto/crypto_init.c``                      |
    |                             | during TF-M boot and provides the infrastructure to service   |                                                                      |
-   |                             | requests when TF-M is built for IPC model.                    |                                                                      |
-   |                             | The dispatching mechanism of IPC requests is based on a look  |                                                                      |
-   |                             | up table of function pointers.                                |                                                                      |
+   |                             | requests when TF-M is built for IPC mode.                     |                                                                      |
+   |                             | Due to the fact that the functions available in the Service   |                                                                      |
+   |                             | modules use the Uniform Signature prototype [2]_ , the        |                                                                      |
+   |                             | dispatching mechanism of IPC requests is based on a look up   |                                                                      |
+   |                             | table of function pointers.                                   |                                                                      |
    |                             | This design allows for better scalability and support of a    |                                                                      |
    |                             | higher number of Secure functions with minimal overhead and   |                                                                      |
    |                             | duplication of code.                                          |                                                                      |
@@ -66,10 +69,11 @@ components, which are listed below:
    |                             | multipart operations, and dispatching to the corresponding    | ``./secure_fw/partitions/crypto/crypto_hash.c``                      |
    |                             | library function exposed by Mbed Crypto for the desired       | ``./secure_fw/partitions/crypto/crypto_key.c``                       |
    |                             | functionality.                                                | ``./secure_fw/partitions/crypto/crypto_mac.c``                       |
-   |                             |                                                               | ''./secure_fw/partitions/crypto/crypto_key_management.c''            |
+   |                             | All the functions in the Service modules are based on the     |                                                                      |
+   |                             | Uniform Signature prototype [2]_ .                            |                                                                      |
    +-----------------------------+---------------------------------------------------------------+----------------------------------------------------------------------+
    | Manifest                    | The manifest file is a description of the service components  | ``./secure_fw/partitions/crypto/manifest.yaml``                      |
-   |                             | for both library model and IPC model.                         |                                                                      |
+   |                             | for both library mode and IPC mode.                           |                                                                      |
    +-----------------------------+---------------------------------------------------------------+----------------------------------------------------------------------+
    | CMake files and headers     | The CMake files are used by the TF-M CMake build system to    | ``./secure_fw/partitions/crypto/CMakeLists.inc``                     |
    |                             | build the service as part of the Secure FW build. The service | ``./secure_fw/partitions/crypto/CMakeLists.txt``                     |
@@ -82,7 +86,7 @@ components, which are listed below:
    |                             | to provide the necessary defines (i.e. ``TFM_CRYPTO_SIG``).   |                                                                      |
    |                             | In particular ``TFM_CRYPTO_SIG`` identifies the signal on     |                                                                      |
    |                             | which the service handler waits for requests when the service |                                                                      |
-   |                             | is built for IPC model.                                       |                                                                      |
+   |                             | is built for IPC mode.                                        |                                                                      |
    |                             | The header available in the interface, ``tfm_crypto_defs.h``  |                                                                      |
    |                             | , contains types and defines for building the NSPE interface  |                                                                      |
    |                             | as part of a Non-Secure application.                          |                                                                      |
@@ -106,7 +110,7 @@ following block diagram:
    Block diagram of the different components of the TF-M Crypto service. A
    dotted line is used to indicate the interaction with a library.
 
-Note: in IPC model, the interaction between components is slightly
+Note: in IPC mode, the interaction between components is slightly
 different, as the Service modules are not called directly through the
 TF-M Secure Partition Manager but through the IPC handler which resides
 in the Init module.
@@ -115,11 +119,11 @@ Service API description
 -----------------------
 
 Most of the APIs exported by the TF-M Crypto service (i.e. from the Service
-modules) have a direct correspondence with the PSA Crypto API. The Alloc and
-Init modules instead export some APIs which are specific to the TF-M Crypto
-service, and are available only to the Service modules or the SPM. For a
-detailed description of the prototypes please refer to the ``tfm_crypto_api.h``
-header.
+modules) is based on the Uniform Signature prototypes [2]_ and have a direct
+correspondence with the PSA Crypto API. The Alloc and Init modules instead
+export some APIs which are specific to the TF-M Crypto service, and are
+available only to the Service modules or the SPM. For a detailed description
+of the prototypes please refer to the ``tfm_crypto_api.h`` header.
 
 .. table:: Init and Alloc modules APIs
    :widths: auto
@@ -128,7 +132,7 @@ header.
    | **Function**                   | **Module**   | **Caller**      | **Scope**                                            |
    +================================+==============+=================+======================================================+
    | tfm_crypto_init()              | Init         | SPM             | Called during TF-M boot for initialisation. In IPC   |
-   |                                |              |                 | model, it calls the IPC service request handler.     |
+   |                                |              |                 | mode, it calls the IPC service request handler.      |
    +--------------------------------+--------------+-----------------+------------------------------------------------------+
    | tfm_crypto_init_alloc()        | Alloc        | Init            | Called by tfm_crypto_init(), it initialises the      |
    |                                |              |                 | concurrent operation contexts storage area.          |
@@ -170,7 +174,7 @@ configuration of the Mbed Crypto library.
    |                               |                           | for multi-part operations, that can be allocated simultaneously|                                         |                                                    |
    |                               |                           | at any time.                                                   |                                         |                                                    |
    +-------------------------------+---------------------------+----------------------------------------------------------------+-----------------------------------------+----------------------------------------------------+
-   | ``CRYPTO_IOVEC_BUFFER_SIZE``  | CMake build               | This parameter applies only to IPC model builds. In IPC model, | To be configured based on the desired   | 5120 (bytes)                                       |
+   | ``CRYPTO_IOVEC_BUFFER_SIZE``  | CMake build               | This parameter applies only to IPC mode builds. In IPC mode,   | To be configured based on the desired   | 5120 (bytes)                                       |
    |                               | configuration parameter   | during a Service call, input and outputs are allocated         | use case and application requirements.  |                                                    |
    |                               |                           | temporarily in an internal scratch buffer whose size is        |                                         |                                                    |
    |                               |                           | determined by this parameter.                                  |                                         |                                                    |
@@ -186,7 +190,9 @@ References
 
 .. [1] ``mbed-crypto`` repository which holds the PSA Crypto API specification and the Mbed Crypto reference implementation: \ https://github.com/ARMmbed/mbed-crypto
 
+.. [2] Uniform Signature prototypes: \ https://developer.trustedfirmware.org/w/tf_m/design/uniform_secure_service_signature/
+
 
 --------------
 
-*Copyright (c) 2019-2021, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*

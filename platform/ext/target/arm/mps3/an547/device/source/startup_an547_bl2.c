@@ -45,7 +45,7 @@ void Reset_Handler  (void) __NO_RETURN;
   Exception / Interrupt Handler
  *----------------------------------------------------------------------------*/
 #define DEFAULT_IRQ_HANDLER(handler_name)  \
-void __WEAK handler_name(void) __NO_RETURN; \
+void __WEAK handler_name(void); \
 void handler_name(void) { \
     while(1); \
 }

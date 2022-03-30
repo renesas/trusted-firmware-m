@@ -10,7 +10,6 @@
 #include "region.h"
 #include "region_defs.h"
 #include "spm_ipc.h"
-#include "tfm_hal_interrupt.h"
 #include "tfm_plat_defs.h"
 #include "tfm_spm_hal.h"
 #include "utilities.h"
@@ -77,7 +76,7 @@ struct partition_t *load_a_partition_assuredly(struct partition_head_t *head)
 
     if ((UINTPTR_MAX - ldinf_sa < sizeof(struct partition_load_info_t)) ||
         (ldinf_sa + sizeof(struct partition_load_info_t) >= ldinf_ea)) {
-        return NO_MORE_PARTITION;
+        return NULL;
     }
 
     p_ptldinf = (struct partition_load_info_t *)ldinf_sa;
@@ -98,8 +97,7 @@ struct partition_t *load_a_partition_assuredly(struct partition_head_t *head)
         tfm_core_panic();
     }
 
-    if (p_ptldinf->pid < 0) {
-        /* 0 is the internal NS Agent, besides the normal positive PIDs */
+    if (!(p_ptldinf->flags & SPM_PART_FLAG_IPC)) {
         tfm_core_panic();
     }
 
@@ -113,12 +111,12 @@ struct partition_t *load_a_partition_assuredly(struct partition_head_t *head)
     return partition;
 }
 
-uint32_t load_services_assuredly(struct partition_t *p_partition,
-                                 struct service_head_t *services_listhead,
-                                 struct service_t **stateless_services_ref_tbl,
-                                 size_t ref_tbl_size)
+void load_services_assuredly(struct partition_t *p_partition,
+                             struct service_head_t *services_listhead,
+                             struct service_t **stateless_services_ref_tbl,
+                             size_t ref_tbl_size)
 {
-    uint32_t i, serv_ldflags, hidx, service_setting = 0;
+    uint32_t i, serv_ldflags, hidx;
     struct service_t *services;
     const struct partition_load_info_t *p_ptldinf;
     const struct service_load_info_t *p_servldinf;
@@ -136,13 +134,10 @@ uint32_t load_services_assuredly(struct partition_t *p_partition,
      */
     services = tfm_allocate_service_assuredly(p_ptldinf->nservices);
     for (i = 0; i < p_ptldinf->nservices && services; i++) {
+        p_partition->signals_allowed |= p_servldinf[i].signal;
         services[i].p_ldinf = &p_servldinf[i];
         services[i].partition = p_partition;
         services[i].next = NULL;
-
-        if (p_ptldinf->flags & PARTITION_MODEL_IPC) {
-            service_setting |= p_servldinf[i].signal;
-        }
 
         BI_LIST_INIT_NODE(&services[i].handle_list);
 
@@ -167,8 +162,6 @@ uint32_t load_services_assuredly(struct partition_t *p_partition,
 
         UNI_LIST_INSERT_AFTER(services_listhead, &services[i]);
     }
-
-    return service_setting;
 }
 
 void load_irqs_assuredly(struct partition_t *p_partition)
@@ -187,15 +180,22 @@ void load_irqs_assuredly(struct partition_t *p_partition)
     for (i = 0; i < p_ldinf->nirqs; i++) {
         p_partition->signals_allowed |= p_irq_info[i].signal;
 
-        if (p_irq_info[i].init(p_partition, p_irq_info) != TFM_HAL_SUCCESS) {
+        if (tfm_spm_hal_set_secure_irq_priority(p_irq_info[i].source)
+                                                      != TFM_PLAT_ERR_SUCCESS) {
+            tfm_core_panic();
+        }
+
+        if (tfm_spm_hal_set_irq_target_state(p_irq_info[i].source,
+                                             TFM_IRQ_TARGET_STATE_SECURE)
+                                               != TFM_IRQ_TARGET_STATE_SECURE) {
             tfm_core_panic();
         }
 
         if ((p_ldinf->psa_ff_ver & PARTITION_INFO_VERSION_MASK) == 0x0100) {
-            tfm_hal_irq_enable(p_irq_info[i].source);
+            tfm_spm_hal_enable_irq(p_irq_info[i].source);
         } else if ((p_ldinf->psa_ff_ver & PARTITION_INFO_VERSION_MASK)
                                                                     == 0x0101) {
-            tfm_hal_irq_disable(p_irq_info[i].source);
+            tfm_spm_hal_disable_irq(p_irq_info[i].source);
         }
         p_irq_info++;
     }
