@@ -5,16 +5,6 @@
 #include "bsp_api.h"
 #include "r_flash_hp.h"
 #include "r_flash_api.h"
-#include "mbedtls/platform.h"
-#include "psa/crypto.h"
-#include "psa/crypto_extra.h"
-#include "rm_psa_crypto.h"
-
-#include "rm_mcuboot_port.h"
-#if defined(MCUBOOT_USE_MBED_TLS)
-#include "mbedtls/platform.h"
-#endif
-
 #include "r_ioport.h"
 #include "bsp_pin_cfg.h"
 FSP_HEADER

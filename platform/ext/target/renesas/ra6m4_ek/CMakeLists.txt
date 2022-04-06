@@ -123,6 +123,11 @@ if(BL2)
             ${CMAKE_CURRENT_SOURCE_DIR}/fsp/src/bsp/mcu/all/bsp_rom_registers.c
             ${CMAKE_CURRENT_SOURCE_DIR}/fsp/src/bsp/mcu/all/bsp_sbrk.c
             ${CMAKE_CURRENT_SOURCE_DIR}/fsp/src/bsp/mcu/all/bsp_security.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/fsp/src/r_flash_hp/r_flash_hp.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_driver/Driver_Flash.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_driver/Driver_QSPI_Flash.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_driver/Driver_USART.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/ra_gen/common_data.c
     )
 
     target_compile_options(platform_bl2

@@ -22,8 +22,6 @@
  * Copyright (C) 2019 Renesas Electronics Corporation. All rights reserved.
  ***********************************************************************************************************************/
 
-#include "tfm_common_config.h"
-
 #include <Driver_USART.h>
 #include <string.h>
 #include <stdint.h>
@@ -44,7 +42,7 @@ static volatile uart_event_t g_uart_evt = 0;
 
 static volatile uint32_t g_num = 0;
 
-extern ARM_DRIVER_USART Driver_USART;
+extern ARM_DRIVER_USART Driver_USART0;
 
 /* Driver Version */
 static ARM_DRIVER_VERSION DriverVersion =
@@ -250,7 +248,7 @@ void user_uart_callback (uart_callback_args_t * p_args)
 
 #endif
 
-ARM_DRIVER_USART Driver_USART =
+ARM_DRIVER_USART Driver_USART0 =
 {
     ARM_USART_GetVersion,
     ARM_USART_GetCapabilities,
