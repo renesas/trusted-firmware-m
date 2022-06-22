@@ -5,7 +5,6 @@
  *
  */
 
-
 #include "target_cfg.h"
 #include "tfm_spm_hal.h"
 #include "uart_stdout.h"
@@ -37,10 +36,4 @@ enum tfm_platform_err_t tfm_platform_hal_ioctl(tfm_platform_ioctl_req_t request,
 {
     return TFM_PLATFORM_ERR_NOT_SUPPORTED;
 
-}
-
-void Error_Handler(void)
-{
-    /* Reset the system */
-    NVIC_SystemReset();
 }

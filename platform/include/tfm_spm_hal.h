@@ -9,12 +9,19 @@
 #define __TFM_SPM_HAL_H__
 
 #include <stdint.h>
+#include "cmsis.h"
 #include "fih.h"
 #include "tfm_secure_api.h"
 #ifdef TFM_MULTI_CORE_TOPOLOGY
 #include "tfm_multi_core.h"
 #endif
 #include "tfm_plat_defs.h"
+
+/*
+ * Quantized default IRQ priority, the value is:
+ * (Number of configurable priority) / 4: (1UL << __NVIC_PRIO_BITS) / 4
+ */
+#define DEFAULT_IRQ_PRIORITY    (1UL << (__NVIC_PRIO_BITS - 2))
 
 /**
  * \brief Holds peripheral specific data fields required to manage the
@@ -37,27 +44,6 @@ enum irq_target_state_t {
     TFM_IRQ_TARGET_STATE_NON_SECURE,
 };
 
-#ifdef TFM_PSA_API
-/**
- * \brief Holds SPM db fields that define the memory regions used by a
- *        partition.
- */
-struct tfm_spm_partition_memory_data_t
-{
-#if TFM_LVL == 3
-    uint32_t data_start;    /* Start of the private data region of current
-                             * partition. Specifically, the private data
-                             * includes RW, ZI and the partition stack below.
-                             */
-    uint32_t data_limit;    /* Address of the byte beyond the end of the data
-                             * region of this partition.
-                             */
-#endif
-    uint32_t stack_bottom;  /* The bottom of the stack for the partition. */
-    uint32_t stack_top;     /* The top of the stack for the partition. */
-};
-#endif
-
 #ifdef TFM_FIH_PROFILE_ON
 #ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
 /**
@@ -72,47 +58,20 @@ fih_int tfm_spm_hal_setup_isolation_hw(void);
 
 /**
  * \brief Configure peripherals for a partition based on the platform data and
- *        partition index from the DB
+ *        partition privilege
  *
  * This function is called during partition initialisation (before calling the
  * init function for the partition)
  *
- * \param[in] partition_idx    The index of the partition that this peripheral
- *                             is assigned to.
+ * \param[in] privileged       Whether the partition is privileged.
  * \param[in] platform_data    The platform fields of the partition DB record to
  *                             be used for configuration.
  *
  * \return Returns values as specified by FIH specific platform error code
  */
 fih_int tfm_spm_hal_configure_default_isolation(
-                 uint32_t partition_idx,
+                 bool privileged,
                  const struct platform_data_t *platform_data);
-/**
- * \brief Configures the system debug properties.
- *        The default configuration of this function should disable secure debug
- *        when either DAUTH_NONE or DAUTH_NS_ONLY define is set. It is up to the
- *        platform owner to decide if secure debug can be turned on in their
- *        system, if DAUTH_FULL define is present.
- *        The DAUTH_CHIP_DEFAULT define should not be considered a safe default
- *        option unless explicitly noted by the chip vendor.
- *        The implementation has to expect that one of those defines is going to
- *        be set. Otherwise, a compile error needs to be triggered.
- *
- * \return Returns values as specified by FIH specific platform error code
- */
-fih_int tfm_spm_hal_init_debug(void);
-
-/**
- * \brief This function verifies the settings of HW used for memory isolation,
- *        to make sure that important settings was not skipped due to fault
- *        injection attacks.
- *
- * This function is called during TF-M core late startup, before passing
- * execution to non-secure code.
- *
- * \return Returns values as specified by FIH specific platform error code
- */
-fih_int tfm_spm_hal_verify_isolation_hw(void);
 #else /* TFM_FIH_PROFILE_ON */
 #ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
 /**
@@ -127,70 +86,21 @@ enum tfm_plat_err_t tfm_spm_hal_setup_isolation_hw(void);
 
 /**
  * \brief Configure peripherals for a partition based on the platform data and
- *        partition index from the DB
+ *        partition privilege
  *
  * This function is called during partition initialisation (before calling the
  * init function for the partition)
  *
- * \param[in] partition_idx    The index of the partition that this peripheral
- *                             is assigned to.
+ * \param[in] privileged       Whether the partition is privileged.
  * \param[in] platform_data    The platform fields of the partition DB record to
  *                             be used for configuration.
  *
  * \return Returns values as specified by the \ref tfm_plat_err_t
  */
 enum tfm_plat_err_t tfm_spm_hal_configure_default_isolation(
-                 uint32_t partition_idx,
+                 bool priviledged,
                  const struct platform_data_t *platform_data);
-/**
- * \brief Configures the system debug properties.
- *        The default configuration of this function should disable secure debug
- *        when either DAUTH_NONE or DAUTH_NS_ONLY define is set. It is up to the
- *        platform owner to decide if secure debug can be turned on in their
- *        system, if DAUTH_FULL define is present.
- *        The DAUTH_CHIP_DEFAULT define should not be considered a safe default
- *        option unless explicitly noted by the chip vendor.
- *        The implementation has to expect that one of those defines is going to
- *        be set. Otherwise, a compile error needs to be triggered.
- *
- * \return Returns values as specified by the \ref tfm_plat_err_t
- */
-enum tfm_plat_err_t tfm_spm_hal_init_debug(void);
 #endif /* TFM_FIH_PROFILE_ON */
-
-/**
- * \brief Enables the fault handlers and sets priorities.
- *
- * Secure fault (if present) must have the highest possible priority
- *
- * \return Returns values as specified by the \ref tfm_plat_err_t
- */
-enum tfm_plat_err_t tfm_spm_hal_enable_fault_handlers(void);
-
-/**
- * \brief Configures the system reset request properties
- *
- * \return Returns values as specified by the \ref tfm_plat_err_t
- */
-enum tfm_plat_err_t tfm_spm_hal_system_reset_cfg(void);
-
-/**
- * \brief Configures all external interrupts to target the
- *        NS state, apart for the ones associated to secure
- *        peripherals (plus MPC and PPC)
- *
- * \return Returns values as specified by the \ref tfm_plat_err_t
- */
-enum tfm_plat_err_t tfm_spm_hal_nvic_interrupt_target_state_cfg(void);
-
-/**
- * \brief This function enable the interrupts associated
- *        to the secure peripherals (plus the isolation boundary violation
- *        interrupts)
- *
- * \return Returns values as specified by the \ref tfm_plat_err_t
- */
-enum tfm_plat_err_t tfm_spm_hal_nvic_interrupt_enable(void);
 
 /**
  * \brief Get the VTOR value of non-secure image
@@ -218,16 +128,17 @@ uint32_t tfm_spm_hal_get_ns_entry_point(void);
  * \brief Set the priority of a secure IRQ
  *
  * \param[in] irq_line    The IRQ to set the priority for. Might be less than 0
- * \param[in] priority    The priority to set. [0..255]
  *
  * \details This function sets the priority for the IRQ passed in the parameter.
- *          The precision of the priority value might be adjusted to match the
- *          available priority bits in the underlying target platform.
  *
  * \return Returns values as specified by the \ref tfm_plat_err_t
+ *
+ * \note The priority value must be less than the value of PendSV (0x80) and
+ *       greater than SVC (0x0).
+ *       Platforms are responsible for the priority values assignment to each
+ *       IRQ based on their platforms and use cases.
  */
-enum tfm_plat_err_t tfm_spm_hal_set_secure_irq_priority(IRQn_Type irq_line,
-                                                        uint32_t priority);
+enum tfm_plat_err_t tfm_spm_hal_set_secure_irq_priority(IRQn_Type irq_line);
 
 /**
  * \brief Clears a pending IRQ
@@ -265,64 +176,6 @@ enum irq_target_state_t tfm_spm_hal_set_irq_target_state(
                                           IRQn_Type irq_line,
                                           enum irq_target_state_t target_state);
 
-#ifdef TFM_MULTI_CORE_TOPOLOGY
-/**
- * \brief Performs the necessary actions to start the non-secure CPU running
- *        the code at the specified address.
- *
- * \param[in] start_addr       The entry point address of non-secure code.
- */
-void tfm_spm_hal_boot_ns_cpu(uintptr_t start_addr);
-
-/**
- * \brief Called on the secure CPU.
- *        Flags that the secure CPU has completed its initialization
- *        Waits, if necessary, for the non-secure CPU to flag that
- *        it has completed its initialisation
- */
-void tfm_spm_hal_wait_for_ns_cpu_ready(void);
-
-/**
- * \brief Retrieve the current active security configuration information and
- *        fills the \ref security_attr_info_t.
- *
- * \param[in]  p               Base address of target memory region
- * \param[in]  s               Size of target memory region
- * \param[out] p_attr          Address of \ref security_attr_info_t to be filled
- *
- * \return void
- */
-void tfm_spm_hal_get_mem_security_attr(const void *p, size_t s,
-                                       struct security_attr_info_t *p_attr);
-
-/**
- * \brief Retrieve the secure memory protection configuration information and
- *        fills the \ref mem_attr_info_t.
- *
- * \param[in]  p               Base address of target memory region
- * \param[in]  s               Size of target memory region
- * \param[out] p_attr          Address of \ref mem_attr_info_t to be filled
- *
- * \return void
- */
-void tfm_spm_hal_get_secure_access_attr(const void *p, size_t s,
-                                        struct mem_attr_info_t *p_attr);
-
-/**
- * \brief Retrieve the non-secure memory protection configuration information
- *        and fills the \ref mem_attr_info_t.
- *
- * \param[in]  p               Base address of target memory region
- * \param[in]  s               Size of target memory region
- * \param[out] p_attr          Address of \ref mem_attr_info_t to be filled
- *
- * \return void
- */
-void tfm_spm_hal_get_ns_access_attr(const void *p, size_t s,
-                                    struct mem_attr_info_t *p_attr);
-
-#endif /*TFM_MULTI_CORE_TOPOLOGY*/
-
 #if !defined(__SAUREGION_PRESENT) || (__SAUREGION_PRESENT == 0)
 /**
  * \brief Platform-specific check whether the current partition has access to a memory range
@@ -337,8 +190,7 @@ void tfm_spm_hal_get_ns_access_attr(const void *p, size_t s,
  *
  * \return True if the access is granted, false otherwise.
  */
-bool tfm_spm_hal_has_access_to_region(const void *p, size_t s,
-                                              int flags);
+bool tfm_spm_hal_has_access_to_region(const void *p, size_t s, int flags);
 #endif /* !defined(__SAUREGION_PRESENT) || (__SAUREGION_PRESENT == 0) */
 
 #endif /* __TFM_SPM_HAL_H__ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2022, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -12,13 +12,13 @@
 #include <stdint.h>
 
 #include "psa/error.h"
+#include "psa/fwu_config.h"
 #include "tfm_fwu_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PSA_FWU_MAX_BLOCK_SIZE               1024
 #define TFM_FWU_INVALID_IMAGE_ID             0
 
 /* The maximum size of an image digest in bytes. This is dependent
@@ -207,6 +207,8 @@ psa_status_t psa_fwu_request_reboot(void);
 /**
  * \brief Indicates to the implementation that the upgrade was successful.
  *
+ * \param[in] image_id         The image_id of the image to query
+ *
  * \return A status indicating the success/failure of the operation
  *
  * \retval PSA_SUCCESS                  The image and its dependencies have
@@ -217,7 +219,7 @@ psa_status_t psa_fwu_request_reboot(void);
  * \retval PSA_ERROR_NOT_PERMITTED      The caller is not permitted to make
  *                                      this call
  */
-psa_status_t psa_fwu_accept(void);
+psa_status_t psa_fwu_accept(psa_image_id_t image_id);
 
 /**
  * \brief Stores a manifest object and associates it with a particular image ID.

@@ -7,8 +7,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include "tfm_thread.h"
-#include "tfm_wait.h"
+#include "thread.h"
 #include "psa/client.h"
 #include "psa/service.h"
 #include "internal_errors.h"
@@ -39,11 +38,11 @@ int32_t tfm_pool_init(struct tfm_pool_instance_t *pool, size_t poolsz,
     spm_memset(pool, 0, poolsz);
 
     /* Chain pool chunks */
-    BI_LIST_INIT_NODE(&pool->chunks_list);
+    UNI_LISI_INIT_NODE(pool, next);
 
     pchunk = (struct tfm_pool_chunk_t *)pool->chunks;
     for (i = 0; i < num; i++) {
-        BI_LIST_INSERT_BEFORE(&pool->chunks_list, &pchunk->list);
+        UNI_LIST_INSERT_AFTER(pool, pchunk, next);
         pchunk = (struct tfm_pool_chunk_t *)&pchunk->data[chunksz];
     }
 
@@ -56,32 +55,29 @@ int32_t tfm_pool_init(struct tfm_pool_instance_t *pool, size_t poolsz,
 
 void *tfm_pool_alloc(struct tfm_pool_instance_t *pool)
 {
-    struct bi_list_node_t *node;
-    struct tfm_pool_chunk_t *pchunk;
+    struct tfm_pool_chunk_t *node;
 
     if (!pool) {
         return NULL;
     }
 
-    if (BI_LIST_IS_EMPTY(&pool->chunks_list)) {
+    if (UNI_LIST_IS_EMPTY(pool, next)) {
         return NULL;
     }
 
-    node = BI_LIST_NEXT_NODE(&pool->chunks_list);
-    pchunk = TFM_GET_CONTAINER_PTR(node, struct tfm_pool_chunk_t, list);
+    node = UNI_LIST_NEXT_NODE(pool, next);
+    UNI_LIST_REMOVE_NODE(pool, node, next);
 
-    /* Remove node from list node, it will be added when pool free */
-    BI_LIST_REMOVE_NODE(node);
-
-    return &pchunk->data;
+    return &(((struct tfm_pool_chunk_t *)node)->data);
 }
 
 void tfm_pool_free(struct tfm_pool_instance_t *pool, void *ptr)
 {
     struct tfm_pool_chunk_t *pchunk;
 
-    pchunk = TFM_GET_CONTAINER_PTR(ptr, struct tfm_pool_chunk_t, data);
-    BI_LIST_INSERT_BEFORE(&pool->chunks_list, &pchunk->list);
+    pchunk = TO_CONTAINER(ptr, struct tfm_pool_chunk_t, data);
+
+    UNI_LIST_INSERT_AFTER(pool, pchunk, next);
 }
 
 bool is_valid_chunk_data_in_pool(struct tfm_pool_instance_t *pool,
@@ -99,7 +95,7 @@ bool is_valid_chunk_data_in_pool(struct tfm_pool_instance_t *pool,
     }
 
     pool_chunk_address =
-    (uint32_t)TFM_GET_CONTAINER_PTR(data, struct tfm_pool_chunk_t, data);
+        (uint32_t)TO_CONTAINER(data, struct tfm_pool_chunk_t, data);
 
     /* Make sure that the chunk containing the message is aligned on */
     /* chunk boundary in the pool. */

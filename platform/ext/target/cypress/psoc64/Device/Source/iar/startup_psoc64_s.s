@@ -1,6 +1,6 @@
 ;/*
-; * Copyright (c) 2017-2018 ARM Limited
-; * Copyright (c) 2019-2020, Cypress Semiconductor Corporation. All rights reserved.
+; * Copyright (c) 2017-2021 ARM Limited
+; * Copyright (c) 2019-2021, Cypress Semiconductor Corporation. All rights reserved.
 ; * Copyright (c) 2020-2021 IAR Systems AB
 ; *
 ; * Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,6 @@ CY_CPU_VTOR_ADDR       EQU    0xE000ED08
 
 ; Vector Table Mapped to Address 0 at Reset
 
-                SECTION  ARM_LIB_STACK_MSP:DATA:NOROOT(3)
                 SECTION  ARM_LIB_STACK:DATA:NOROOT(3)
 
                 SECTION  .intvec:CODE:NOROOT(2)
@@ -53,13 +52,13 @@ CY_CPU_VTOR_ADDR       EQU    0xE000ED08
                 IMPORT  HardFault_Handler
                 IMPORT  SVC_Handler
                 IMPORT  PendSV_Handler
-                IMPORT  NvicMux7_IRQHandler
+                IMPORT  tfm_mailbox_irq_handler
                 IMPORT  Cy_SysIpcPipeIsrCm0
 
                 DATA
 
 __vector_table       ;Core Interrupts
-                DCD     sfe(ARM_LIB_STACK_MSP)    ; Top of Stack
+                DCD     sfe(ARM_LIB_STACK)        ; Top of Stack
                 DCD     Reset_Handler             ; Reset Handler
                 DCD     CY_NMI_HANLDER_ADDR       ; NMI Handler
                 DCD     HardFault_Handler         ; Hard Fault Handler
@@ -84,7 +83,7 @@ __vector_table       ;Core Interrupts
                 DCD     NvicMux4_IRQHandler                   ; CPU User Interrupt #4
                 DCD     NvicMux5_IRQHandler                   ; CPU User Interrupt #5
                 DCD     NvicMux6_IRQHandler                   ; CPU User Interrupt #6
-                DCD     NvicMux7_IRQHandler                   ; CPU User Interrupt #7
+                DCD     tfm_mailbox_irq_handler               ; CPU User Interrupt #7
                 DCD     Internal0_IRQHandler                  ; Internal SW Interrupt #0
                 DCD     Internal1_IRQHandler                  ; Internal SW Interrupt #1
                 DCD     Internal2_IRQHandler                  ; Internal SW Interrupt #2
@@ -133,12 +132,6 @@ Vectors_Copy
 
                 LDR     R0, =SystemInit
                 BLX     R0
-                LDR     R0, =sfe(ARM_LIB_STACK)      ; End of PROC_STACK
-                MSR     PSP, R0
-                MRS     R0, control    ; Get control value
-                MOVS    R1, #2
-                ORRS    R0, R0, R1     ; Select switch to PSP
-                MSR     control, R0
                 LDR     R0, =__iar_program_start
                 BX      R0
 End_Of_Main

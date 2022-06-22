@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2020-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -12,7 +12,6 @@
 #include <stdint.h>
 #include "tfm_hal_defs.h"
 #include "tfm_hal_spm_logdev.h"
-#include "tfm_common_config.h"
 
 /* The SPM log levels */
 #define TFM_SPM_LOG_LEVEL_DEBUG    3  /* All log APIs output */
@@ -32,7 +31,7 @@
 
 #if (TFM_SPM_LOG_LEVEL > TFM_SPM_LOG_LEVEL_DEBUG || \
      TFM_SPM_LOG_LEVEL < TFM_SPM_LOG_LEVEL_SILENCE)
-#error "Incorrect TFM_SPM_LOG_LEVEL value!"
+#error "Incorrect TFM_SPM_LOG_LEVEL value!"
 #endif
 
 #if (TFM_SPM_LOG_LEVEL == TFM_SPM_LOG_LEVEL_DEBUG)

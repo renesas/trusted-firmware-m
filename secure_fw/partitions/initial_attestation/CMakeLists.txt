@@ -37,11 +37,21 @@ target_sources(tfm_psa_rot_partition_attestation
         $<$<BOOL:${TFM_PSA_API}>:
             ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/initial_attestation/auto_generated/intermedia_tfm_initial_attestation.c>
 )
+target_sources(tfm_partitions
+    INTERFACE
+        $<$<BOOL:${TFM_PSA_API}>:
+            ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/initial_attestation/auto_generated/load_info_tfm_initial_attestation.c>
+)
 
+# Set include directory
 target_include_directories(tfm_psa_rot_partition_attestation
     PUBLIC
         .
     PRIVATE
+        ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/initial_attestation
+)
+target_include_directories(tfm_partitions
+    INTERFACE
         ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/initial_attestation
 )
 
@@ -49,8 +59,8 @@ target_link_libraries(tfm_psa_rot_partition_attestation
     PRIVATE
         tfm_secure_api
         platform_s
-        tfm_qcbor
-        tfm_t_cose
+        tfm_qcbor_s
+        tfm_t_cose_s
         secure_fw
         psa_interface
         tfm_sprt
@@ -62,7 +72,7 @@ target_compile_definitions(tfm_psa_rot_partition_attestation
         $<$<BOOL:${SYMMETRIC_INITIAL_ATTESTATION}>:SYMMETRIC_INITIAL_ATTESTATION>
         $<$<BOOL:${ATTEST_INCLUDE_OPTIONAL_CLAIMS}>:INCLUDE_OPTIONAL_CLAIMS>
         $<$<BOOL:${ATTEST_INCLUDE_COSE_KEY_ID}>:INCLUDE_COSE_KEY_ID>
-        $<$<NOT:$<BOOL:${PLATFORM_DUMMY_ATTEST_HAL}>>:CLAIM_VALUE_CHECK>
+        $<$<NOT:$<BOOL:${PLATFORM_DEFAULT_ATTEST_HAL}>>:CLAIM_VALUE_CHECK>
 )
 
 ########################### Attest defs ########################################
@@ -85,7 +95,10 @@ target_sources(tfm_sprt
 # to not overshadow _real_ warnings.
 set_source_files_properties(tfm_attest_secure_api.c
     PROPERTIES
-        COMPILE_FLAGS -Wno-implicit-function-declaration
+        COMPILE_FLAGS
+            $<$<C_COMPILER_ID:ARMClang>:-Wno-implicit-function-declaration>
+            $<$<C_COMPILER_ID:GNU>:-Wno-implicit-function-declaration>
+            $<$<C_COMPILER_ID:IAR>:>
 )
 
 ############################ Partition Defs ####################################

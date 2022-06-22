@@ -28,6 +28,10 @@ target_include_directories(tfm_app_rot_partition_ps
     PRIVATE
         ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/protected_storage
 )
+target_include_directories(tfm_partitions
+    INTERFACE
+        ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/protected_storage
+)
 
 target_sources(tfm_app_rot_partition_ps
     PRIVATE
@@ -38,9 +42,9 @@ target_sources(tfm_app_rot_partition_ps
         ps_utils.c
         $<$<BOOL:${PS_ENCRYPTION}>:crypto/ps_crypto_interface.c>
         $<$<BOOL:${PS_ENCRYPTION}>:ps_encrypted_object.c>
-        # The test_ps_nv_counters.c will be used instead, when secure test is ON
-        # and PS_TEST_NV_COUNTERS ON
-        $<$<NOT:$<AND:$<BOOL:${TEST_S}>,$<BOOL:${PS_TEST_NV_COUNTERS}>>>:nv_counters/ps_nv_counters.c>
+        # The test_ps_nv_counters.c will be used instead, when PS secure test is
+        # ON and PS_TEST_NV_COUNTERS is ON
+        $<$<NOT:$<AND:$<BOOL:${TEST_S_PS}>,$<BOOL:${PS_TEST_NV_COUNTERS}>>>:nv_counters/ps_nv_counters.c>
 )
 
 # The generated sources
@@ -48,6 +52,11 @@ target_sources(tfm_app_rot_partition_ps
     PRIVATE
         $<$<BOOL:${TFM_PSA_API}>:
             ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/protected_storage/auto_generated/intermedia_tfm_protected_storage.c>
+)
+target_sources(tfm_partitions
+    INTERFACE
+        $<$<BOOL:${TFM_PSA_API}>:
+            ${CMAKE_BINARY_DIR}/generated/secure_fw/partitions/protected_storage/auto_generated/load_info_tfm_protected_storage.c>
 )
 
 target_link_libraries(tfm_app_rot_partition_ps
@@ -70,7 +79,10 @@ target_sources(tfm_sprt
 # to not overshadow _real_ warnings.
 set_source_files_properties(tfm_ps_secure_api.c
     PROPERTIES
-        COMPILE_FLAGS -Wno-implicit-function-declaration
+        COMPILE_FLAGS
+            $<$<C_COMPILER_ID:ARMClang>:-Wno-implicit-function-declaration>
+            $<$<C_COMPILER_ID:GNU>:-Wno-implicit-function-declaration>
+            $<$<C_COMPILER_ID:IAR>:>
 )
 
 ############################ Partition Defs ####################################

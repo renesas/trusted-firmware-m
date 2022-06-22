@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -19,6 +19,7 @@
 #include "tfm_attest_hal.h"
 #include "prod_hw_defs.h"
 #include "cc_otp_defs.h"
+#include "dx_crys_kernel.h"
 
 #include "region_defs.h"
 
@@ -113,11 +114,6 @@ int crypto_hw_accelerator_finish(void)
     return 0;
 }
 
-int crypto_hw_accelerator_get_lcs(uint32_t *lcs)
-{
-    return mbedtls_mng_lcsGet(lcs);
-}
-
 int crypto_hw_accelerator_huk_derive_key(const uint8_t *label,
                                          size_t label_size,
                                          const uint8_t *context,
@@ -140,114 +136,39 @@ int crypto_hw_accelerator_huk_derive_key(const uint8_t *label,
                                             key, key_size);
 }
 
-/*
- * Count number of zero bits in 32-bit word.
- * Copied from:
- * lib/ext/cryptocell-312-runtime/host/src/ \
- * cc3x_productionlib/common/prod_util.c: CC_PROD_GetZeroCount(..)
- */
-static int get_zero_bits_count(uint32_t *buf,
-                               uint32_t  buf_word_size,
-                               uint32_t *zero_count)
+int crypto_hw_apply_debug_permissions(uint8_t *permissions_mask, uint32_t len)
 {
-    uint32_t val;
-    uint32_t index = 0;
+    int ret_val = -1;
+    int failure = 4;
+    uint32_t before_dcu[4];
+    uint32_t after_dcu;
+    uint32_t host_dcu_en_offsets[] = {
+                        DX_BASE_HOST_RGF + DX_HOST_DCU_EN0_REG_OFFSET,
+                        DX_BASE_HOST_RGF + DX_HOST_DCU_EN1_REG_OFFSET,
+                        DX_BASE_HOST_RGF + DX_HOST_DCU_EN2_REG_OFFSET,
+                        DX_BASE_HOST_RGF + DX_HOST_DCU_EN3_REG_OFFSET};
 
-    *zero_count = 0;
-    for (index = 0; index < buf_word_size; index++) {
-        val = buf[index];
-        val = val - ((val >> 1) & 0x55555555);
-        val = (val & 0x33333333) + ((val >> 2) & 0x33333333);
-        val = ((((val + (val >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24);
-        *zero_count += (32 - val);
-    }
-    /* All 0's and all 1's is forbidden */
-    if ((*zero_count == 0)
-        || (*zero_count == buf_word_size*CC_BITS_IN_32BIT_WORD)) {
-        *zero_count = 0;
-        return -1;
+    if (len != 16 || permissions_mask == NULL) {
+        return ret_val;
     }
 
-    return 0;
+    for (int i = 0; i < 4; i++) {
+        before_dcu[i] = *((uint32_t*)(permissions_mask + (i*4)));
+    }
+
+    for (int i = 0; i < 4; i++) {
+
+        CC_HAL_WRITE_REGISTER(host_dcu_en_offsets[i], before_dcu[i]);
+        after_dcu = CC_HAL_READ_REGISTER(host_dcu_en_offsets[i]);
+
+        if (after_dcu == before_dcu[i]) {
+            failure--;
+        }
+
+        if (!failure) {
+            ret_val = 0;
+        }
+    }
+
+    return ret_val;
 }
-
-/*
- * Get attestation private key from CC312 OTP
- */
-int crypto_hw_accelerator_get_attestation_private_key(uint8_t  *buf,
-                                                      uint32_t *size)
-{
-    uint32_t *key = (uint32_t *)buf;
-    uint32_t otp_val;
-    uint32_t otp_zero_count;
-    uint32_t zero_count;
-    int i;
-    int rc;
-
-    if (key == NULL ||
-        *size < CC_OTP_ATTESTATION_KEY_SIZE_IN_WORDS * sizeof(uint32_t)) {
-        return -1;
-    }
-    *size = CC_OTP_ATTESTATION_KEY_SIZE_IN_WORDS * sizeof(uint32_t);
-
-    /* Get provisioned key from OTP, 8 words */
-    for (i = 0; i < CC_OTP_ATTESTATION_KEY_SIZE_IN_WORDS; i++) {
-        CC_PROD_OTP_READ(otp_val, CC_OTP_ATTESTATION_KEY_OFFSET + i);
-        *key = otp_val;
-        key++;
-    }
-
-    /* Verify the zero number of private key */
-    rc = get_zero_bits_count((uint32_t *)buf,
-                             CC_OTP_ATTESTATION_KEY_SIZE_IN_WORDS,
-                             &zero_count);
-    if (rc) {
-        return -1;
-    }
-
-    CC_PROD_OTP_READ(otp_zero_count, CC_OTP_ATTESTATION_KEY_ZERO_COUNT_OFFSET);
-    if (otp_zero_count != zero_count) {
-        return -1;
-    }
-
-    return 0;
-}
-
-#ifdef BL2
-int crypto_hw_accelerator_get_rotpk_hash(uint8_t image_id,
-                                         uint8_t *rotpk_hash,
-                                         uint32_t *rotpk_hash_size)
-{
-    int32_t ret;
-    mbedtls_mng_pubKeyType_t key_index;
-    uint32_t rotpk_hash_size_in_words;
-
-    if (image_id == 0) {
-#if (MCUBOOT_IMAGE_NUMBER == 1)
-        key_index = CC_MNG_HASH_BOOT_KEY_256B;
-        rotpk_hash_size_in_words = 8;
-#elif (MCUBOOT_IMAGE_NUMBER == 2)
-        key_index = CC_MNG_HASH_BOOT_KEY_0_128B;
-        rotpk_hash_size_in_words = 4;
-    } else if (image_id == 1) {
-        key_index = CC_MNG_HASH_BOOT_KEY_1_128B;
-        rotpk_hash_size_in_words = 4;
-#endif /* MCUBOOT_IMAGE_NUMBER == 1 */
-    } else {
-        return -1;
-    }
-
-    if (*rotpk_hash_size < rotpk_hash_size_in_words * sizeof(uint32_t)) {
-        return -1;
-    }
-    *rotpk_hash_size = rotpk_hash_size_in_words * sizeof(uint32_t);
-
-    ret = mbedtls_mng_pubKeyHashGet(key_index, (uint32_t *)rotpk_hash,
-                                    rotpk_hash_size_in_words);
-    if (ret) {
-        return ret;
-    }
-
-    return 0;
-}
-#endif  /* BL2 */

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2014 Wind River Systems, Inc.
- * Copyright (c) 2017-2020 Arm Limited.
+ * Copyright (c) 2017-2022 Arm Limited.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,11 @@
 #include "flash_map_backend/flash_map_backend.h"
 #include "boot_hal.h"
 #include "uart_stdout.h"
+#include "tfm_plat_otp.h"
+#include "tfm_plat_provisioning.h"
+#ifdef TEST_BL2
+#include "mcuboot_suites.h"
+#endif /* TEST_BL2 */
 #include "rm_mcuboot_port.h"
 
 /* Avoids the semihosting issue */
@@ -37,7 +42,7 @@ __asm("  .global __ARM_use_no_argv\n");
 #endif
 
 #ifdef MCUBOOT_ENCRYPT_RSA
-#define BL2_MBEDTLS_MEM_BUF_LEN 0x225C
+#define BL2_MBEDTLS_MEM_BUF_LEN 0x3000
 #else
 #define BL2_MBEDTLS_MEM_BUF_LEN 0x2000
 #endif
@@ -46,17 +51,55 @@ __asm("  .global __ARM_use_no_argv\n");
 static uint8_t mbedtls_mem_buf[BL2_MBEDTLS_MEM_BUF_LEN];
 int bl2_main(void);
 
-int bl2_main(void)
+static void do_boot(struct boot_rsp *rsp)
+{
+    struct boot_arm_vector_table *vt;
+    uintptr_t flash_base;
+    int rc;
+
+    /* The beginning of the image is the ARM vector table, containing
+     * the initial stack pointer address and the reset vector
+     * consecutively. Manually set the stack pointer and jump into the
+     * reset vector
+     */
+    rc = flash_device_base(rsp->br_flash_dev_id, &flash_base);
+    assert(rc == 0);
+
+    if (rsp->br_hdr->ih_flags & IMAGE_F_RAM_LOAD) {
+       /* The image has been copied to SRAM, find the vector table
+        * at the load address instead of image's address in flash
+        */
+        vt = (struct boot_arm_vector_table *)(rsp->br_hdr->ih_load_addr +
+                                         rsp->br_hdr->ih_hdr_size);
+    } else {
+        /* Using the flash address as not executing in SRAM */
+        vt = (struct boot_arm_vector_table *)(flash_base +
+                                         rsp->br_image_off +
+                                         rsp->br_hdr->ih_hdr_size);
+    }
+
+#if MCUBOOT_LOG_LEVEL > MCUBOOT_LOG_LEVEL_OFF || TEST_BL2
+    stdio_uninit();
+#endif
+
+    /* This function never returns, because it calls the secure application
+     * Reset_Handler().
+     */
+    boot_platform_quit(vt);
+}
+
+int main(void)
 {
     struct boot_rsp rsp;
     fih_int fih_rc = FIH_FAILURE;
+    enum tfm_plat_err_t plat_err;
 
     /* Initialise the mbedtls static memory allocator so that mbedtls allocates
      * memory from the provided static buffer instead of from the heap.
      */
     mbedtls_memory_buffer_alloc_init(mbedtls_mem_buf, BL2_MBEDTLS_MEM_BUF_LEN);
 
-#if MCUBOOT_LOG_LEVEL > MCUBOOT_LOG_LEVEL_OFF
+#if MCUBOOT_LOG_LEVEL > MCUBOOT_LOG_LEVEL_OFF || TEST_BL2
     stdio_init();
 #endif
 
@@ -68,11 +111,37 @@ int bl2_main(void)
 
     BOOT_LOG_INF("Starting bootloader");
 
+    plat_err = tfm_plat_otp_init();
+    if (plat_err != TFM_PLAT_ERR_SUCCESS) {
+            BOOT_LOG_ERR("OTP system initialization failed");
+            FIH_PANIC;
+    }
+
+    if (tfm_plat_provisioning_is_required()) {
+        plat_err = tfm_plat_provisioning_perform();
+        if (plat_err != TFM_PLAT_ERR_SUCCESS) {
+            BOOT_LOG_ERR("Provisioning failed");
+            FIH_PANIC;
+        }
+    } else {
+        tfm_plat_provisioning_check_for_dummy_keys();
+    }
+
     FIH_CALL(boot_nv_security_counter_init, fih_rc);
     if (fih_not_eq(fih_rc, FIH_SUCCESS)) {
         BOOT_LOG_ERR("Error while initializing the security counter");
         FIH_PANIC;
     }
+
+    /* Perform platform specific post-initialization */
+    if (boot_platform_post_init() != 0) {
+        BOOT_LOG_ERR("Platform post init failed");
+        FIH_PANIC;
+    }
+
+#ifdef TEST_BL2
+    (void)run_mcuboot_testsuite();
+#endif /* TEST_BL2 */
 
     FIH_CALL(boot_go, fih_rc, &rsp);
     if (fih_not_eq(fih_rc, FIH_SUCCESS)) {

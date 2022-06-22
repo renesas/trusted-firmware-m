@@ -1,5 +1,5 @@
 ;/*
-; * Copyright (c) 2009-2021 Arm Limited
+; * Copyright (c) 2009-2022 Arm Limited
 ; *
 ; * Licensed under the Apache License, Version 2.0 (the "License");
 ; * you may not use this file except in compliance with the License.
@@ -29,9 +29,6 @@ MEMORY
 #if defined(S_CODE_SRAM_ALIAS_BASE)
   CODE_RAM (rwx) : ORIGIN = S_CODE_SRAM_ALIAS_BASE, LENGTH = TOTAL_CODE_SRAM_SIZE
 #endif
-#ifndef TFM_MULTI_CORE_TOPOLOGY
-  VENEERS  (rx)  : ORIGIN = CMSE_VENEER_REGION_START, LENGTH = CMSE_VENEER_REGION_SIZE
-#endif
 
 #if defined(PSA_PROXY_SHARED_MEMORY_BASE)
   PSA_PROXY_SHARED_MEMORY_RAM (rw) : ORIGIN = PSA_PROXY_SHARED_MEMORY_BASE, LENGTH = PSA_PROXY_SHARED_MEMORY_SIZE
@@ -40,7 +37,9 @@ MEMORY
 }
 
 __heap_size__  = S_HEAP_SIZE;
+#if !defined(TFM_PSA_API)
 __psp_stack_size__ = S_PSP_STACK_SIZE;
+#endif
 __msp_init_stack_size__ = S_MSP_STACK_SIZE_INIT;
 
 /* Library configurations */
@@ -55,9 +54,24 @@ SECTIONS
         __vectors_start__ = .;
         KEEP(*(.vectors))
         __vectors_end__ = .;
-        *startup*(.text*)
-        . = ALIGN(4);
     } > FLASH
+
+#ifndef TFM_MULTI_CORE_TOPOLOGY
+    ASSERT(. <= ADDR(.TFM_VECTORS) + S_CODE_VECTOR_TABLE_SIZE, ".TFM_VECTORS section size overflow.")
+    . = ADDR(.TFM_VECTORS) + S_CODE_VECTOR_TABLE_SIZE;
+    /*
+     * Place the CMSE Veneers (containing the SG instruction) after the code, in
+     * a separate 32 bytes aligned region so that the SAU can programmed to just
+     * set this region as Non-Secure Callable.
+     */
+    .gnu.sgstubs ALIGN(32) : ALIGN(32)
+    {
+        *(.gnu.sgstubs*)
+        . = ALIGN(32);
+    } > FLASH
+    Image$$ER_VENEER$$Base = ADDR(.gnu.sgstubs);
+    Image$$VENEER_ALIGN$$Limit = ADDR(.gnu.sgstubs) + SIZEOF(.gnu.sgstubs);
+#endif
 
     .copy.table : ALIGN(4)
     {
@@ -111,35 +125,21 @@ SECTIONS
         LONG (PSA_PROXY_SHARED_MEMORY_BASE)
         LONG (PSA_PROXY_SHARED_MEMORY_SIZE)
 #endif
-#if defined(TFM_SP_META_PTR_ENABLE)
-        LONG (LOADADDR(.TFM_SP_META_PTR))
+#if defined(CONFIG_TFM_PARTITION_META)
         LONG (ADDR(.TFM_SP_META_PTR))
         LONG (SIZEOF(.TFM_SP_META_PTR))
 #endif
         __zero_table_end__ = .;
     } > FLASH
 
-    .TFM_UNPRIV_CODE : ALIGN(32)
+    /**** Section for holding partition RO load data */
+    .TFM_SP_LOAD_LIST : ALIGN(4)
     {
-        *libc_nano*:*(.text*)
-        *libc_nano*:*(.rodata*)
-        *(SFN)
-        *libgcc*:*(.text*)
-        *libgcc*:*(.rodata*)
-        *libtfm_sprt*:*(.text*)
-        *libtfm_sprt*:*(.rodata*)
-        *psa_client.*(.text*)              /* NXP */
-        *psa_client.*(.rodata*)
-        *psa_service.*(.text*)             /* NXP */
-        *psa_service.*(.rodata*)
-        *psa_lifecycle.*(.text*)             /* NXP */
-        *psa_lifecycle.*(.rodata*)
-        *tfm_log_raw.*(.text*)             /* NXP */
-        *tfm_log_raw.*(.rodata*)
-        . = ALIGN(32);
+       KEEP(*(.part_load))
     } > FLASH
-    Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.TFM_UNPRIV_CODE);
-    Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.TFM_UNPRIV_CODE) + SIZEOF(.TFM_UNPRIV_CODE);
+    Image$$TFM_SP_LOAD_LIST$$RO$$Base = ADDR(.TFM_SP_LOAD_LIST);
+    Image$$TFM_SP_LOAD_LIST$$RO$$Limit = ADDR(.TFM_SP_LOAD_LIST) + SIZEOF(.TFM_SP_LOAD_LIST);
+    . = ALIGN(32);
 
     /**** PSA RoT RO part (CODE + RODATA) start here */
     Image$$TFM_PSA_CODE_START$$Base = .;
@@ -213,29 +213,12 @@ SECTIONS
 
     .ER_TFM_CODE : ALIGN(4)
     {
-        *(.text*)
+        *startup*(.text*)
+        *libplatform_s*:*(.text*)
+        *libtfm_spm*:*(.text*)
 
-        KEEP(*(.init))
-        KEEP(*(.fini))
-
-
-        /* .ctors */
-        *crtbegin.o(.ctors)
-        *crtbegin?.o(.ctors)
-        *(EXCLUDE_FILE(*crtend?.o *crtend.o) .ctors)
-        *(SORT(.ctors.*))
-        *(.ctors)
-
-        /* .dtors */
-         *crtbegin.o(.dtors)
-         *crtbegin?.o(.dtors)
-         *(EXCLUDE_FILE(*crtend?.o *crtend.o) .dtors)
-         *(SORT(.dtors.*))
-         *(.dtors)
-
-        *(.rodata*)
-
-        KEEP(*(.eh_frame*))
+        *libplatform_s*:*(.rodata*)
+        *libtfm_spm*:*(.rodata*)
     } > FLASH
 
     /**** Base address of secure data area */
@@ -279,28 +262,24 @@ SECTIONS
     {
         . += __msp_init_stack_size__;
     } > RAM
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Base = ADDR(.msp_stack);
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
 
+# if !defined(TFM_PSA_API)
     /* PSP is unprivileged in single-core topology */
     .psp_stack : ALIGN(32)
     {
-# if !defined(TFM_PSA_API)
         . += (__psp_stack_size__ - 0x8); // reserve space for stack seal (8 bytes)
-# else
-        . += (__psp_stack_size__);
-# endif
     } > RAM
-    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.psp_stack);
-    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
+    Image$$ER_INITIAL_PSP$$ZI$$Base = ADDR(.psp_stack);
+    Image$$ER_INITIAL_PSP$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
 
-# if !defined(TFM_PSA_API)
     .psp_stack_seal_res :
     {
         . += 0x8;
     } > RAM
-    Image$$ARM_LIB_STACK_SEAL$$ZI$$Base = ADDR(.psp_stack_seal_res);
-    Image$$ARM_LIB_STACK_SEAL$$ZI$$Limit = ADDR(.psp_stack_seal_res) + SIZEOF(.psp_stack_seal_res);
+    Image$$ER_INITIAL_PSP_SEAL$$ZI$$Base = ADDR(.psp_stack_seal_res);
+    Image$$ER_INITIAL_PSP_SEAL$$ZI$$Limit = ADDR(.psp_stack_seal_res) + SIZEOF(.psp_stack_seal_res);
 # endif
 #endif
 
@@ -325,16 +304,17 @@ SECTIONS
     } > RAM
 #endif /* TFM_LVL == 1 */
 
-#if defined(TFM_SP_META_PTR_ENABLE)
+#if defined(CONFIG_TFM_PARTITION_META)
     .TFM_SP_META_PTR : ALIGN(32)
     {
-        *(SP_META_PTR_SPRTL_INST)
+        *(.bss.SP_META_PTR_SPRTL_INST)
     } > RAM
-    Image$$TFM_SP_META_PTR$$RW$$Base = ADDR(.TFM_SP_META_PTR);
-    Image$$TFM_SP_META_PTR$$RW$$Limit = ADDR(.TFM_SP_META_PTR) + SIZEOF(.TFM_SP_META_PTR);
+    Image$$TFM_SP_META_PTR$$ZI$$Base = ADDR(.TFM_SP_META_PTR);
+    Image$$TFM_SP_META_PTR$$ZI$$Limit = ADDR(.TFM_SP_META_PTR) + SIZEOF(.TFM_SP_META_PTR);
 #endif
 
     /**** APPLICATION RoT DATA start here */
+    . = ALIGN(32);
     Image$$TFM_APP_RW_STACK_START$$Base = .;
 
     .TFM_APP_ROT_LINKER_DATA : ALIGN(32)
@@ -431,16 +411,8 @@ SECTIONS
     {
         . += __msp_init_stack_size__;
     } > RAM
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Base = ADDR(.msp_stack);
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
-
-    /* PSP is privileged in multi-core topology */
-    .psp_stack : ALIGN(32)
-    {
-        . += __psp_stack_size__;
-    } > RAM
-    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.psp_stack);
-    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
 #endif
 
     /**** PSA RoT DATA start here */
@@ -470,6 +442,36 @@ SECTIONS
 
     /**** PSA RoT DATA end here */
     Image$$TFM_PSA_RW_STACK_END$$Base = .;
+
+    .TFM_UNPRIV_CODE : ALIGN(32)
+    {
+        *(SFN)
+        *(.text*)
+
+        KEEP(*(.init))
+        KEEP(*(.fini))
+
+        /* .ctors */
+        *crtbegin.o(.ctors)
+        *crtbegin?.o(.ctors)
+        *(EXCLUDE_FILE(*crtend?.o *crtend.o) .ctors)
+        *(SORT(.ctors.*))
+        *(.ctors)
+
+        /* .dtors */
+         *crtbegin.o(.dtors)
+         *crtbegin?.o(.dtors)
+         *(EXCLUDE_FILE(*crtend?.o *crtend.o) .dtors)
+         *(SORT(.dtors.*))
+         *(.dtors)
+
+        *(.rodata*)
+
+        KEEP(*(.eh_frame*))
+        . = ALIGN(32);
+    } > FLASH
+    Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.TFM_UNPRIV_CODE);
+    Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.TFM_UNPRIV_CODE) + SIZEOF(.TFM_UNPRIV_CODE);
 
 #ifdef RAM_VECTORS_SUPPORT
     .ramVectors (NOLOAD) : ALIGN(256)
@@ -516,6 +518,13 @@ SECTIONS
     .TFM_BSS : ALIGN(4)
     {
         __bss_start__ = .;
+        __partition_runtime_start__ = .;
+        KEEP(*(.bss.part_runtime))
+        __partition_runtime_end__ = .;
+        . = ALIGN(4);
+        __service_runtime_start__ = .;
+        KEEP(*(.bss.serv_runtime))
+        __service_runtime_end__ = .;
         *(.bss*)
         *(COMMON)
         . = ALIGN(4);
@@ -523,6 +532,10 @@ SECTIONS
     } > RAM AT> RAM
     Image$$ER_TFM_DATA$$ZI$$Base = ADDR(.TFM_BSS);
     Image$$ER_TFM_DATA$$ZI$$Limit = ADDR(.TFM_BSS) + SIZEOF(.TFM_BSS);
+    Image$$ER_PART_RT_POOL$$ZI$$Base = __partition_runtime_start__;
+    Image$$ER_PART_RT_POOL$$ZI$$Limit = __partition_runtime_end__;
+    Image$$ER_SERV_RT_POOL$$ZI$$Base = __service_runtime_start__;
+    Image$$ER_SERV_RT_POOL$$ZI$$Limit = __service_runtime_end__;
 
     Image$$ER_TFM_DATA$$Base = ADDR(.TFM_DATA);
     Image$$ER_TFM_DATA$$Limit = ADDR(.TFM_DATA) + SIZEOF(.TFM_DATA) + SIZEOF(.TFM_BSS);
@@ -544,21 +557,6 @@ SECTIONS
     {
         KEEP(*(.ramfunc))
     } > RAM AT> FLASH
-#endif
-
-#ifndef TFM_MULTI_CORE_TOPOLOGY
-    /*
-     * Place the CMSE Veneers (containing the SG instruction) after the code, in a
-     * separate 32 bytes aligned region so that the SAU can programmed to just set
-     * this region as Non-Secure Callable.
-     */
-    .gnu.sgstubs : ALIGN(32)
-    {
-        *(.gnu.sgstubs*)
-        . = ALIGN(32);
-    } > VENEERS AT> VENEERS
-    Load$$LR$$LR_VENEER$$Base = ADDR(.gnu.sgstubs);
-    Load$$LR$$LR_VENEER$$Limit = ADDR(.gnu.sgstubs) + SIZEOF(.gnu.sgstubs);
 #endif
 
     Load$$LR$$LR_NS_PARTITION$$Base = NS_PARTITION_START;

@@ -1,5 +1,5 @@
 ;/*
-; * Copyright (c) 2009-2021 Arm Limited
+; * Copyright (c) 2009-2022 Arm Limited
 ; * Copyright (c) 2020 Nordic Semiconductor ASA
 ; *
 ; * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,14 +33,22 @@ MEMORY
 #if defined(PSA_PROXY_SHARED_MEMORY_BASE)
   PSA_PROXY_SHARED_MEMORY_RAM (rw) : ORIGIN = PSA_PROXY_SHARED_MEMORY_BASE, LENGTH = PSA_PROXY_SHARED_MEMORY_SIZE
 #endif
-
 }
-
 
 #ifdef TFM_MULTI_CORE_TOPOLOGY
 #define VENEERS()
 #else
 #define VENEERS() \
+    /* \
+     * We need a dummy section to "reset" the location counter to FLASH if the \
+     * previous section was > RAM. Not sure why. This avoids the error \
+     * "ERROR: CMSE stub ... too far ... from destination" Make a dummy  \
+     * assignment so the section is not optimized away. \
+     */ \
+    .sg_start_dummy : ALIGN(4) \
+    { \
+        SG_START_DUMMY_UNUSED = .; \
+    } > FLASH \
     /* \
      * Place the CMSE Veneers (containing the SG instructions) in a correctly \
      * aligned region so that the SAU can programmed to just set this region as \
@@ -69,8 +77,26 @@ MEMORY
             <= CMSE_VENEER_REGION_SIZE, "Veneer region overflowed")
 #endif
 
+/* For builds without BL2, or when BL2 will be booting a single
+ * combined S and NS image, we force placing the veneers section
+ * at the end of the image (position 3), so as not to waste space
+ * as a result of the nRF veneer section alignment requirements.
+ * For regular builds with BL2 we keep the veneer placement as is
+ * (positions 1 or 2 depending on whether PSA_API_TEST_NS is
+ * defined).
+ */
+#if !defined(BL2) || (MCUBOOT_IMAGE_NUMBER == 1)
+#define VENEER_POS 3
+#elif defined(PSA_API_TEST_NS)
+#define VENEER_POS 1
+#else
+#define VENEER_POS 2
+#endif
+
 __heap_size__  = S_HEAP_SIZE;
+#if !defined(TFM_PSA_API)
 __psp_stack_size__ = S_PSP_STACK_SIZE;
+#endif
 __msp_init_stack_size__ = S_MSP_STACK_SIZE_INIT;
 
 /* Library configurations */
@@ -85,6 +111,16 @@ SECTIONS
         __vectors_start__ = .;
         KEEP(*(.vectors))
         __vectors_end__ = .;
+
+        /* If this image is placed at the beginning of flash make sure we
+         * don't put any code in the first 256 bytes of flash as that area might
+         * be used for null-pointer dereference detection. It is believed that on
+         * nordic platforms the __Vectors_Size will always be greater than 256,
+         * but we (potentially) adjust the location pointer anyway just to be safe. */
+#if S_CODE_START == 0
+        . = MAX(., 256);
+#endif
+
         *startup*(.text*)
         . = ALIGN(4);
     } > FLASH
@@ -141,8 +177,7 @@ SECTIONS
         LONG (PSA_PROXY_SHARED_MEMORY_BASE)
         LONG (PSA_PROXY_SHARED_MEMORY_SIZE)
 #endif
-#if defined(TFM_SP_META_PTR_ENABLE)
-        LONG (LOADADDR(.TFM_SP_META_PTR))
+#if defined(CONFIG_TFM_PARTITION_META)
         LONG (ADDR(.TFM_SP_META_PTR))
         LONG (SIZEOF(.TFM_SP_META_PTR))
 #endif
@@ -162,7 +197,7 @@ SECTIONS
         *psa_client.*(.rodata*)
         *psa_service.*(.text*)             /* NXP */
         *psa_service.*(.rodata*)
-        *psa_lifecycle.*(.text*)             /* NXP */
+        *psa_lifecycle.*(.text*)           /* NXP */
         *psa_lifecycle.*(.rodata*)
         *tfm_log_raw.*(.text*)             /* NXP */
         *tfm_log_raw.*(.rodata*)
@@ -170,6 +205,15 @@ SECTIONS
     } > FLASH
     Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.TFM_UNPRIV_CODE);
     Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.TFM_UNPRIV_CODE) + SIZEOF(.TFM_UNPRIV_CODE);
+
+    /**** Section for holding partition RO load data */
+    .TFM_SP_LOAD_LIST : ALIGN(4)
+    {
+       KEEP(*(.part_load))
+    } > FLASH
+    Image$$TFM_SP_LOAD_LIST$$RO$$Base = ADDR(.TFM_SP_LOAD_LIST);
+    Image$$TFM_SP_LOAD_LIST$$RO$$Limit = ADDR(.TFM_SP_LOAD_LIST) + SIZEOF(.TFM_SP_LOAD_LIST);
+    . = ALIGN(32);
 
     /**** PSA RoT RO part (CODE + RODATA) start here */
     Image$$TFM_PSA_CODE_START$$Base = .;
@@ -241,7 +285,7 @@ SECTIONS
 
 #endif /* TFM_LVL != 1 */
 
-#ifdef PSA_API_TEST_NS
+#if VENEER_POS == 1
 VENEERS()
 #endif
 
@@ -269,7 +313,7 @@ VENEERS()
 
     } > FLASH
 
-#ifndef PSA_API_TEST_NS
+#if VENEER_POS == 2
 VENEERS()
 #endif
 
@@ -321,28 +365,24 @@ VENEERS()
     {
         . += __msp_init_stack_size__;
     } > RAM
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Base = ADDR(.msp_stack);
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
 
+# if !defined(TFM_PSA_API)
     /* PSP is unprivileged in single-core topology */
     .psp_stack : ALIGN(32)
     {
-# if !defined(TFM_PSA_API)
         . += (__psp_stack_size__ - 0x8); // reserve space for stack seal (8 bytes)
-# else
-        . += (__psp_stack_size__);
-# endif
     } > RAM
-    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.psp_stack);
-    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
+    Image$$ER_INITIAL_PSP$$ZI$$Base = ADDR(.psp_stack);
+    Image$$ER_INITIAL_PSP$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
 
-# if !defined(TFM_PSA_API)
     .psp_stack_seal_res :
     {
         . += 0x8;
     } > RAM
-    Image$$ARM_LIB_STACK_SEAL$$ZI$$Base = ADDR(.psp_stack_seal_res);
-    Image$$ARM_LIB_STACK_SEAL$$ZI$$Limit = ADDR(.psp_stack_seal_res) + SIZEOF(.psp_stack_seal_res);
+    Image$$ER_INITIAL_PSP_SEAL$$ZI$$Base = ADDR(.psp_stack_seal_res);
+    Image$$ER_INITIAL_PSP_SEAL$$ZI$$Limit = ADDR(.psp_stack_seal_res) + SIZEOF(.psp_stack_seal_res);
 # endif
 #endif
 
@@ -367,16 +407,17 @@ VENEERS()
     } > RAM
 #endif /* TFM_LVL == 1 */
 
-#if defined(TFM_SP_META_PTR_ENABLE)
+#if defined(CONFIG_TFM_PARTITION_META)
     .TFM_SP_META_PTR : ALIGN(32)
     {
-        *(SP_META_PTR_SPRTL_INST)
+        *(.bss.SP_META_PTR_SPRTL_INST)
     } > RAM
-    Image$$TFM_SP_META_PTR$$RW$$Base = ADDR(.TFM_SP_META_PTR);
-    Image$$TFM_SP_META_PTR$$RW$$Limit = ADDR(.TFM_SP_META_PTR) + SIZEOF(.TFM_SP_META_PTR);
+    Image$$TFM_SP_META_PTR$$ZI$$Base = ADDR(.TFM_SP_META_PTR);
+    Image$$TFM_SP_META_PTR$$ZI$$Limit = ADDR(.TFM_SP_META_PTR) + SIZEOF(.TFM_SP_META_PTR);
 #endif
 
     /**** APPLICATION RoT DATA start here */
+    . = ALIGN(32);
     Image$$TFM_APP_RW_STACK_START$$Base = .;
 
     .TFM_APP_ROT_LINKER_DATA : ALIGN(32)
@@ -473,16 +514,8 @@ VENEERS()
     {
         . += __msp_init_stack_size__;
     } > RAM
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Base = ADDR(.msp_stack);
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
-
-    /* PSP is privileged in multi-core topology */
-    .psp_stack : ALIGN(32)
-    {
-        . += __psp_stack_size__;
-    } > RAM
-    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.psp_stack);
-    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
 #endif
 
     /**** PSA RoT DATA start here */
@@ -558,6 +591,13 @@ VENEERS()
     .TFM_BSS : ALIGN(4)
     {
         __bss_start__ = .;
+        __partition_runtime_start__ = .;
+        KEEP(*(.bss.part_runtime))
+        __partition_runtime_end__ = .;
+        . = ALIGN(4);
+        __service_runtime_start__ = .;
+        KEEP(*(.bss.serv_runtime))
+        __service_runtime_end__ = .;
         *(.bss*)
         *(COMMON)
         . = ALIGN(4);
@@ -565,6 +605,10 @@ VENEERS()
     } > RAM AT> RAM
     Image$$ER_TFM_DATA$$ZI$$Base = ADDR(.TFM_BSS);
     Image$$ER_TFM_DATA$$ZI$$Limit = ADDR(.TFM_BSS) + SIZEOF(.TFM_BSS);
+    Image$$ER_PART_RT_POOL$$ZI$$Base = __partition_runtime_start__;
+    Image$$ER_PART_RT_POOL$$ZI$$Limit = __partition_runtime_end__;
+    Image$$ER_SERV_RT_POOL$$ZI$$Base = __service_runtime_start__;
+    Image$$ER_SERV_RT_POOL$$ZI$$Limit = __service_runtime_end__;
 
     Image$$ER_TFM_DATA$$Base = ADDR(.TFM_DATA);
     Image$$ER_TFM_DATA$$Limit = ADDR(.TFM_DATA) + SIZEOF(.TFM_DATA) + SIZEOF(.TFM_BSS);
@@ -588,11 +632,19 @@ VENEERS()
     } > RAM AT> FLASH
 #endif
 
+#if VENEER_POS == 3
+VENEERS()
+#endif
+
     Load$$LR$$LR_NS_PARTITION$$Base = NS_PARTITION_START;
 
 #ifdef BL2
     Load$$LR$$LR_SECONDARY_PARTITION$$Base = SECONDARY_PARTITION_START;
 #endif /* BL2 */
+
+#ifdef NRF_NS_STORAGE
+    Load$$LR$$LR_NRF_NS_STORAGE_PARTITION$$Base = NRF_NS_STORAGE_PARTITION_START;
+#endif /* NRF_NS_STORAGE */
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 }

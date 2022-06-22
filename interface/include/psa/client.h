@@ -11,11 +11,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "tfm_common_config.h"
+#include "psa_config.h"
 #include "psa/error.h"
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifndef IOVEC_LEN
+#define IOVEC_LEN(arr) ((uint32_t)(sizeof(arr)/sizeof(arr[0])))
 #endif
 
 /*********************** PSA Client Macros and Types *************************/
@@ -126,6 +130,14 @@ psa_handle_t psa_connect(uint32_t sid, uint32_t version);
 
 /**
  * \brief Call an RoT Service on an established connection.
+ *
+ * \note  FF-M 1.0 proposes 6 parameters for psa_call but the secure gateway ABI
+ *        support at most 4 parameters. TF-M chooses to encode 'in_len',
+ *        'out_len', and 'type' into a 32-bit integer to improve efficiency.
+ *        Compared with struct-based encoding, this method saves extra memory
+ *        check and memory copy operation. The disadvantage is that the 'type'
+ *        range has to be reduced into a 16-bit integer. So with this encoding,
+ *        the valid range for 'type' is 0-32767.
  *
  * \param[in] handle            A handle to an established connection.
  * \param[in] type              The request type.

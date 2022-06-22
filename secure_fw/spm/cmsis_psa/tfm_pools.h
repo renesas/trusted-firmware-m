@@ -8,6 +8,7 @@
 #define __TFM_POOLS_H__
 
 #include <stdbool.h>
+#include "compiler_ext_defs.h"
 #include "lists.h"
 
 /*
@@ -15,15 +16,15 @@
  *  [ Pool Instance ] + N * [ Pool Chunks ]
  */
 struct tfm_pool_chunk_t {
-    struct bi_list_node_t list;         /* Chunk list                     */
-    uint8_t data[];                     /* Data indicator                 */
+    struct tfm_pool_chunk_t *next;        /* Chunk list                     */
+    uint8_t data[];                       /* Data indicator                 */
 };
 
 struct tfm_pool_instance_t {
-    size_t chunksz;                     /* Chunks size of pool member     */
-    size_t chunk_count;                 /* A number of chunks in the pool */
-    struct bi_list_node_t chunks_list;  /* Chunk list head in pool        */
-    uint8_t chunks[];                   /* Data indicator                 */
+    struct tfm_pool_chunk_t *next;        /* Point to the first free node   */
+    size_t chunksz;                       /* Chunks size of pool member     */
+    size_t chunk_count;                   /* A number of chunks in the pool */
+    uint8_t chunks[];                     /* Data indicator                 */
 };
 
 /*
@@ -37,7 +38,7 @@ struct tfm_pool_instance_t {
     static uint8_t name##_pool_buf[((chunksz) +                             \
                                    sizeof(struct tfm_pool_chunk_t)) * (num) \
                                    + sizeof(struct tfm_pool_instance_t)]    \
-                                   __attribute__((aligned(4)));             \
+                                   __aligned(4);                            \
     static struct tfm_pool_instance_t *name =                               \
                             (struct tfm_pool_instance_t *)name##_pool_buf
 

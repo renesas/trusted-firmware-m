@@ -1,5 +1,5 @@
 ;/*
-; * Copyright (c) 2009-2021 Arm Limited
+; * Copyright (c) 2009-2022 Arm Limited
 ; *
 ; * Licensed under the Apache License, Version 2.0 (the "License");
 ; * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 ; * This file is derivative of CMSIS V5.00 gcc_arm.ld
 ; */
 
-{{utilities.donotedit_warning}}
+/***********{{utilities.donotedit_warning}}***********/
 
 /* Linker script to configure memory regions. */
 /* This file will be run trough the pre-processor. */
@@ -31,11 +31,9 @@ MEMORY
 #if defined(S_CODE_SRAM_ALIAS_BASE)
   CODE_RAM (rwx) : ORIGIN = S_CODE_SRAM_ALIAS_BASE, LENGTH = TOTAL_CODE_SRAM_SIZE
 #endif
-  VENEERS  (rx)  : ORIGIN = CMSE_VENEER_REGION_START, LENGTH = CMSE_VENEER_REGION_SIZE
 }
 
 __heap_size__  = S_HEAP_SIZE;
-__psp_stack_size__ = S_PSP_STACK_SIZE;
 __msp_init_stack_size__ = S_MSP_STACK_SIZE_INIT;
 
 /* Library configurations */
@@ -45,14 +43,33 @@ ENTRY(Reset_Handler)
 
 SECTIONS
 {
+    /* Start address of the code. */
+    Image$$PT_RO_START$$Base = ADDR(.TFM_VECTORS);
+
     .TFM_VECTORS : ALIGN(4)
     {
         __vectors_start__ = .;
         KEEP(*(.vectors))
         __vectors_end__ = .;
-        *startup*(.text*)
         . = ALIGN(4);
     } > FLASH
+
+#ifndef TFM_MULTI_CORE_TOPOLOGY
+    ASSERT(. <= ADDR(.TFM_VECTORS) + S_CODE_VECTOR_TABLE_SIZE, ".TFM_VECTORS section size overflow.")
+    . = ADDR(.TFM_VECTORS) + S_CODE_VECTOR_TABLE_SIZE;
+    /*
+     * Place the CMSE Veneers (containing the SG instruction) after the code, in
+     * a separate 32 bytes aligned region so that the SAU can programmed to just
+     * set this region as Non-Secure Callable.
+     */
+    .gnu.sgstubs ALIGN(32) : ALIGN(32)
+    {
+        *(.gnu.sgstubs*)
+        . = ALIGN(32);
+    } > FLASH
+    Image$$ER_VENEER$$Base = ADDR(.gnu.sgstubs);
+    Image$$VENEER_ALIGN$$Limit = ADDR(.gnu.sgstubs) + SIZEOF(.gnu.sgstubs);
+#endif
 
     .copy.table : ALIGN(4)
     {
@@ -61,15 +78,9 @@ SECTIONS
         LONG (ADDR(.TFM_DATA))
         LONG (SIZEOF(.TFM_DATA))
 {% for partition in partitions %}
-    {% if partition.attr.conditional %}
-#ifdef {{partition.attr.conditional}}
-    {% endif %}
         LONG (LOADADDR(.ER_{{partition.manifest.name}}_RWZI))
         LONG (ADDR(.ER_{{partition.manifest.name}}_RWZI))
         LONG (SIZEOF(.ER_{{partition.manifest.name}}_RWZI))
-    {% if partition.attr.conditional %}
-#endif /* {{partition.attr.conditional}} */
-    {% endif %}
 {% endfor %}
 #if defined(S_CODE_SRAM_ALIAS_BASE)
         LONG (LOADADDR(.ER_EFLASH_DRIVER_RO))
@@ -82,31 +93,31 @@ SECTIONS
     .zero.table : ALIGN(4)
     {
         __zero_table_start__ = .;
+#if defined(CONFIG_TFM_PARTITION_META)
+        LONG (ADDR(.TFM_SP_META_PTR))
+        LONG (SIZEOF(.TFM_SP_META_PTR))
+#endif
         LONG (ADDR(.TFM_BSS))
         LONG (SIZEOF(.TFM_BSS))
 {% for partition in partitions %}
-    {% if partition.attr.conditional %}
-#ifdef {{partition.attr.conditional}}
-    {% endif %}
         LONG (ADDR(.{{partition.manifest.name}}_RWZI_BSS))
         LONG (SIZEOF(.{{partition.manifest.name}}_RWZI_BSS))
-        {% if partition.attr.conditional %}
-#endif /* {{partition.attr.conditional}} */
-    {% endif %}
 {% endfor %}
         __zero_table_end__ = .;
     } > FLASH
 
-    /* Position tag */
+    /**** Section for holding partition RO load data */
+    .TFM_SP_LOAD_LIST : ALIGN(4)
+    {
+       KEEP(*(.part_load))
+    } > FLASH
+    Image$$TFM_SP_LOAD_LIST$$RO$$Base = ADDR(.TFM_SP_LOAD_LIST);
+    Image$$TFM_SP_LOAD_LIST$$RO$$Limit = ADDR(.TFM_SP_LOAD_LIST) + SIZEOF(.TFM_SP_LOAD_LIST);
     . = ALIGN(32);
-    Image$$PT_RO_START$$Base = .;
 
     /**** PSA RoT RO CODE + RO-data starts here */
 {% for partition in partitions %}
     {% if partition.manifest.type == 'PSA-ROT' %}
-    {% if partition.attr.conditional %}
-#ifdef {{partition.attr.conditional}}
-    {% endif %}
     .{{partition.manifest.name}}_RO : ALIGN(32)
     {
     {% if partition.attr.linker_pattern.library_list %}
@@ -126,9 +137,6 @@ SECTIONS
     } > FLASH
     Image$${{partition.manifest.name}}_RO$$Base = ADDR(.{{partition.manifest.name}}_RO);
     Image$${{partition.manifest.name}}_RO$$Limit = ADDR(.{{partition.manifest.name}}_RO) + SIZEOF(.{{partition.manifest.name}}_RO);
-    {% if partition.attr.conditional %}
-#endif /* {{partition.attr.conditional}} */
-    {% endif %}
 
     {% endif %}
 {% endfor %}
@@ -137,9 +145,6 @@ SECTIONS
     /**** APPLICATION RoT RO CODE + data starts here */
 {% for partition in partitions %}
     {% if partition.manifest.type == 'APPLICATION-ROT' %}
-    {% if partition.attr.conditional %}
-#ifdef {{partition.attr.conditional}}
-    {% endif %}
     .{{partition.manifest.name}}_RO : ALIGN(32)
     {
     {% if partition.attr.linker_pattern.library_list %}
@@ -159,40 +164,44 @@ SECTIONS
     } > FLASH
     Image$${{partition.manifest.name}}_CODE$$Base = ADDR(.{{partition.manifest.name}}_RO);
     Image$${{partition.manifest.name}}_CODE$$Limit = ADDR(.{{partition.manifest.name}}_RO) + SIZEOF(.{{partition.manifest.name}}_RO);
-    {% if partition.attr.conditional %}
-#endif /* {{partition.attr.conditional}} */
-    {% endif %}
 
     {% endif %}
 {% endfor %}
     /**** APPLICATION RoT RO CODE + data ends here */
 
+#if defined(S_CODE_SRAM_ALIAS_BASE)
+    .ER_EFLASH_DRIVER_RO : ALIGN(4)
+    {
+        *Driver_GFC100_EFlash.o(.text*)
+        *Driver_GFC100_EFlash.o(.rodata*)
+        *gfc100_eflash_drv.o(.text*)
+        *gfc100_eflash_drv.o(.rodata*)
+        *musca_b1_eflash_drv.o(.text*)
+        *musca_b1_eflash_drv.o(.rodata*)
+        . = ALIGN(4); /* This alignment is needed to make the section size 4 bytes aligned */
+    } > CODE_RAM AT > FLASH
+    Image$$ER_EFLASH_DRIVER_RO$$Base = ADDR(.ER_EFLASH_DRIVER_RO);
+    Image$$ER_EFLASH_DRIVER_RO$$Limit = ADDR(.ER_EFLASH_DRIVER_RO) + SIZEOF(.ER_EFLASH_DRIVER_RO);
+#endif
+
+    .ER_TFM_CODE : ALIGN(4)
+    {
+        *startup*(.text*)
+        *libplatform_s*:*(.text*)
+        *libtfm_spm*:*(.text*)
+
+        *libplatform_s*:*(.rodata*)
+        *libtfm_spm*:*(.rodata*)
+    } > FLASH
+
     /**** Unprivileged Secure code starts here */
     .ER_UNPRIV_CODE : ALIGN(32)
     {
         *(SFN)
-        *armlib*:*(.text*)
-        *armlib*:*(.rodata*)
-        *libtfm_sprt*:*(.text*)
-        *libtfm_sprt*:*(.rodata*)
-        *psa_client.*(.text*)              /* NXP */
-        *psa_client.*(.rodata*)
-        *psa_service.*(.text*)             /* NXP */
-        *psa_service.*(.rodata*)
-        *psa_lifecycle.*(.text*)             /* NXP */
-        *psa_lifecycle.*(.rodata*)
-        . = ALIGN(32);
-    } > FLASH
-    Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.ER_UNPRIV_CODE);
-    Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.ER_UNPRIV_CODE) + SIZEOF(.ER_UNPRIV_CODE);
-
-    .ER_TFM_CODE : ALIGN(4)
-    {
         *(.text*)
 
         KEEP(*(.init))
         KEEP(*(.fini))
-
 
         /* .ctors */
         *crtbegin.o(.ctors)
@@ -211,26 +220,15 @@ SECTIONS
         *(.rodata*)
 
         KEEP(*(.eh_frame*))
+
+        . = ALIGN(32);
     } > FLASH
+    Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.ER_UNPRIV_CODE);
+    Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.ER_UNPRIV_CODE) + SIZEOF(.ER_UNPRIV_CODE);
 
     /* Position tag */
     . = ALIGN(32);
     Image$$PT_RO_END$$Base = .;
-
-#if defined(S_CODE_SRAM_ALIAS_BASE)
-    .ER_EFLASH_DRIVER_RO : ALIGN(4)
-    {
-        *Driver_GFC100_EFlash.o(.text*)
-        *Driver_GFC100_EFlash.o(.rodata*)
-        *gfc100_eflash_drv.o(.text*)
-        *gfc100_eflash_drv.o(.rodata*)
-        *musca_b1_eflash_drv.o(.text*)
-        *musca_b1_eflash_drv.o(.rodata*)
-        . = ALIGN(4); /* This alignment is needed to make the section size 4 bytes aligned */
-    } > CODE_RAM AT > FLASH
-    Image$$ER_EFLASH_DRIVER_RO$$Base = ADDR(.ER_EFLASH_DRIVER_RO);
-    Image$$ER_EFLASH_DRIVER_RO$$Limit = ADDR(.ER_EFLASH_DRIVER_RO) + SIZEOF(.ER_EFLASH_DRIVER_RO);
-#endif
 
     .ARM.extab :
     {
@@ -267,15 +265,12 @@ SECTIONS
     {
         . += __msp_init_stack_size__;
     } > RAM
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Base = ADDR(.msp_stack);
-    Image$$ARM_LIB_STACK_MSP$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.msp_stack);
+    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.msp_stack) + SIZEOF(.msp_stack);
 
     /**** PSA RoT DATA start here */
 {% for partition in partitions %}
     {% if partition.manifest.type == 'PSA-ROT' %}
-    {% if partition.attr.conditional %}
-#ifdef {{partition.attr.conditional}}
-    {% endif %}
 
     /* Position tag */
     . = ALIGN(32);
@@ -325,10 +320,6 @@ SECTIONS
     . = ALIGN(32);
     Image$$PT_{{partition.manifest.name}}_PRIVATE_DATA_END$$Base = .;
 
-    {% if partition.attr.conditional %}
-#endif /* {{partition.attr.conditional}} */
-    {% endif %}
-
     {% endif %}
 {% endfor %}
     /**** PSA RoT DATA end here */
@@ -337,21 +328,9 @@ SECTIONS
     /* Position tag */
     Image$$PT_PRIV_RWZI_END$$Base = .;
 
-    /* PSP is unprivileged in single-core topology */
-    .psp_stack : ALIGN(32)
-    {
-        . += (__psp_stack_size__);
-    } > RAM
-    Image$$ARM_LIB_STACK$$ZI$$Base = ADDR(.psp_stack);
-    Image$$ARM_LIB_STACK$$ZI$$Limit = ADDR(.psp_stack) + SIZEOF(.psp_stack);
-
     /**** APPLICATION RoT DATA start here */
 {% for partition in partitions %}
     {% if partition.manifest.type == 'APPLICATION-ROT' %}
-    {% if partition.attr.conditional %}
-#ifdef {{partition.attr.conditional}}
-    {% endif %}
-
     /* Position tag */
     . = ALIGN(32);
     Image$$PT_{{partition.manifest.name}}_PRIVATE_DATA_START$$Base = .;
@@ -399,10 +378,6 @@ SECTIONS
     /* Position tag */
     . = ALIGN(32);
     Image$$PT_{{partition.manifest.name}}_PRIVATE_DATA_END$$Base = .;
-
-    {% if partition.attr.conditional %}
-#endif /* {{partition.attr.conditional}} */
-    {% endif %}
 
     {% endif %}
 {% endfor %}
@@ -484,9 +459,25 @@ SECTIONS
     Image$$ER_TFM_DATA$$RW$$Base = ADDR(.TFM_DATA);
     Image$$ER_TFM_DATA$$RW$$Limit = ADDR(.TFM_DATA) + SIZEOF(.TFM_DATA);
 
+#if defined(CONFIG_TFM_PARTITION_META)
+    .TFM_SP_META_PTR : ALIGN(32)
+    {
+        *(.bss.SP_META_PTR_SPRTL_INST)
+    } > RAM AT> RAM
+    Image$$TFM_SP_META_PTR$$ZI$$Base = ADDR(.TFM_SP_META_PTR);
+    Image$$TFM_SP_META_PTR$$ZI$$Limit = ADDR(.TFM_SP_META_PTR) + SIZEOF(.TFM_SP_META_PTR);
+#endif
+
     .TFM_BSS : ALIGN(4)
     {
         __bss_start__ = .;
+        __partition_runtime_start__ = .;
+        KEEP(*(.bss.part_runtime))
+        __partition_runtime_end__ = .;
+        . = ALIGN(4);
+        __service_runtime_start__ = .;
+        KEEP(*(.bss.serv_runtime))
+        __service_runtime_end__ = .;
         *(.bss*)
         *(COMMON)
         . = ALIGN(4);
@@ -494,22 +485,13 @@ SECTIONS
     } > RAM AT> RAM
     Image$$ER_TFM_DATA$$ZI$$Base = ADDR(.TFM_BSS);
     Image$$ER_TFM_DATA$$ZI$$Limit = ADDR(.TFM_BSS) + SIZEOF(.TFM_BSS);
+    Image$$ER_PART_RT_POOL$$ZI$$Base = __partition_runtime_start__;
+    Image$$ER_PART_RT_POOL$$ZI$$Limit = __partition_runtime_end__;
+    Image$$ER_SERV_RT_POOL$$ZI$$Base = __service_runtime_start__;
+    Image$$ER_SERV_RT_POOL$$ZI$$Limit = __service_runtime_end__;
 
     Image$$ER_TFM_DATA$$Base = ADDR(.TFM_DATA);
     Image$$ER_TFM_DATA$$Limit = ADDR(.TFM_DATA) + SIZEOF(.TFM_DATA) + SIZEOF(.TFM_BSS);
-
-    /*
-     * Place the CMSE Veneers (containing the SG instruction) after the code, in a
-     * separate 32 bytes aligned region so that the SAU can programmed to just set
-     * this region as Non-Secure Callable.
-     */
-    .gnu.sgstubs : ALIGN(32)
-    {
-        *(.gnu.sgstubs*)
-        . = ALIGN(32);
-    } > VENEERS AT> VENEERS
-    Load$$LR$$LR_VENEER$$Base = ADDR(.gnu.sgstubs);
-    Load$$LR$$LR_VENEER$$Limit = ADDR(.gnu.sgstubs) + SIZEOF(.gnu.sgstubs);
 
     Load$$LR$$LR_NS_PARTITION$$Base = NS_PARTITION_START;
 

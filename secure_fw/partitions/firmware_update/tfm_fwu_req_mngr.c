@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2022, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -30,6 +30,12 @@ typedef struct tfm_fwu_ctx_s {
  */
 static tfm_fwu_ctx_t fwu_ctx[TFM_FWU_MAX_IMAGES];
 
+#ifdef TFM_PSA_API
+#ifndef TFM_FWU_BUF_SIZE
+#define TFM_FWU_BUF_SIZE PSA_FWU_MAX_BLOCK_SIZE
+#endif
+static uint8_t data_block[TFM_FWU_BUF_SIZE];
+#endif
 /**
  * \brief Check if the image is in FWU process, return the index if it is.
  */
@@ -156,7 +162,10 @@ psa_status_t tfm_fwu_install_req(psa_invec *in_vec, size_t in_len,
             fwu_ctx[image_index].in_use = false;
         } else if (status == PSA_SUCCESS_REBOOT) {
             fwu_ctx[image_index].image_state = PSA_IMAGE_REBOOT_NEEDED;
-        } else {
+        } else if (status != PSA_ERROR_DEPENDENCY_NEEDED) {
+            /* In PSA_ERROR_DEPENDENCY_NEEDED case, the image still keeps in
+             * CANDIDATE state.
+             */
             fwu_ctx[image_index].image_state = PSA_IMAGE_REJECTED;
         }
 
@@ -208,17 +217,22 @@ psa_status_t tfm_fwu_request_reboot_req(psa_invec *in_vec, size_t in_len,
 }
 
 psa_status_t tfm_fwu_accept_req(psa_invec *in_vec, size_t in_len,
-                               psa_outvec *out_vec, size_t out_len)
+                                psa_outvec *out_vec, size_t out_len)
 {
-    (void)in_vec;
     (void)out_vec;
-    (void)in_len;
     (void)out_len;
+
+    psa_image_id_t image_id;
+
+    if (in_vec[0].len != sizeof(image_id) || in_len != 1) {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+    image_id = *((psa_image_id_t *)in_vec[0].base);
 
     /* This operation set the running image to INSTALLED state, the images
      * in the staging area does not impact this operation.
      */
-    return tfm_internal_fwu_accept();
+    return tfm_internal_fwu_accept(image_id);
 }
 
 /* Abort the currently running FWU. */
@@ -269,12 +283,15 @@ static psa_status_t tfm_fwu_write_ipc(void)
 {
     psa_image_id_t image_id;
     size_t block_offset;
-    size_t data_length, num;
+    size_t data_length, write_size, num;
     psa_status_t status = PSA_SUCCESS;
-    uint8_t data_block[PSA_FWU_MAX_BLOCK_SIZE];
     uint8_t image_index;
 
     /* Check input parameters. */
+    if (msg.in_size[2] > PSA_FWU_MAX_BLOCK_SIZE) {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
     if (msg.in_size[0] != sizeof(image_id) ||
         msg.in_size[1] != sizeof(block_offset)) {
         return PSA_ERROR_PROGRAMMER_ERROR;
@@ -289,14 +306,6 @@ static psa_status_t tfm_fwu_write_ipc(void)
     if (num != sizeof(block_offset)) {
         return PSA_ERROR_PROGRAMMER_ERROR;
     }
-
-    tfm_memset(data_block, 0, sizeof(data_block));
-    data_length = msg.in_size[2];
-    num = psa_read(msg.handle, 2, data_block, data_length);
-    if (num != data_length) {
-        return PSA_ERROR_PROGRAMMER_ERROR;
-    }
-
     if (get_image_index(image_id, &image_index)) {
         /* The image is in FWU process. */
         if ((fwu_ctx[image_index].image_state != PSA_IMAGE_CANDIDATE) &&
@@ -320,10 +329,27 @@ static psa_status_t tfm_fwu_write_ipc(void)
         }
     }
 
-    return tfm_internal_fwu_write(image_id,
-                                  block_offset,
-                                  data_block,
-                                  data_length);
+    tfm_memset(data_block, 0, sizeof(data_block));
+    data_length = msg.in_size[2];
+    while (data_length > 0) {
+        write_size = sizeof(data_block) <= data_length ?
+                     sizeof(data_block) : data_length;
+        num = psa_read(msg.handle, 2, data_block, write_size);
+        if (num != write_size) {
+            return PSA_ERROR_PROGRAMMER_ERROR;
+        }
+
+        status = tfm_internal_fwu_write(image_id,
+                                        block_offset,
+                                        data_block,
+                                        write_size);
+        if (status != PSA_SUCCESS) {
+            return status;
+        }
+        data_length -= write_size;
+        block_offset += write_size;
+    }
+    return PSA_SUCCESS;
 }
 
 static psa_status_t tfm_fwu_install_ipc(void)
@@ -365,7 +391,6 @@ static psa_status_t tfm_fwu_install_ipc(void)
             psa_write(msg.handle, 0, &dependency_id, sizeof(dependency_id));
             psa_write(msg.handle, 1, &dependency_version,
                       sizeof(dependency_version));
-            fwu_ctx[image_index].image_state = PSA_IMAGE_REJECTED;
         } else {
             fwu_ctx[image_index].image_state = PSA_IMAGE_REJECTED;
         }
@@ -415,10 +440,22 @@ static psa_status_t tfm_fwu_request_reboot_ipc(void)
 
 static psa_status_t tfm_fwu_accept_ipc(void)
 {
+    psa_image_id_t image_id;
+    size_t num;
+
+    /* Check input parameters. */
+    if (msg.in_size[0] != sizeof(image_id)) {
+        return PSA_ERROR_PROGRAMMER_ERROR;
+    }
+    num = psa_read(msg.handle, 0, &image_id, sizeof(image_id));
+    if (num != sizeof(image_id)) {
+        return PSA_ERROR_PROGRAMMER_ERROR;
+    }
+
     /* This operation set the running image to INSTALLED state, the images
      * in the staging area does not impact this operation.
      */
-    return tfm_internal_fwu_accept();
+    return tfm_internal_fwu_accept(image_id);
 }
 
 static psa_status_t tfm_fwu_abort_ipc(void)

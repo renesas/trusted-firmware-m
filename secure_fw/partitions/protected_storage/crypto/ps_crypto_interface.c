@@ -24,7 +24,7 @@
 
 /* The PSA algorithm used by this implementation */
 #define PS_CRYPTO_ALG \
-    PSA_ALG_AEAD_WITH_TAG_LENGTH(PS_CRYPTO_AEAD_ALG, PS_TAG_LEN_BYTES)
+    PSA_ALG_AEAD_WITH_SHORTENED_TAG(PS_CRYPTO_AEAD_ALG, PS_TAG_LEN_BYTES)
 
 /*
  * \brief Check whether the PS AEAD algorithm is a valid one
@@ -35,7 +35,6 @@
  */
 typedef char PS_ERROR_NOT_AEAD_ALG[(PSA_ALG_IS_AEAD(PS_CRYPTO_ALG)) ? 1 : -1];
 
-static const uint8_t ps_key_label[] = "storage_key";
 static psa_key_id_t ps_key;
 static uint8_t ps_crypto_iv_buf[PS_IV_LEN_BYTES];
 
@@ -47,11 +46,15 @@ psa_status_t ps_crypto_init(void)
     return PSA_SUCCESS;
 }
 
-psa_status_t ps_crypto_setkey(void)
+psa_status_t ps_crypto_setkey(const uint8_t *key_label, size_t key_label_len)
 {
     psa_status_t status;
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
+
+    if (key_label_len == 0 || key_label == NULL) {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
 
     /* Set the key attributes for the storage key */
     psa_set_key_usage_flags(&attributes, PS_KEY_USAGE);
@@ -67,8 +70,8 @@ psa_status_t ps_crypto_setkey(void)
 
     /* Supply the PS key label as an input to the key derivation */
     status = psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_LABEL,
-                                            ps_key_label,
-                                            sizeof(ps_key_label));
+                                            key_label,
+                                            key_label_len);
     if (status != PSA_SUCCESS) {
         goto err_release_op;
     }
@@ -114,7 +117,7 @@ void ps_crypto_set_iv(const union ps_crypto_t *crypto)
     (void)tfm_memcpy(ps_crypto_iv_buf, crypto->ref.iv, PS_IV_LEN_BYTES);
 }
 
-void ps_crypto_get_iv(union ps_crypto_t *crypto)
+psa_status_t ps_crypto_get_iv(union ps_crypto_t *crypto)
 {
     /* IV characteristic is algorithm dependent.
      * For GCM it is essential that it doesn't get repeated.
@@ -147,6 +150,16 @@ void ps_crypto_get_iv(union ps_crypto_t *crypto)
     /* If overflow, increment the MSBs */
     if (iv_l == 0) {
         iv_h++;
+
+        /* If overflow, return error. Different IV should be used. */
+        if (iv_h == 0) {
+            /* Reset iv_l and iv_h to the value before increasement. Otherwise,
+             * iv_l will start from '1' the next time this function is called.
+             */
+            iv_l--;
+            iv_h--;
+            return PSA_ERROR_GENERIC_ERROR;
+        }
     }
 
     /* Update the local buffer */
@@ -154,6 +167,8 @@ void ps_crypto_get_iv(union ps_crypto_t *crypto)
     (void)tfm_memcpy((ps_crypto_iv_buf + sizeof(iv_l)), &iv_h, sizeof(iv_h));
     /* Update the caller buffer */
     (void)tfm_memcpy(crypto->ref.iv, ps_crypto_iv_buf, PS_IV_LEN_BYTES);
+
+    return PSA_SUCCESS;
 }
 
 psa_status_t ps_crypto_encrypt_and_tag(union ps_crypto_t *crypto,

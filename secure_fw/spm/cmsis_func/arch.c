@@ -1,18 +1,17 @@
 /*
- * Copyright (c) 2018-2021, Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2022, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
 
 #include "arch.h"
-#include "exception_info.h"
+#include "compiler_ext_defs.h"
 #include "tfm_secure_api.h"
-#include "tfm/tfm_spm_services.h"
 
 #if defined(__ICCARM__)
-uint32_t tfm_core_svc_handler(uint32_t *msp, uint32_t *psp, uint32_t exc_return);
-#pragma required=tfm_core_svc_handler
+#include "cmsis_psa/tfm_svcalls.h"
+#pragma required = tfm_core_svc_handler
 #endif
 
 nsfptr_t ns_entry;
@@ -23,29 +22,6 @@ void jump_to_ns_code(void)
     ns_entry();
 
     tfm_core_panic();
-}
-
-__attribute__((naked))
-int32_t tfm_core_get_caller_client_id(int32_t *caller_client_id)
-{
-    __ASM volatile(
-        "SVC %0\n"
-        "BX LR\n"
-        : : "I" (TFM_SVC_GET_CALLER_CLIENT_ID));
-}
-
-__attribute__((naked))
-static int32_t tfm_spm_request(int32_t request_type)
-{
-    __ASM volatile(
-        "SVC    %0\n"
-        "BX     lr\n"
-        : : "I" (TFM_SVC_SPM_REQUEST));
-}
-
-int32_t tfm_spm_request_reset_vote(void)
-{
-    return tfm_spm_request((int32_t)TFM_SPM_REQUEST_RESET_VOTE);
 }
 
 __attribute__((naked))
@@ -62,6 +38,15 @@ void tfm_disable_irq(psa_signal_t irq_signal)
     __ASM("SVC %0\n"
           "BX LR\n"
           : : "I" (TFM_SVC_DISABLE_IRQ));
+}
+
+__attribute__((naked))
+void tfm_sfn_completion(enum tfm_status_e res, uint32_t exc_return, uintptr_t msp)
+{
+    __ASM volatile("MSR msp, r2\n"
+                   "SVC %0\n"
+                   "BX LR\n"
+                   : : "I" (TFM_SVC_SFN_COMPLETION) : );
 }
 
 __attribute__((naked))
@@ -92,6 +77,12 @@ psa_signal_t psa_wait(psa_signal_t signal_mask, uint32_t timeout)
 }
 
 __attribute__((naked))
+void tfm_arch_trigger_exc_return(uint32_t exc_return)
+{
+    __ASM volatile("BX R0");
+}
+
+__attribute__((naked))
 void psa_eoi(psa_signal_t irq_signal)
 {
     __ASM("SVC %0\n"
@@ -100,7 +91,7 @@ void psa_eoi(psa_signal_t irq_signal)
 }
 
 #if defined(__ARM_ARCH_8_1M_MAIN__) || defined(__ARM_ARCH_8M_MAIN__)
-__attribute__((section("SFN"), naked))
+__section("SFN") __naked
 int32_t tfm_core_sfn_request(const struct tfm_sfn_req_s *desc_ptr)
 {
     __ASM volatile(
@@ -122,7 +113,7 @@ int32_t tfm_core_sfn_request(const struct tfm_sfn_req_s *desc_ptr)
         );
 }
 
-__attribute__((section("SFN"), naked))
+__section("SFN") __naked
 void priv_irq_handler_main(uint32_t partition_id, uint32_t unpriv_handler,
                            uint32_t irq_signal, uint32_t irq_line)
 {
@@ -153,7 +144,7 @@ void priv_irq_handler_main(uint32_t partition_id, uint32_t unpriv_handler,
           );
 }
 #elif defined(__ARM_ARCH_8M_BASE__)
-__attribute__((section("SFN"), naked))
+__section("SFN") __naked
 int32_t tfm_core_sfn_request(const struct tfm_sfn_req_s *desc_ptr)
 {
     __ASM volatile(
@@ -191,7 +182,7 @@ int32_t tfm_core_sfn_request(const struct tfm_sfn_req_s *desc_ptr)
         );
 }
 
-__attribute__((section("SFN"), naked))
+__section("SFN") __naked
 void priv_irq_handler_main(uint32_t partition_id, uint32_t unpriv_handler,
                            uint32_t irq_signal, uint32_t irq_line)
 {
@@ -271,12 +262,12 @@ void tfm_arch_set_secure_exception_priorities(void)
 
 void tfm_arch_config_extensions(void)
 {
-#if defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)
+#if defined(__FPU_PRESENT) && (__FPU_PRESENT == 1U)
     /* Configure Secure access to the FPU only if the secure image is being
      * built with the FPU in use. This avoids introducing extra interrupt
      * latency when the FPU is not used by the SPE.
      */
-#if defined (__FPU_USED) && (__FPU_USED == 1U)
+#if defined(__FPU_USED) && (__FPU_USED == 1U)
     /* Enable Secure privileged and unprivilged access to the FP Extension */
     SCB->CPACR |= (3U << 10U*2U)     /* enable CP10 full access */
                   | (3U << 11U*2U);  /* enable CP11 full access */
@@ -306,7 +297,9 @@ void tfm_arch_config_extensions(void)
 #endif
 }
 
-#if defined(__ARM_ARCH_8M_BASE__) || defined(__ARM_ARCH_8_1M_MAIN__) || defined(__ARM_ARCH_8M_MAIN__)
+#if defined(__ARM_ARCH_8M_BASE__)   || \
+    defined(__ARM_ARCH_8_1M_MAIN__) || \
+    defined(__ARM_ARCH_8M_MAIN__)
 __attribute__((naked)) void SVC_Handler(void)
 {
     __ASM volatile(
@@ -355,57 +348,3 @@ __attribute__((naked)) void SVC_Handler(void)
     );
 }
 #endif
-
-__attribute__((naked)) void HardFault_Handler(void)
-{
-    EXCEPTION_INFO(EXCEPTION_TYPE_HARDFAULT);
-
-    /* A HardFault may indicate corruption of secure state, so it is essential
-     * that Non-secure code does not regain control after one is raised.
-     * Returning from this exception could allow a pending NS exception to be
-     * taken, so the current solution is not to return.
-     */
-    __ASM volatile("b    .");
-}
-
-__attribute__((naked)) void MemManage_Handler(void)
-{
-    EXCEPTION_INFO(EXCEPTION_TYPE_MEMFAULT);
-
-    /* A MemManage fault may indicate corruption of secure state, so it is
-     * essential that Non-secure code does not regain control after one is
-     * raised. Returning from this exception could allow a pending NS exception
-     * to be taken, so the current solution is not to return.
-     */
-    __ASM volatile("b    .");
-}
-
-__attribute__((naked)) void BusFault_Handler(void)
-{
-    EXCEPTION_INFO(EXCEPTION_TYPE_BUSFAULT);
-
-    /* A BusFault may indicate corruption of secure state, so it is essential
-     * that Non-secure code does not regain control after one is raised.
-     * Returning from this exception could allow a pending NS exception to be
-     * taken, so the current solution is not to return.
-     */
-    __ASM volatile("b    .");
-}
-
-__attribute__((naked)) void SecureFault_Handler(void)
-{
-    EXCEPTION_INFO(EXCEPTION_TYPE_SECUREFAULT);
-
-    /* A SecureFault may indicate corruption of secure state, so it is essential
-     * that Non-secure code does not regain control after one is raised.
-     * Returning from this exception could allow a pending NS exception to be
-     * taken, so the current solution is not to return.
-     */
-    __ASM volatile("b    .");
-}
-
-__attribute__((naked)) void UsageFault_Handler(void)
-{
-    EXCEPTION_INFO(EXCEPTION_TYPE_USAGEFAULT);
-    __ASM volatile("b    .");
-}

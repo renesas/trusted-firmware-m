@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 #
 # -----------------------------------------------------------------------------
-# Copyright (c) 2020, Arm Limited. All rights reserved.
+# Copyright (c) 2020-2021, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -26,6 +26,7 @@ import macro_parser
 
 sign_bin_size_re = re.compile(r"^\s*RE_SIGN_BIN_SIZE\s*=\s*(.*)")
 load_addr_re = re.compile(r"^\s*RE_IMAGE_LOAD_ADDRESS\s*=\s*(.*)")
+rom_fixed_re = re.compile(r"^\s*RE_IMAGE_ROM_FIXED\s*=\s*(.*)")
 
 #This works around Python 2 and Python 3 handling character encodings
 #differently. More information about this issue at
@@ -73,9 +74,12 @@ os.environ['LANG'] = 'C.UTF-8'
               callback=imgtool.main.validate_security_counter,
               help='Specify the value of security counter. Use the `auto` '
               'keyword to automatically generate it from the image version.')
+@click.option('-L', '--encrypt-keylen', type=click.Choice(['128', '256']),
+              default='128',
+              help='Specify the value of encrypt key length. Default 128.')
 @click.option('-v', '--version', callback=imgtool.main.validate_version,
               required=True)
-@click.option('--align', type=click.Choice(['1', '2', '4', '8']),
+@click.option('--align', type=click.Choice(['1', '2', '4', '8', '16', '32']),
               required=True)
 @click.option('--public-key-format', type=click.Choice(['hash', 'full']),
               default='hash', help='In what format to add the public key to '
@@ -87,11 +91,11 @@ os.environ['LANG'] = 'C.UTF-8'
 def wrap(key, align, version, header_size, pad_header, layout, pad, confirm,
          max_sectors, overwrite_only, endian, encrypt, infile, outfile,
          dependencies, hex_addr, erased_val, save_enctlv, public_key_format,
-         security_counter):
+         security_counter, encrypt_keylen):
 
     slot_size = macro_parser.evaluate_macro(layout, sign_bin_size_re, 0, 1)
     load_addr = macro_parser.evaluate_macro(layout, load_addr_re, 0, 1)
-
+    rom_fixed = macro_parser.evaluate_macro(layout, rom_fixed_re, 0, 1)
     if "_s" in layout:
         boot_record = "SPE"
     elif "_ns" in layout:
@@ -99,14 +103,23 @@ def wrap(key, align, version, header_size, pad_header, layout, pad, confirm,
     else:
         boot_record = "NSPE_SPE"
 
+    if int(align) <= 8 :
+        #default behaviour for max_align
+        max_align=8
+    else:
+        #max_align must be set to align
+        max_align=align
+
     img = imgtool.image.Image(version=imgtool.version.decode_version(version),
                               header_size=header_size, pad_header=pad_header,
                               pad=pad, confirm=confirm, align=int(align),
                               slot_size=slot_size, max_sectors=max_sectors,
                               overwrite_only=overwrite_only, endian=endian,
-                              load_addr=load_addr, erased_val=erased_val,
+                              load_addr=load_addr, rom_fixed=rom_fixed,
+                              erased_val=erased_val,
                               save_enctlv=save_enctlv,
-                              security_counter=security_counter)
+                              security_counter=security_counter,
+                              max_align=max_align)
 
     img.load(infile)
     key = imgtool.main.load_key(key) if key else None
@@ -117,8 +130,8 @@ def wrap(key, align, version, header_size, pad_header, layout, pad, confirm,
             # FIXME
             raise click.UsageError("Signing and encryption must use the same "
                                    "type of key")
-
-    img.create(key, public_key_format, enckey, dependencies, boot_record)
+    img.create(key, public_key_format, enckey, dependencies, boot_record,
+               None, encrypt_keylen=int(encrypt_keylen))
     img.save(outfile, hex_addr)
 
 

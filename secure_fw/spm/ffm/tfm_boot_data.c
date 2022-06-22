@@ -1,25 +1,26 @@
 /*
- * Copyright (c) 2018-2021, Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2022, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
 
 #include <stdint.h>
+#include "array.h"
 #include "tfm_boot_status.h"
 #include "region_defs.h"
 #include "tfm_memory_utils.h"
 #include "tfm_api.h"
 #include "tfm_core_utils.h"
-#include "spm_partition_defs.h"
+#include "psa_manifest/pid.h"
 #ifdef TFM_PSA_API
 #include "internal_errors.h"
 #include "utilities.h"
 #include "psa/service.h"
-#include "tfm_thread.h"
-#include "tfm_wait.h"
+#include "thread.h"
 #include "tfm_spm_hal.h"
 #include "spm_ipc.h"
+#include "load/partition_defs.h"
 #else
 #include "spm_func.h"
 #endif
@@ -55,7 +56,7 @@ static uint32_t is_boot_data_valid = BOOT_DATA_INVALID;
  *        data area (between bootloader and runtime firmware).
  */
 struct boot_data_access_policy {
-    uint32_t partition_id;
+    int32_t partition_id;
     uint32_t major_type;
 };
 
@@ -67,8 +68,12 @@ struct boot_data_access_policy {
  *        (identified by major_type).
  */
 static const struct boot_data_access_policy access_policy_table[] = {
+#ifdef TFM_PARTITION_INITIAL_ATTESTATION
     {TFM_SP_INITIAL_ATTESTATION, TLV_MAJOR_IAS},
+#endif
+#ifdef TFM_PARTITION_FIRMWARE_UPDATE
     {TFM_SP_FWU, TLV_MAJOR_FWU},
+#endif
 };
 
 /*!
@@ -81,11 +86,10 @@ static const struct boot_data_access_policy access_policy_table[] = {
  */
 static int32_t tfm_core_check_boot_data_access_policy(uint8_t major_type)
 {
-    uint32_t partition_id;
+    int32_t partition_id;
     uint32_t i;
     int32_t rc = -1;
-    const uint32_t array_size =
-            sizeof(access_policy_table) / sizeof(access_policy_table[0]);
+    const uint32_t array_size = ARRAY_SIZE(access_policy_table);
 
 #ifndef TFM_PSA_API
     uint32_t partition_idx = tfm_spm_partition_get_running_partition_idx();
@@ -149,7 +153,6 @@ void tfm_core_get_boot_data_handler(uint32_t args[])
                 tfm_spm_partition_get_running_partition_idx();
     uint32_t res;
 #else
-    struct partition_t *partition = NULL;
     uint32_t privileged;
 #endif
 
@@ -162,18 +165,13 @@ void tfm_core_get_boot_data_handler(uint32_t args[])
                                       (void *)buf_start,
                                       buf_size,
                                       2);
-    if (!res) {
+    if (res != TFM_SUCCESS) {
         /* Not in accessible range, return error */
-        args[0] = (uint32_t)TFM_ERROR_INVALID_PARAMETER;
+        args[0] = (uint32_t)res;
         return;
     }
 #else
-    partition = tfm_spm_get_running_partition();
-    if (!partition) {
-        tfm_core_panic();
-    }
-    privileged =
-        tfm_spm_partition_get_privileged_mode(partition->p_static->flags);
+    privileged = GET_CURRENT_PARTITION_PRIVILEGED_MODE();
 
     if (tfm_memory_check(buf_start, buf_size, false, TFM_MEMORY_ACCESS_RW,
         privileged) != SPM_SUCCESS) {
