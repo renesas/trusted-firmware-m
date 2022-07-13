@@ -7,6 +7,7 @@
 
 #include "cmsis_compiler.h"
 #include "service_api.h"
+#include "tfm_common_config.h"
 #ifdef TFM_PSA_API
 #include "psa/service.h"
 #include "svc_num.h"

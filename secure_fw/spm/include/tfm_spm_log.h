@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include "tfm_hal_defs.h"
 #include "tfm_hal_spm_logdev.h"
+#include "tfm_common_config.h"
 
 /* The SPM log levels */
 #define TFM_SPM_LOG_LEVEL_DEBUG    3  /* All log APIs output */

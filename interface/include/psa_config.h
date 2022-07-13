@@ -8,6 +8,7 @@
 #ifndef __PSA_CONFIG_H__
 #define __PSA_CONFIG_H__
 
+#include "tfm_common_config.h"
 /*
  * This is an implementation-specific file that supporting PSA standard
  * files. The reason to name with prefix 'psa' is to showcase a straight

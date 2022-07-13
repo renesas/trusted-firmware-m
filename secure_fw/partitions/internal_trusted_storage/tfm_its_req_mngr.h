@@ -12,6 +12,8 @@
 
 #include "psa/client.h"
 
+#include "tfm_common_config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
