@@ -9,4 +9,4 @@
 
 #include <stdint.h>
 
-uint8_t tfm_sp_fwu_stack[0x600] __attribute__((aligned(8)));
+uint8_t tfm_sp_secure_client_2_stack[0x300] __attribute__((aligned(8)));

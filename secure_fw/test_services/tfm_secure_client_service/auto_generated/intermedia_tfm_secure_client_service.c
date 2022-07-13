@@ -9,4 +9,4 @@
 
 #include <stdint.h>
 
-uint8_t tfm_sp_fwu_stack[0x600] __attribute__((aligned(8)));
+uint8_t tfm_sp_secure_test_partition_stack[0x0D00] __attribute__((aligned(8)));

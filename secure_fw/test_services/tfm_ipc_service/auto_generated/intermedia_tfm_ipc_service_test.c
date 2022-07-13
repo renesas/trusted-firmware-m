@@ -9,4 +9,4 @@
 
 #include <stdint.h>
 
-uint8_t tfm_sp_fwu_stack[0x600] __attribute__((aligned(8)));
+uint8_t tfm_sp_ipc_service_test_stack[0x0220] __attribute__((aligned(8)));

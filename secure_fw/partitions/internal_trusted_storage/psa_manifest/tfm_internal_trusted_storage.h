@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2022, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
 
-/*********** WARNING: This is an auto-generated file. Do not edit! ***********/
+/***********  WARNING: This is an auto-generated file. Do not edit!  ***********/
 
 #ifndef __PSA_MANIFEST_TFM_INTERNAL_TRUSTED_STORAGE_H__
 #define __PSA_MANIFEST_TFM_INTERNAL_TRUSTED_STORAGE_H__
@@ -14,10 +14,11 @@
 extern "C" {
 #endif
 
-#define TFM_ITS_SET_SIGNAL                                      (1U << (0 + 4))
-#define TFM_ITS_GET_SIGNAL                                      (1U << (1 + 4))
-#define TFM_ITS_GET_INFO_SIGNAL                                 (1U << (2 + 4))
-#define TFM_ITS_REMOVE_SIGNAL                                   (1U << (3 + 4))
+#define TFM_SP_ITS_MODEL_IPC                                    0
+#define TFM_SP_ITS_MODEL_SFN                                    1
+
+psa_status_t tfm_internal_trusted_storage_service_sfn(const psa_msg_t* msg);
+
 
 #ifdef __cplusplus
 }
