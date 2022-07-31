@@ -42,6 +42,7 @@
 #include "load/asset_defs.h"
 #include "load/spm_load_api.h"
 #include "tfm_nspm.h"
+#include "tfm_common_config.h"
 #if defined(CONFIG_TFM_PARTITION_META)
 #include "tfm_hal_memory_symbols.h"
 #endif

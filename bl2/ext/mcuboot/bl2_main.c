@@ -88,7 +88,7 @@ static void do_boot(struct boot_rsp *rsp)
     boot_platform_quit(vt);
 }
 
-int main(void)
+int bl2_main(void)
 {
     struct boot_rsp rsp;
     fih_int fih_rc = FIH_FAILURE;
