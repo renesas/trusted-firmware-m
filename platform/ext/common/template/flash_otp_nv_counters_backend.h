@@ -9,6 +9,7 @@
 #define __FLASH_OTP_NV_COUNTERS_BACKEND_H__
 
 #include "cmsis_compiler.h"
+#include "tfm_common_config.h"
 
 #define FLASH_NV_COUNTER_AM 3
 
