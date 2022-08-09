@@ -13,6 +13,7 @@
 #include "psa/crypto.h"
 #include "tfm_spm_log.h"
 #include "tfm_memory_utils.h"
+#include "tfm_common_config.h"
 
 #include <string.h>
 

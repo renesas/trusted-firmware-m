@@ -19,6 +19,7 @@
 #include "load/spm_load_api.h"
 #include "load/service_defs.h"
 #include "psa/client.h"
+#include "tfm_common_config.h"
 
 /* Partition load data region */
 REGION_DECLARE(Image$$, TFM_SP_LOAD_LIST, $$RO$$Base);

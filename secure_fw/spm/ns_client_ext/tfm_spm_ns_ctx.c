@@ -8,6 +8,7 @@
 #include "tfm_nspm.h"
 #include "tfm_ns_ctx.h"
 #include "tfm_ns_client_ext.h"
+#include "tfm_common_config.h"
 
 #define DEFAULT_NS_CLIENT_ID ((int32_t)-1)
 

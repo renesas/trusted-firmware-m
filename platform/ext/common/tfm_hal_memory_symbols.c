@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include "region.h"
+#include "tfm_common_config.h"
 
 #ifdef CONFIG_TFM_PARTITION_META
 REGION_DECLARE(Image$$, TFM_SP_META_PTR, $$ZI$$Base);
