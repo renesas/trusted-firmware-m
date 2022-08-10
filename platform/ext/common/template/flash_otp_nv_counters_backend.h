@@ -25,29 +25,29 @@ __PACKED_STRUCT flash_otp_nv_counters_region_t {
 
 #ifdef PLATFORM_DEFAULT_OTP
     __PACKED_STRUCT {
+
+#ifdef BL2
+        uint8_t bl2_nv_counter_0[64]; //Changed order to align this to 64 byte address
+        uint8_t bl2_nv_counter_1[64]; //Changed order to align this to 64 byte address
+        uint8_t bl2_nv_counter_2[64]; //Changed order to align this to 64 byte address
+
+        uint8_t bl2_rotpk_0[32];
+        uint8_t bl2_rotpk_1[32];
+        uint8_t bl2_rotpk_2[32];
+#endif /* BL2 */
+
         uint8_t huk[32];
+        uint8_t boot_seed[32];  //Changed order to align this to 64 byte address
         uint8_t iak[32];
         uint8_t iak_len[4];
         uint8_t iak_type[4];
         uint8_t iak_id[32];
 
-        uint8_t boot_seed[32];
         uint8_t lcs[4];
         uint8_t implementation_id[32];
         uint8_t hw_version[32];
         uint8_t verification_service_url[32];
         uint8_t profile_definition[32];
-
-#ifdef BL2
-        uint8_t bl2_rotpk_0[32];
-        uint8_t bl2_rotpk_1[32];
-
-        uint8_t bl2_nv_counter_0[64];
-        uint8_t bl2_nv_counter_1[64];
-
-        uint8_t bl2_nv_counter_2[64];
-        uint8_t bl2_rotpk_2[32];
-#endif /* BL2 */
 
 #ifdef BL1
         uint8_t bl1_rotpk_0[32];
