@@ -40,7 +40,7 @@ __PACKED_STRUCT flash_otp_nv_counters_region_t {
         uint8_t verification_service_url[32];
         uint8_t profile_definition[32];
 
-        uint8_t pad[52];
+        uint8_t pad_1[52];
         
         uint8_t entropy_seed[64]; // Aligned to 64 byte boundary
 

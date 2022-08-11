@@ -41,7 +41,7 @@ __PACKED_STRUCT tfm_psa_rot_provisioning_data_t {
     uint8_t entropy_seed[64];
 };
 
-#ifdef TFM_DUMMY_PROVISIONING
+#if 0
 static const struct tfm_assembly_and_test_provisioning_data_t assembly_and_test_prov_data = {
     ASSEMBLY_AND_TEST_PROV_DATA_MAGIC,
     /* HUK */
