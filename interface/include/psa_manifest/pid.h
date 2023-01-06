@@ -22,13 +22,12 @@ extern "C" {
 #define TFM_SP_INITIAL_ATTESTATION                                     (261)
 #define TFM_SP_FWU                                                     (271)
 #define TFM_SP_SECURE_TEST_PARTITION                                   (3002)
-#define TFM_SP_IPC_SERVICE_TEST                                        (3003)
-#define TFM_SP_IPC_CLIENT_TEST                                         (3004)
 #define TFM_SP_PS_TEST                                                 (3005)
 #define TFM_SP_SECURE_CLIENT_2                                         (3006)
 #define TFM_SP_SLIH_TEST                                               (3008)
+#define TFM_SFN_PARTITION1                                             (3011)
 
-#define TFM_MAX_USER_PARTITIONS                                        (12)
+#define TFM_MAX_USER_PARTITIONS                                        (11)
 
 #ifdef __cplusplus
 }
