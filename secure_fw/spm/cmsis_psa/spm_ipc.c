@@ -41,7 +41,6 @@
 #include "load/asset_defs.h"
 #include "load/spm_load_api.h"
 #include "tfm_nspm.h"
-#include "tfm_common_config.h"
 
 #if !(defined CONFIG_TFM_CONN_HANDLE_MAX_NUM) || (CONFIG_TFM_CONN_HANDLE_MAX_NUM == 0)
 #error "CONFIG_TFM_CONN_HANDLE_MAX_NUM must be defined and not zero."

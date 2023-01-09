@@ -8,6 +8,8 @@
 #ifndef __BUILD_CONFIG_CHECK__
 #define __BUILD_CONFIG_CHECK__
 
+#include "tfm_common_config.h"
+
 /*
  * This file checks whether the build configurations is set correctly or not.
  * Also sets necessary toolchain-specific configurations.

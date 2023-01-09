@@ -21,6 +21,7 @@
 #include "psa/service.h"
 #include "load/partition_defs.h"
 #include "load/interrupt_defs.h"
+#include "tfm_common_config.h"
 
 #define TFM_HANDLE_STATUS_IDLE          0 /* Handle created             */
 #define TFM_HANDLE_STATUS_ACTIVE        1 /* Handle in use              */

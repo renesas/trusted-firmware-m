@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#include "tfm_common_config.h"
+
 #ifdef PROJECT_CONFIG_HEADER_FILE
 #include PROJECT_CONFIG_HEADER_FILE
 #endif

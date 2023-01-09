@@ -16,6 +16,7 @@
 #include "q_useful_buf.h"
 #include "qcbor.h"
 #include "tfm_crypto_defs.h"
+#include "tfm_common_config.h"
 
 #define ATTEST_ECC_PUBLIC_KEY_SIZE \
              PSA_KEY_EXPORT_ECC_PUBLIC_KEY_MAX_SIZE(ATTEST_KEY_BITS)

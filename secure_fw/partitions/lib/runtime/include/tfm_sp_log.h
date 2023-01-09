@@ -11,6 +11,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include"tfm_common_config.h"
 
 /* The Secure Partition log levels */
 #define TFM_PARTITION_LOG_LEVEL_DEBUG     3  /* All log APIs output */

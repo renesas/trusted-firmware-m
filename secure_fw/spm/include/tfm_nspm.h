@@ -11,6 +11,7 @@
 #define __TFM_NSPM_H__
 
 #include <stdint.h>
+#include "tfm_common_config.h"
 
 #define TFM_NS_CLIENT_INVALID_ID            ((int32_t)0)
 
