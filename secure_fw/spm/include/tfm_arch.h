@@ -14,7 +14,7 @@
 
 #include <stddef.h>
 #include <inttypes.h>
-#include "fih.h"
+// #include "fih.h"
 #include "tfm_hal_device_header.h"
 #include "cmsis_compiler.h"
 
