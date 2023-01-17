@@ -10,6 +10,7 @@
 
 #include "config_tfm.h"
 #include "config_ps.h"
+#include "tfm_common_config.h"
 
 /* Create flash FS if it doesn't exist for Internal Trusted Storage partition */
 #ifndef ITS_CREATE_FLASH_LAYOUT

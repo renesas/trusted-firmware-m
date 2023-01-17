@@ -10,6 +10,7 @@
 
 #include "config_platform.h"
 #include "config_tfm.h"
+#include "tfm_common_config.h"
 
 /* Create flash FS if it doesn't exist for Protected Storage partition */
 #ifndef PS_CREATE_FLASH_LAYOUT
