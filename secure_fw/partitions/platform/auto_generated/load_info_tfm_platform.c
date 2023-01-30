@@ -40,6 +40,7 @@ REGION_DECLARE(Image$$, PT_TFM_SP_PLATFORM_PRIVATE, _DATA_START$$Base);
 REGION_DECLARE(Image$$, PT_TFM_SP_PLATFORM_PRIVATE, _DATA_END$$Base);
 #endif
 
+extern uint8_t tfm_sp_platform_stack[];
 
 extern psa_status_t platform_sp_init(void);
 
@@ -73,19 +74,20 @@ const struct partition_tfm_sp_platform_load_info_t tfm_sp_platform_load
                                     | PARTITION_MODEL_PSA_ROT
                                     | PARTITION_PRI_NORMAL,
         .entry                      = ENTRY_TO_POSITION(platform_sp_init),
-        .stack_size                 = 0,
+        .stack_size                 = PLATFORM_SP_STACK_SIZE,
         .heap_size                  = 0,
         .ndeps                      = TFM_SP_PLATFORM_NDEPS,
         .nservices                  = TFM_SP_PLATFORM_NSERVS,
         .nassets                    = TFM_SP_PLATFORM_NASSETS,
         .nirqs                      = TFM_SP_PLATFORM_NIRQS,
     },
-    .stack_addr                     = 0,
+    .stack_addr                     = (uintptr_t)tfm_sp_platform_stack,
     .heap_addr                      = 0,
     .services = {
         {
             .name_strid             = STRING_PTR_TO_STRID("TFM_PLATFORM_SERVICE"),
             .sfn                    = ENTRY_TO_POSITION(tfm_platform_service_sfn),
+            .signal                 = 1,
 
             .sid                    = 0x00000040,
             .flags                  = 0

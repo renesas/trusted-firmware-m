@@ -10,3 +10,4 @@
 #include <stdint.h>
 #include "config_tfm.h"
 
+uint8_t tfm_sp_platform_stack[PLATFORM_SP_STACK_SIZE] __attribute__((aligned(8)));

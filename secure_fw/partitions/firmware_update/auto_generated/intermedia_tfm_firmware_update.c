@@ -10,3 +10,4 @@
 #include <stdint.h>
 #include "config_tfm.h"
 
+uint8_t tfm_sp_fwu_stack[FWU_STACK_SIZE] __attribute__((aligned(8)));

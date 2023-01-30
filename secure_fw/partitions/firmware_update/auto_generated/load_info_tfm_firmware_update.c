@@ -40,6 +40,7 @@ REGION_DECLARE(Image$$, PT_TFM_SP_FWU_PRIVATE, _DATA_START$$Base);
 REGION_DECLARE(Image$$, PT_TFM_SP_FWU_PRIVATE, _DATA_END$$Base);
 #endif
 
+extern uint8_t tfm_sp_fwu_stack[];
 
 extern psa_status_t tfm_fwu_entry(void);
 
@@ -74,14 +75,14 @@ const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
                                     | PARTITION_MODEL_PSA_ROT
                                     | PARTITION_PRI_NORMAL,
         .entry                      = ENTRY_TO_POSITION(tfm_fwu_entry),
-        .stack_size                 = 0,
+        .stack_size                 = FWU_STACK_SIZE,
         .heap_size                  = 0,
         .ndeps                      = TFM_SP_FWU_NDEPS,
         .nservices                  = TFM_SP_FWU_NSERVS,
         .nassets                    = TFM_SP_FWU_NASSETS,
         .nirqs                      = TFM_SP_FWU_NIRQS,
     },
-    .stack_addr                     = 0,
+    .stack_addr                     = (uintptr_t)tfm_sp_fwu_stack,
     .heap_addr                      = 0,
     .deps = {
         TFM_CRYPTO_SID,
@@ -91,6 +92,7 @@ const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
         {
             .name_strid             = STRING_PTR_TO_STRID("TFM_FIRMWARE_UPDATE_SERVICE"),
             .sfn                    = ENTRY_TO_POSITION(tfm_firmware_update_service_sfn),
+            .signal                 = 1,
 
             .sid                    = 0x000000A0,
             .flags                  = 0

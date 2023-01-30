@@ -40,6 +40,7 @@ REGION_DECLARE(Image$$, PT_TFM_SP_INITIAL_ATTESTATION_PRIVATE, _DATA_START$$Base
 REGION_DECLARE(Image$$, PT_TFM_SP_INITIAL_ATTESTATION_PRIVATE, _DATA_END$$Base);
 #endif
 
+extern uint8_t tfm_sp_initial_attestation_stack[];
 
 extern psa_status_t attest_partition_init(void);
 
@@ -74,14 +75,14 @@ const struct partition_tfm_sp_initial_attestation_load_info_t tfm_sp_initial_att
                                     | PARTITION_MODEL_PSA_ROT
                                     | PARTITION_PRI_NORMAL,
         .entry                      = ENTRY_TO_POSITION(attest_partition_init),
-        .stack_size                 = 0,
+        .stack_size                 = ATTEST_STACK_SIZE,
         .heap_size                  = 0,
         .ndeps                      = TFM_SP_INITIAL_ATTESTATION_NDEPS,
         .nservices                  = TFM_SP_INITIAL_ATTESTATION_NSERVS,
         .nassets                    = TFM_SP_INITIAL_ATTESTATION_NASSETS,
         .nirqs                      = TFM_SP_INITIAL_ATTESTATION_NIRQS,
     },
-    .stack_addr                     = 0,
+    .stack_addr                     = (uintptr_t)tfm_sp_initial_attestation_stack,
     .heap_addr                      = 0,
     .deps = {
         TFM_CRYPTO_SID,
@@ -90,6 +91,7 @@ const struct partition_tfm_sp_initial_attestation_load_info_t tfm_sp_initial_att
         {
             .name_strid             = STRING_PTR_TO_STRID("TFM_ATTESTATION_SERVICE"),
             .sfn                    = ENTRY_TO_POSITION(tfm_attestation_service_sfn),
+            .signal                 = 1,
 
             .sid                    = 0x00000020,
             .flags                  = 0

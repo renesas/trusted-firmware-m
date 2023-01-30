@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "psa/protected_storage.h"
+#include "tfm_common_config.h"
 
 #ifdef __cplusplus
 extern "C" {
