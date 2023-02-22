@@ -17,6 +17,7 @@
 // #include "fih.h"
 #include "tfm_hal_device_header.h"
 #include "cmsis_compiler.h"
+#include "tfm_common_config.h"
 
 #if defined(__ARM_ARCH_8_1M_MAIN__) || \
     defined(__ARM_ARCH_8M_MAIN__)  || defined(__ARM_ARCH_8M_BASE__)

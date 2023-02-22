@@ -10,6 +10,7 @@
 #include "security_defs.h"
 #include "tfm_arch.h"
 #include "tfm_hal_platform.h"
+#include "tfm_common_config.h"
 
 #if defined(__ICCARM__)
 #pragma required = ns_agent_tz_init_c
