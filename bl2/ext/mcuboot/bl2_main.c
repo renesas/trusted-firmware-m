@@ -129,7 +129,7 @@ int bl2_main(void)
     }
 
     FIH_CALL(boot_nv_security_counter_init, fih_rc);
-    if (fih_not_eq(fih_rc, FIH_SUCCESS)) {
+    if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
         BOOT_LOG_ERR("Error while initializing the security counter");
         FIH_PANIC;
     }
@@ -154,7 +154,7 @@ int bl2_main(void)
         }
 
         FIH_CALL(boot_go_for_image_id, fih_rc, &rsp, image_id);
-        if (fih_not_eq(fih_rc, FIH_SUCCESS)) {
+        if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
             BOOT_LOG_ERR("Unable to find bootable image");
             FIH_PANIC;
         }
