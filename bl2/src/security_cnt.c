@@ -40,7 +40,7 @@ fih_int boot_nv_security_counter_init(void)
 {
     fih_int fih_rc = FIH_FAILURE;
 
-    fih_rc = fih_int_encode_zero_equality(tfm_plat_init_nv_counter());
+    fih_rc = fih_ret_encode_zero_equality(tfm_plat_init_nv_counter());
 
     FIH_RET(fih_rc);
 }
@@ -61,7 +61,7 @@ fih_int boot_nv_security_counter_get(uint32_t image_id, fih_int *security_cnt)
         FIH_RET(FIH_FAILURE);
     }
 
-    fih_rc = fih_int_encode_zero_equality(
+    fih_rc = fih_ret_encode_zero_equality(
              tfm_plat_read_nv_counter(nv_counter,
                                       sizeof(security_cnt_soft),
                                       (uint8_t *)&security_cnt_soft));
