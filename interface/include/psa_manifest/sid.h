@@ -48,6 +48,36 @@ extern "C" {
 #define TFM_SECURE_CLIENT_SRV_DUMMY_SID                            (0x0000F000U)
 #define TFM_SECURE_CLIENT_SRV_DUMMY_VERSION                        (1U)
 
+/******** TFM_SP_IPC_SERVICE_TEST ********/
+#define IPC_SERVICE_TEST_BASIC_SID                                 (0x0000F080U)
+#define IPC_SERVICE_TEST_BASIC_VERSION                             (1U)
+#define IPC_SERVICE_TEST_PSA_ACCESS_APP_MEM_SID                    (0x0000F081U)
+#define IPC_SERVICE_TEST_PSA_ACCESS_APP_MEM_VERSION                (1U)
+#define IPC_SERVICE_TEST_PSA_ACCESS_APP_READ_ONLY_MEM_SID          (0x0000F082U)
+#define IPC_SERVICE_TEST_PSA_ACCESS_APP_READ_ONLY_MEM_VERSION      (1U)
+#define IPC_SERVICE_TEST_APP_ACCESS_PSA_MEM_SID                    (0x0000F083U)
+#define IPC_SERVICE_TEST_APP_ACCESS_PSA_MEM_VERSION                (1U)
+#define IPC_SERVICE_TEST_CLIENT_PROGRAMMER_ERROR_SID               (0x0000F084U)
+#define IPC_SERVICE_TEST_CLIENT_PROGRAMMER_ERROR_VERSION           (1U)
+#define IPC_SERVICE_TEST_STATELESS_ROT_SID                         (0x0000F085U)
+#define IPC_SERVICE_TEST_STATELESS_ROT_VERSION                     (1U)
+#define IPC_SERVICE_TEST_STATELESS_ROT_HANDLE                      (0x40000106U)
+#define IPC_SERVICE_TEST_MMIOVEC_SID                               (0x0000F086U)
+#define IPC_SERVICE_TEST_MMIOVEC_VERSION                           (1U)
+#define IPC_SERVICE_TEST_MMIOVEC_HANDLE                            (0x40000107U)
+
+/******** TFM_SP_IPC_CLIENT_TEST ********/
+#define IPC_CLIENT_TEST_PSA_ACCESS_APP_MEM_SID                     (0x0000F061U)
+#define IPC_CLIENT_TEST_PSA_ACCESS_APP_MEM_VERSION                 (1U)
+#define IPC_CLIENT_TEST_PSA_ACCESS_APP_READ_ONLY_MEM_SID           (0x0000F062U)
+#define IPC_CLIENT_TEST_PSA_ACCESS_APP_READ_ONLY_MEM_VERSION       (1U)
+#define IPC_CLIENT_TEST_APP_ACCESS_PSA_MEM_SID                     (0x0000F063U)
+#define IPC_CLIENT_TEST_APP_ACCESS_PSA_MEM_VERSION                 (1U)
+#define IPC_CLIENT_TEST_MEM_CHECK_SID                              (0x0000F064U)
+#define IPC_CLIENT_TEST_MEM_CHECK_VERSION                          (1U)
+#define IPC_CLIENT_TEST_RETRIEVE_APP_MEM_SID                       (0x0000F065U)
+#define IPC_CLIENT_TEST_RETRIEVE_APP_MEM_VERSION                   (1U)
+
 /******** TFM_SP_PS_TEST ********/
 #define TFM_PS_TEST_PREPARE_SID                                    (0x0000F0C0U)
 #define TFM_PS_TEST_PREPARE_VERSION                                (1U)
@@ -59,14 +89,7 @@ extern "C" {
 /******** TFM_SP_SLIH_TEST ********/
 #define TFM_SLIH_TEST_CASE_SID                                     (0x0000F0A0U)
 #define TFM_SLIH_TEST_CASE_VERSION                                 (1U)
-#define TFM_SLIH_TEST_CASE_HANDLE                                  (0x40000106U)
-
-/******** TFM_SFN_PARTITION1 ********/
-#define SFN_TEST_STATELESS_SID                                     (0x0000F100U)
-#define SFN_TEST_STATELESS_VERSION                                 (1U)
-#define SFN_TEST_STATELESS_HANDLE                                  (0x40000107U)
-#define SFN_TEST_CONNECTION_BASED_SID                              (0x0000F101U)
-#define SFN_TEST_CONNECTION_BASED_VERSION                          (1U)
+#define TFM_SLIH_TEST_CASE_HANDLE                                  (0x40000108U)
 
 #ifdef __cplusplus
 }

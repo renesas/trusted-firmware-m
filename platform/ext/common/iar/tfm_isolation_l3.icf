@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022 Arm Limited. All rights reserved.
+ * Copyright (c) 2017-2023 Arm Limited. All rights reserved.
  * Copyright (c) 2022 Cypress Semiconductor Corporation (an Infineon company)
  * or an affiliate of Cypress Semiconductor Corporation. All rights reserved.
  *
@@ -72,20 +72,19 @@ define block TFM_SP_LOAD_LIST with alignment = 4 {
     ro section .part_load_priority_high object load_info_*.o,
 };
 
-#if defined(S_CODE_SRAM_ALIAS_BASE)
-    /* eFlash driver code that gets copied from Flash to SRAM */
-initialize by copy {
-    ro object Driver_GFC100_EFlash.o,
-    ro object gfc100_eflash_drv.o,
-    ro object musca_b1_eflash_drv.o
-};
+#if defined(S_RAM_CODE_START)
+    /* Flash drivers code that gets copied from Flash */
+    initialize by copy {
+        ro object *libflash_drivers*,
+    };
 
-define block ER_CODE_SRAM  with fixed order, alignment = 8 {
-    rw section .text,
-    rw section .rodata
-};
+    define block ER_CODE_SRAM  with fixed order, alignment = 4, maximum size = S_RAM_CODE_SIZE {
+        rw section .text,
+        rw section .rodata,
+        rw section .textrw,               /* __ramfunc */
+    };
 
-place at address S_CODE_SRAM_ALIAS_BASE { block ER_CODE_SRAM };
+place at address S_RAM_CODE_START { block ER_CODE_SRAM };
 #endif
 
 /**** blocks CODE + RO-data definition starts here */
@@ -105,6 +104,8 @@ define block ER_TFM_SP_CRYPTO_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_COD
 {
     ro section .text object *tfm_*partition_crypto.*,
     ro section .rodata object *tfm_*partition_crypto.*,
+    ro section .text object *mbedcrypto.*,
+    ro section .rodata object *mbedcrypto.*,
        section TFM_SP_CRYPTO_PSA-ROT_ATTR_FN,
 };
 define block ER_TFM_SP_PLATFORM_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
@@ -131,6 +132,18 @@ define block ER_TFM_SP_SECURE_TEST_PARTITION_RO  with alignment = TFM_LINKER_PSA
     ro section .rodata object *tfm_*partition_secure_client_service.*,
        section TFM_SP_SECURE_TEST_PARTITION_PSA-ROT_ATTR_FN,
 };
+define block ER_TFM_SP_IPC_SERVICE_TEST_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
+{
+    ro section .text object *tfm_*partition_ipc_service.*,
+    ro section .rodata object *tfm_*partition_ipc_service.*,
+       section TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_FN,
+};
+define block ER_TFM_SP_IPC_CLIENT_TEST_RO  with alignment = TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT
+{
+    ro section .text object *tfm_*partition_ipc_client.*,
+    ro section .rodata object *tfm_*partition_ipc_client.*,
+       section TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_FN,
+};
 define block ER_TFM_SP_PS_TEST_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
 {
     ro section .text object *tfm_*partition_ps_test.*,
@@ -148,12 +161,6 @@ define block ER_TFM_SP_SLIH_TEST_RO  with alignment = TFM_LINKER_APP_ROT_LINKER_
     ro section .text object *tfm_*partition_slih_test.*,
     ro section .rodata object *tfm_*partition_slih_test.*,
        section TFM_SP_SLIH_TEST_APP-ROT_ATTR_FN,
-};
-define block ER_TFM_SFN_PARTITION1_RO  with alignment = TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_sfn_backend_test.*,
-    ro section .rodata object *tfm_*partition_sfn_backend_test.*,
-       section TFM_SFN_PARTITION1_APP-ROT_ATTR_FN,
 };
 /**** blocks CODE + RO-data definition ends here*/
 
@@ -216,6 +223,8 @@ keep {block ER_PART_RT_POOL, block ER_SERV_RT_POOL};
     define block ER_TFM_SP_CRYPTO_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
 	rw section .data object *tfm_*partition_crypto.*,
 	rw section .bss  object *tfm_*partition_crypto.*,
+	rw section .data object *mbedcrypto.*,
+	rw section .bss  object *mbedcrypto.*,
 	section TFM_SP_CRYPTO_PSA-ROT_ATTR_RW,
 	section TFM_SP_CRYPTO_PSA-ROT_ATTR_ZI,
 };
@@ -266,6 +275,17 @@ keep {block ER_PART_RT_POOL, block ER_SERV_RT_POOL};
 /* Position  tag : start Block :*/
     define block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
     /* Position  tag : start Block :*/
+    define block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
+
+    define block ER_TFM_SP_IPC_SERVICE_TEST_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
+	rw section .data object *tfm_*partition_ipc_service.*,
+	rw section .bss  object *tfm_*partition_ipc_service.*,
+	section TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_RW,
+	section TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_ZI,
+};
+/* Position  tag : start Block :*/
+    define block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
+    /* Position  tag : start Block :*/
     define block PT_TFM_SP_PS_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
 
     define block ER_TFM_SP_PS_TEST_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
@@ -292,6 +312,17 @@ define block PT_PRIV_RWZI_END with alignment = TFM_LINKER_PT_PRIV_RWZI_ALIGNMENT
 /* Position  tag : start Block :*/
     define block PT_TFM_SP_PS_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
     /* Position  tag : start Block :*/
+    define block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
+
+    define block ER_TFM_SP_IPC_CLIENT_TEST_RWZI with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
+	rw section .data object *tfm_*partition_ipc_client.*,
+	rw section .bss  object *tfm_*partition_ipc_client.*,
+	section TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_RW,
+	section TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_ZI,
+};
+/* Position  tag : start Block :*/
+    define block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
+    /* Position  tag : start Block :*/
     define block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_START with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
 
     define block ER_TFM_SP_SECURE_CLIENT_2_RWZI with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
@@ -313,17 +344,6 @@ define block PT_PRIV_RWZI_END with alignment = TFM_LINKER_PT_PRIV_RWZI_ALIGNMENT
 };
 /* Position  tag : start Block :*/
     define block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SFN_PARTITION1_PRIVATE_DATA_START with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SFN_PARTITION1_RWZI with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_sfn_backend_test.*,
-	rw section .bss  object *tfm_*partition_sfn_backend_test.*,
-	section TFM_SFN_PARTITION1_APP-ROT_ATTR_RW,
-	section TFM_SFN_PARTITION1_APP-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SFN_PARTITION1_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
 
 #if defined(CONFIG_TFM_PARTITION_META)
 define block TFM_SP_META_PTR with alignment = TFM_LINKER_SP_META_PTR_ALIGNMENT {
@@ -354,12 +374,13 @@ define block LR_CODE with fixed order {
     block ER_TFM_SP_INITIAL_ATTESTATION_RO,
     block ER_TFM_SP_FWU_RO,
     block ER_TFM_SP_SECURE_TEST_PARTITION_RO,
+    block ER_TFM_SP_IPC_SERVICE_TEST_RO,
     block ER_TFM_SP_PS_TEST_RO,
     /**** APPLICATION RoT RO CODE + data starts here */
     block ER_TFM_SP_PS_RO,
+    block ER_TFM_SP_IPC_CLIENT_TEST_RO,
     block ER_TFM_SP_SECURE_CLIENT_2_RO,
     block ER_TFM_SP_SLIH_TEST_RO,
-    block ER_TFM_SFN_PARTITION1_RO,
     block TFM_UNPRIV_CODE,
     block PT_RO_END,
 };
@@ -416,6 +437,9 @@ define block DATA with fixed order {
     block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_START,
     block ER_TFM_SP_SECURE_TEST_PARTITION_RWZI,
     block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_END,
+    block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_START,
+    block ER_TFM_SP_IPC_SERVICE_TEST_RWZI,
+    block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_END,
     block PT_TFM_SP_PS_TEST_PRIVATE_DATA_START,
     block ER_TFM_SP_PS_TEST_RWZI,
     block PT_TFM_SP_PS_TEST_PRIVATE_DATA_END,
@@ -426,15 +450,15 @@ define block DATA with fixed order {
     block PT_TFM_SP_PS_PRIVATE_DATA_START,
     block ER_TFM_SP_PS_RWZI,
     block PT_TFM_SP_PS_PRIVATE_DATA_END,
+    block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_START,
+    block ER_TFM_SP_IPC_CLIENT_TEST_RWZI,
+    block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_END,
     block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_START,
     block ER_TFM_SP_SECURE_CLIENT_2_RWZI,
     block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_END,
     block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_START,
     block ER_TFM_SP_SLIH_TEST_RWZI,
     block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_END,
-    block PT_TFM_SFN_PARTITION1_PRIVATE_DATA_START,
-    block ER_TFM_SFN_PARTITION1_RWZI,
-    block PT_TFM_SFN_PARTITION1_PRIVATE_DATA_END,
 
 #if defined(CONFIG_TFM_PARTITION_META)
     block TFM_SP_META_PTR,

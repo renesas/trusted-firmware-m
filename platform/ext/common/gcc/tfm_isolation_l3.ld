@@ -1,5 +1,5 @@
 ;/*
-; * Copyright (c) 2009-2022 Arm Limited
+; * Copyright (c) 2009-2023 Arm Limited
 ; * Copyright (c) 2022 Cypress Semiconductor Corporation (an Infineon company)
 ; * or an affiliate of Cypress Semiconductor Corporation. All rights reserved.
 ; *
@@ -35,8 +35,8 @@ MEMORY
 {
   FLASH    (rx)  : ORIGIN = S_CODE_START, LENGTH = S_CODE_SIZE
   RAM      (rwx) : ORIGIN = S_DATA_START, LENGTH = S_DATA_SIZE
-#if defined(S_CODE_SRAM_ALIAS_BASE)
-  CODE_RAM (rwx) : ORIGIN = S_CODE_SRAM_ALIAS_BASE, LENGTH = TOTAL_CODE_SRAM_SIZE
+#if defined(S_RAM_CODE_START)
+  CODE_RAM (rwx) : ORIGIN = S_RAM_CODE_START, LENGTH = S_RAM_CODE_SIZE
 #endif
 }
 
@@ -71,13 +71,17 @@ SECTIONS
     .gnu.sgstubs ALIGN(TFM_LINKER_VENEERS_ALIGNMENT) :
     {
         *(.gnu.sgstubs*)
-        . = ALIGN(TFM_LINKER_VENEERS_ALIGNMENT);
     } > FLASH
     Image$$ER_VENEER$$Base = ADDR(.gnu.sgstubs);
-    Image$$VENEER_ALIGN$$Limit = ADDR(.gnu.sgstubs) + SIZEOF(.gnu.sgstubs);
-#endif
+    Image$$VENEER_ALIGN$$Limit = ALIGN(TFM_LINKER_VENEERS_ALIGNMENT);
 
+    /* GCC always places veneers at the end of .gnu.sgstubs section, so the only
+     * way to align the end of .gnu.sgstubs section is to align start of the
+     * next section */
+    .copy.table : ALIGN(TFM_LINKER_VENEERS_ALIGNMENT)
+#else
     .copy.table : ALIGN(4)
+#endif
     {
         __copy_table_start__ = .;
 #ifdef RAM_VECTORS_SUPPORT
@@ -86,6 +90,9 @@ SECTIONS
         LONG (__ram_vectors_start__)                        /* To   */
         LONG ((__vectors_end__ - __vectors_start__) / 4)    /* Size */
 #endif
+        LONG (LOADADDR(.spm_data))
+        LONG (ADDR(.spm_data))
+        LONG (SIZEOF(.spm_data) / 4)
         LONG (LOADADDR(.TFM_DATA))
         LONG (ADDR(.TFM_DATA))
         LONG (SIZEOF(.TFM_DATA) / 4)
@@ -110,6 +117,12 @@ SECTIONS
         LONG (LOADADDR(.ER_TFM_SP_SECURE_TEST_PARTITION_RWZI))
         LONG (ADDR(.ER_TFM_SP_SECURE_TEST_PARTITION_RWZI))
         LONG (SIZEOF(.ER_TFM_SP_SECURE_TEST_PARTITION_RWZI) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI))
+        LONG (ADDR(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI))
+        LONG (ADDR(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI) / 4)
         LONG (LOADADDR(.ER_TFM_SP_PS_TEST_RWZI))
         LONG (ADDR(.ER_TFM_SP_PS_TEST_RWZI))
         LONG (SIZEOF(.ER_TFM_SP_PS_TEST_RWZI) / 4)
@@ -119,20 +132,20 @@ SECTIONS
         LONG (LOADADDR(.ER_TFM_SP_SLIH_TEST_RWZI))
         LONG (ADDR(.ER_TFM_SP_SLIH_TEST_RWZI))
         LONG (SIZEOF(.ER_TFM_SP_SLIH_TEST_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SFN_PARTITION1_RWZI))
-        LONG (ADDR(.ER_TFM_SFN_PARTITION1_RWZI))
-        LONG (SIZEOF(.ER_TFM_SFN_PARTITION1_RWZI) / 4)
-#if defined(S_CODE_SRAM_ALIAS_BASE)
-        LONG (LOADADDR(.ER_EFLASH_DRIVER_RO))
-        LONG (ADDR(.ER_EFLASH_DRIVER_RO))
-        LONG (SIZEOF(.ER_EFLASH_DRIVER_RO) / 4)
+#if defined(S_RAM_CODE_START)
+        LONG (LOADADDR(.ER_CODE_SRAM))
+        LONG (ADDR(.ER_CODE_SRAM))
+        LONG (SIZEOF(.ER_CODE_SRAM) / 4)
 #endif
+
         __copy_table_end__ = .;
     } > FLASH
 
     .zero.table : ALIGN(4)
     {
         __zero_table_start__ = .;
+        LONG (ADDR(.spm_bss))
+        LONG (SIZEOF(.spm_bss) / 4)
 #if defined(CONFIG_TFM_PARTITION_META)
         LONG (ADDR(.TFM_SP_META_PTR))
         LONG (SIZEOF(.TFM_SP_META_PTR) / 4)
@@ -153,14 +166,16 @@ SECTIONS
         LONG (SIZEOF(.TFM_SP_FWU_RWZI_BSS) / 4)
         LONG (ADDR(.TFM_SP_SECURE_TEST_PARTITION_RWZI_BSS))
         LONG (SIZEOF(.TFM_SP_SECURE_TEST_PARTITION_RWZI_BSS) / 4)
+        LONG (ADDR(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS) / 4)
+        LONG (ADDR(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS) / 4)
         LONG (ADDR(.TFM_SP_PS_TEST_RWZI_BSS))
         LONG (SIZEOF(.TFM_SP_PS_TEST_RWZI_BSS) / 4)
         LONG (ADDR(.TFM_SP_SECURE_CLIENT_2_RWZI_BSS))
         LONG (SIZEOF(.TFM_SP_SECURE_CLIENT_2_RWZI_BSS) / 4)
         LONG (ADDR(.TFM_SP_SLIH_TEST_RWZI_BSS))
         LONG (SIZEOF(.TFM_SP_SLIH_TEST_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SFN_PARTITION1_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SFN_PARTITION1_RWZI_BSS) / 4)
         __zero_table_end__ = .;
     } > FLASH
 
@@ -195,6 +210,8 @@ SECTIONS
     {
         *tfm_*partition_crypto.*:*(.text*)
         *tfm_*partition_crypto.*:*(.rodata*)
+        *mbedcrypto.*:*(.text*)
+        *mbedcrypto.*:*(.rodata*)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
@@ -241,6 +258,16 @@ SECTIONS
     Image$$TFM_SP_SECURE_TEST_PARTITION_RO$$Base = ADDR(.TFM_SP_SECURE_TEST_PARTITION_RO);
     Image$$TFM_SP_SECURE_TEST_PARTITION_RO$$Limit = ADDR(.TFM_SP_SECURE_TEST_PARTITION_RO) + SIZEOF(.TFM_SP_SECURE_TEST_PARTITION_RO);
 
+    .TFM_SP_IPC_SERVICE_TEST_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
+    {
+        *tfm_*partition_ipc_service.*:*(.text*)
+        *tfm_*partition_ipc_service.*:*(.rodata*)
+        *(TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_FN)
+        . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
+    } > FLASH
+    Image$$TFM_SP_IPC_SERVICE_TEST_RO$$Base = ADDR(.TFM_SP_IPC_SERVICE_TEST_RO);
+    Image$$TFM_SP_IPC_SERVICE_TEST_RO$$Limit = ADDR(.TFM_SP_IPC_SERVICE_TEST_RO) + SIZEOF(.TFM_SP_IPC_SERVICE_TEST_RO);
+
     .TFM_SP_PS_TEST_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
     {
         *tfm_*partition_ps_test.*:*(.text*)
@@ -264,6 +291,16 @@ SECTIONS
     Image$$TFM_SP_PS_CODE$$Base = ADDR(.TFM_SP_PS_RO);
     Image$$TFM_SP_PS_CODE$$Limit = ADDR(.TFM_SP_PS_RO) + SIZEOF(.TFM_SP_PS_RO);
 
+    .TFM_SP_IPC_CLIENT_TEST_RO : ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT)
+    {
+        *tfm_*partition_ipc_client.*:*(.text*)
+        *tfm_*partition_ipc_client.*:*(.rodata*)
+        *(TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_FN)
+        . = ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT);
+    } > FLASH
+    Image$$TFM_SP_IPC_CLIENT_TEST_CODE$$Base = ADDR(.TFM_SP_IPC_CLIENT_TEST_RO);
+    Image$$TFM_SP_IPC_CLIENT_TEST_CODE$$Limit = ADDR(.TFM_SP_IPC_CLIENT_TEST_RO) + SIZEOF(.TFM_SP_IPC_CLIENT_TEST_RO);
+
     .TFM_SP_SECURE_CLIENT_2_RO : ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT)
     {
         *tfm_*partition_secure_client_2.*:*(.text*)
@@ -284,31 +321,19 @@ SECTIONS
     Image$$TFM_SP_SLIH_TEST_CODE$$Base = ADDR(.TFM_SP_SLIH_TEST_RO);
     Image$$TFM_SP_SLIH_TEST_CODE$$Limit = ADDR(.TFM_SP_SLIH_TEST_RO) + SIZEOF(.TFM_SP_SLIH_TEST_RO);
 
-    .TFM_SFN_PARTITION1_RO : ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT)
-    {
-        *tfm_*partition_sfn_backend_test.*:*(.text*)
-        *tfm_*partition_sfn_backend_test.*:*(.rodata*)
-        *(TFM_SFN_PARTITION1_APP-ROT_ATTR_FN)
-        . = ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT);
-    } > FLASH
-    Image$$TFM_SFN_PARTITION1_CODE$$Base = ADDR(.TFM_SFN_PARTITION1_RO);
-    Image$$TFM_SFN_PARTITION1_CODE$$Limit = ADDR(.TFM_SFN_PARTITION1_RO) + SIZEOF(.TFM_SFN_PARTITION1_RO);
-
     /**** APPLICATION RoT RO CODE + data ends here */
 
-#if defined(S_CODE_SRAM_ALIAS_BASE)
-    .ER_EFLASH_DRIVER_RO : ALIGN(4)
+#if defined(S_RAM_CODE_START)
+    /* Flash drivers code that gets copied from Flash */
+    .ER_CODE_SRAM : ALIGN(4)
     {
-        *Driver_GFC100_EFlash.o(.text*)
-        *Driver_GFC100_EFlash.o(.rodata*)
-        *gfc100_eflash_drv.o(.text*)
-        *gfc100_eflash_drv.o(.rodata*)
-        *musca_b1_eflash_drv.o(.text*)
-        *musca_b1_eflash_drv.o(.rodata*)
+        *libflash_drivers*:*(.text*)
+        *libflash_drivers*:*(.rodata*)
+        KEEP(*(.ramfunc))
         . = ALIGN(4); /* This alignment is needed to make the section size 4 bytes aligned */
     } > CODE_RAM AT > FLASH
-    Image$$ER_EFLASH_DRIVER_RO$$Base = ADDR(.ER_EFLASH_DRIVER_RO);
-    Image$$ER_EFLASH_DRIVER_RO$$Limit = ADDR(.ER_EFLASH_DRIVER_RO) + SIZEOF(.ER_EFLASH_DRIVER_RO);
+    Image$$ER_CODE_SRAM$$Base = ADDR(.ER_CODE_SRAM);
+    Image$$ER_CODE_SRAM$$Limit = ADDR(.ER_CODE_SRAM) + SIZEOF(.ER_CODE_SRAM);
 #endif
 
     .ER_TFM_CODE : ALIGN(4)
@@ -414,6 +439,15 @@ SECTIONS
     } > RAM
 #endif
 
+    .spm_data :
+    {
+        *libtfm_spm*:*(.data*);
+    } > RAM AT> FLASH
+    .spm_bss :
+    {
+        *libtfm_spm*:*(.bss*);
+    } > RAM AT> RAM
+
     /**** PSA RoT DATA start here */
 
     /* Position tag */
@@ -453,6 +487,7 @@ SECTIONS
     .ER_TFM_SP_CRYPTO_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
     {
         *tfm_*partition_crypto.*:*(.data*)
+        *mbedcrypto.*:*(.data*)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_RW)
         . = ALIGN(4);
     } > RAM AT> FLASH
@@ -464,6 +499,8 @@ SECTIONS
         start_of_TFM_SP_CRYPTO_RWZI = .;
         *tfm_*partition_crypto.*:*(.bss*)
         *tfm_*partition_crypto.*:*(COMMON)
+        *mbedcrypto.*:*(.bss*)
+        *mbedcrypto.*:*(COMMON)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_ZI)
         . += (. - start_of_TFM_SP_CRYPTO_RWZI) ? 0 : 4;
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
@@ -598,6 +635,36 @@ SECTIONS
 
     /* Position tag */
     . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
+    Image$$PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_START$$Base = .;
+
+    .ER_TFM_SP_IPC_SERVICE_TEST_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
+    {
+        *tfm_*partition_ipc_service.*:*(.data*)
+        *(TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_RW)
+        . = ALIGN(4);
+    } > RAM AT> FLASH
+    Image$$ER_TFM_SP_IPC_SERVICE_TEST_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI);
+    Image$$ER_TFM_SP_IPC_SERVICE_TEST_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI) + SIZEOF(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI);
+
+    .TFM_SP_IPC_SERVICE_TEST_RWZI_BSS : ALIGN(4)
+    {
+        start_of_TFM_SP_IPC_SERVICE_TEST_RWZI = .;
+        *tfm_*partition_ipc_service.*:*(.bss*)
+        *tfm_*partition_ipc_service.*:*(COMMON)
+        *(TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_ZI)
+        . += (. - start_of_TFM_SP_IPC_SERVICE_TEST_RWZI) ? 0 : 4;
+        . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
+    } > RAM AT> RAM
+    Image$$ER_TFM_SP_IPC_SERVICE_TEST_RWZI$$ZI$$Base = ADDR(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS);
+    Image$$ER_TFM_SP_IPC_SERVICE_TEST_RWZI$$ZI$$Limit = ADDR(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS) + SIZEOF(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS);
+
+    /* Position tag */
+    . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
+    Image$$PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_END$$Base = .;
+
+
+    /* Position tag */
+    . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_PS_TEST_PRIVATE_DATA_START$$Base = .;
 
     .ER_TFM_SP_PS_TEST_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
@@ -663,6 +730,35 @@ SECTIONS
 
     /* Position tag */
     . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
+    Image$$PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_START$$Base = .;
+
+    .ER_TFM_SP_IPC_CLIENT_TEST_RWZI : ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT)
+    {
+        *tfm_*partition_ipc_client.*:*(.data*)
+        *(TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_RW)
+        . = ALIGN(4);
+    } > RAM AT> FLASH
+    Image$$.ER_TFM_SP_IPC_CLIENT_TEST_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI);
+    Image$$.ER_TFM_SP_IPC_CLIENT_TEST_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI) + SIZEOF(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI);
+
+    .TFM_SP_IPC_CLIENT_TEST_RWZI_BSS : ALIGN(4)
+    {
+        start_of_TFM_SP_IPC_CLIENT_TEST_RWZI = .;
+        *tfm_*partition_ipc_client.*:*(.bss*)
+        *tfm_*partition_ipc_client.*:*(COMMON)
+        *(TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_ZI)
+        . += (. - start_of_TFM_SP_IPC_CLIENT_TEST_RWZI) ? 0 : 4;
+        . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
+    } > RAM AT> RAM
+    Image$$ER_TFM_SP_IPC_CLIENT_TEST_RWZI$$ZI$$Base = ADDR(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS);
+    Image$$ER_TFM_SP_IPC_CLIENT_TEST_RWZI$$ZI$$Limit = ADDR(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS) + SIZEOF(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS);
+
+    /* Position tag */
+    . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
+    Image$$PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_END$$Base = .;
+
+    /* Position tag */
+    . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_START$$Base = .;
 
     .ER_TFM_SP_SECURE_CLIENT_2_RWZI : ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT)
@@ -718,35 +814,6 @@ SECTIONS
     /* Position tag */
     . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_END$$Base = .;
-
-    /* Position tag */
-    . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
-    Image$$PT_TFM_SFN_PARTITION1_PRIVATE_DATA_START$$Base = .;
-
-    .ER_TFM_SFN_PARTITION1_RWZI : ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT)
-    {
-        *tfm_*partition_sfn_backend_test.*:*(.data*)
-        *(TFM_SFN_PARTITION1_APP-ROT_ATTR_RW)
-        . = ALIGN(4);
-    } > RAM AT> FLASH
-    Image$$.ER_TFM_SFN_PARTITION1_RWZI$$RW$$Base = ADDR(.ER_TFM_SFN_PARTITION1_RWZI);
-    Image$$.ER_TFM_SFN_PARTITION1_RWZI$$RW$$Limit = ADDR(.ER_TFM_SFN_PARTITION1_RWZI) + SIZEOF(.ER_TFM_SFN_PARTITION1_RWZI);
-
-    .TFM_SFN_PARTITION1_RWZI_BSS : ALIGN(4)
-    {
-        start_of_TFM_SFN_PARTITION1_RWZI = .;
-        *tfm_*partition_sfn_backend_test.*:*(.bss*)
-        *tfm_*partition_sfn_backend_test.*:*(COMMON)
-        *(TFM_SFN_PARTITION1_APP-ROT_ATTR_ZI)
-        . += (. - start_of_TFM_SFN_PARTITION1_RWZI) ? 0 : 4;
-        . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
-    } > RAM AT> RAM
-    Image$$ER_TFM_SFN_PARTITION1_RWZI$$ZI$$Base = ADDR(.TFM_SFN_PARTITION1_RWZI_BSS);
-    Image$$ER_TFM_SFN_PARTITION1_RWZI$$ZI$$Limit = ADDR(.TFM_SFN_PARTITION1_RWZI_BSS) + SIZEOF(.TFM_SFN_PARTITION1_RWZI_BSS);
-
-    /* Position tag */
-    . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
-    Image$$PT_TFM_SFN_PARTITION1_PRIVATE_DATA_END$$Base = .;
 
     /**** APPLICATION RoT DATA end here */
 

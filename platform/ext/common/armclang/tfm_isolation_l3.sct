@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022 Arm Limited. All rights reserved.
+ * Copyright (c) 2017-2023 Arm Limited. All rights reserved.
  * Copyright (c) 2022 Cypress Semiconductor Corporation (an Infineon company)
  * or an affiliate of Cypress Semiconductor Corporation. All rights reserved.
  *
@@ -90,6 +90,7 @@ LR_CODE S_CODE_START S_CODE_SIZE {
 
     ER_TFM_SP_CRYPTO_RO +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT {
         *tfm_*partition_crypto.* (+RO-CODE, +RO-DATA)
+        *mbedcrypto.* (+RO-CODE, +RO-DATA)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_FN)
     }
 
@@ -113,6 +114,11 @@ LR_CODE S_CODE_START S_CODE_SIZE {
         *(TFM_SP_SECURE_TEST_PARTITION_PSA-ROT_ATTR_FN)
     }
 
+    ER_TFM_SP_IPC_SERVICE_TEST_RO +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT {
+        *tfm_*partition_ipc_service.* (+RO-CODE, +RO-DATA)
+        *(TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_FN)
+    }
+
     ER_TFM_SP_PS_TEST_RO +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT {
         *tfm_*partition_ps_test.* (+RO-CODE, +RO-DATA)
         *(TFM_SP_PS_TEST_PSA-ROT_ATTR_FN)
@@ -126,6 +132,11 @@ LR_CODE S_CODE_START S_CODE_SIZE {
         *(TFM_SP_PS_APP-ROT_ATTR_FN)
     }
 
+    ER_TFM_SP_IPC_CLIENT_TEST_RO +0 ALIGN TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT {
+        *tfm_*partition_ipc_client.* (+RO-CODE, +RO-DATA)
+        *(TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_FN)
+    }
+
     ER_TFM_SP_SECURE_CLIENT_2_RO +0 ALIGN TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT {
         *tfm_*partition_secure_client_2.* (+RO-CODE, +RO-DATA)
         *(TFM_SP_SECURE_CLIENT_2_APP-ROT_ATTR_FN)
@@ -134,11 +145,6 @@ LR_CODE S_CODE_START S_CODE_SIZE {
     ER_TFM_SP_SLIH_TEST_RO +0 ALIGN TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT {
         *tfm_*partition_slih_test.* (+RO-CODE, +RO-DATA)
         *(TFM_SP_SLIH_TEST_APP-ROT_ATTR_FN)
-    }
-
-    ER_TFM_SFN_PARTITION1_RO +0 ALIGN TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT {
-        *tfm_*partition_sfn_backend_test.* (+RO-CODE, +RO-DATA)
-        *(TFM_SFN_PARTITION1_APP-ROT_ATTR_FN)
     }
 
     /**** APPLICATION RoT CODE + RO-data ends here */
@@ -216,6 +222,7 @@ LR_CODE S_CODE_START S_CODE_SIZE {
 
     ER_TFM_SP_CRYPTO_RWZI +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
         *tfm_*partition_crypto.* (+RW +ZI)
+        *mbedcrypto.* (+RW +ZI)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_RW)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_ZI)
     }
@@ -285,6 +292,21 @@ LR_CODE S_CODE_START S_CODE_SIZE {
     }
 
 
+    PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_START +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
+        /* Position tag */
+    }
+
+    ER_TFM_SP_IPC_SERVICE_TEST_RWZI +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
+        *tfm_*partition_ipc_service.* (+RW +ZI)
+        *(TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_RW)
+        *(TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_ZI)
+    }
+
+    PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_END +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
+        /* Position tag */
+    }
+
+
     PT_TFM_SP_PS_TEST_PRIVATE_DATA_START +0 ALIGN TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
         /* Position tag */
     }
@@ -321,6 +343,21 @@ LR_CODE S_CODE_START S_CODE_SIZE {
     }
 
 
+    PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_START +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
+        /* Position tag */
+    }
+
+    ER_TFM_SP_IPC_CLIENT_TEST_RWZI +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
+        *tfm_*partition_ipc_client.* (+RW +ZI)
+        *(TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_RW)
+        *(TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_ZI)
+    }
+
+    PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_END +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
+        /* Position tag */
+    }
+
+
     PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_START +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
         /* Position tag */
     }
@@ -351,21 +388,6 @@ LR_CODE S_CODE_START S_CODE_SIZE {
     }
 
 
-    PT_TFM_SFN_PARTITION1_PRIVATE_DATA_START +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-        /* Position tag */
-    }
-
-    ER_TFM_SFN_PARTITION1_RWZI +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-        *tfm_*partition_sfn_backend_test.* (+RW +ZI)
-        *(TFM_SFN_PARTITION1_APP-ROT_ATTR_RW)
-        *(TFM_SFN_PARTITION1_APP-ROT_ATTR_ZI)
-    }
-
-    PT_TFM_SFN_PARTITION1_PRIVATE_DATA_END +0 ALIGN TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-        /* Position tag */
-    }
-
-
 #if defined(CONFIG_TFM_PARTITION_META)
     TFM_SP_META_PTR +0 ALIGN TFM_LINKER_SP_META_PTR_ALIGNMENT {
         *(.bss.SP_META_PTR_SPRTL_INST)
@@ -387,13 +409,24 @@ LR_CODE S_CODE_START S_CODE_SIZE {
      */
     ScatterAssert(ImageLimit(PT_SRAM_WATERMARK) <= S_DATA_START + S_DATA_SIZE)
 
-#if defined(S_CODE_SRAM_ALIAS_BASE)
-    /* eFlash driver code that gets copied from Flash to SRAM */
-    ER_EFLASH_DRIVER_RO S_CODE_SRAM_ALIAS_BASE ALIGN 4 {
-        Driver_GFC100_EFlash.o (+RO-CODE, +RO-DATA)
-        gfc100_eflash_drv.o (+RO-CODE, +RO-DATA)
-        musca_b1_eflash_drv.o (+RO-CODE, +RO-DATA)
+#if defined(S_RAM_CODE_START)
+    /* Flash drivers code that gets copied from Flash */
+    ER_CODE_SRAM S_RAM_CODE_START ALIGN 4 {
+        *libflash_drivers* (+RO)
+        * (.ramfunc)
     }
+
+    /* This empty, zero long execution region is here to mark the limit
+     * address of the last execution region that is allocated in CODE_SRAM.
+     */
+    ER_CODE_SRAM_WATERMARK +0 EMPTY 0x0 {
+    }
+
+    /* Make sure that the sections allocated in the CODE_SRAM does not exceed
+     * the size of the SRAM available.
+     */
+    ScatterAssert(ImageLimit(ER_CODE_SRAM_WATERMARK) <=
+                  S_RAM_CODE_START + S_RAM_CODE_SIZE)
 #endif
 }
 
