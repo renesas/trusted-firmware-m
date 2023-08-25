@@ -27,7 +27,7 @@
  * \brief These includes are required to get the interface that TF-M crypto
  *        exposes on its client side, in particular regarding key attributes
  */
-#include "psa/crypto_client_struct.h"
+#include "tfm_psa/psa/crypto_client_struct.h"
 
 /**
  * \brief This Mbed TLS include is needed to initialise the memory allocator

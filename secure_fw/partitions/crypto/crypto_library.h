@@ -22,8 +22,8 @@
 extern "C" {
 #endif
 
-#include "psa/crypto.h"
-#include "psa/crypto_client_struct.h"
+#include "tfm_psa/psa/crypto.h"
+#include "tfm_psa/psa/crypto_client_struct.h"
 
 /**
  * \brief This macro extracts the key ID from the library encoded key passed as parameter

@@ -9,6 +9,7 @@
 #define TFM_BUILTIN_KEY_LOADER_H
 
 #include <psa/crypto.h>
+#include "tfm_common_config.h"
 
 #ifdef __cplusplus
 extern "C" {
