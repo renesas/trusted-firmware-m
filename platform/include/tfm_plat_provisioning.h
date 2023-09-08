@@ -46,6 +46,7 @@ int tfm_plat_provisioning_is_required(void);
  */
 enum tfm_plat_err_t tfm_plat_provisioning_perform(void);
 
+#ifdef BL2
 /**
  * \brief                               Performs a validation of public key.
  *
@@ -56,6 +57,7 @@ enum tfm_plat_err_t tfm_plat_provisioning_perform(void);
  * \retval TFM_PLAT_ERR_SYSTEM_ERR      An unspecified error occurred.
  */
 enum tfm_plat_err_t tfm_renesas_validate_provisioning (void);
+#endif
 
 #ifdef __cplusplus
 }
