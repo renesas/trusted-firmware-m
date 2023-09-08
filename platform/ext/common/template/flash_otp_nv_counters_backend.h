@@ -24,14 +24,19 @@ __PACKED_STRUCT flash_otp_nv_counters_region_t {
 
 #ifdef PLATFORM_DEFAULT_OTP
     __PACKED_STRUCT {
+        uint8_t boot_seed[32];
+        uint8_t pad1[28];
+
         uint8_t huk[32];
         uint8_t iak[32];
+        uint8_t iak_id[32];
         uint8_t iak_len[4];
         uint8_t iak_type[4];
-        uint8_t iak_id[32];
+        uint8_t pad2[24];
 
-        uint8_t boot_seed[32];
         uint8_t lcs[4];
+        uint8_t pad3[60];
+
         uint8_t implementation_id[32];
         uint8_t cert_ref[32];
         uint8_t verification_service_url[32];
@@ -81,6 +86,7 @@ __PACKED_STRUCT flash_otp_nv_counters_region_t {
      * write operation has succeeded
      */
     uint32_t swap_count;
+    uint8_t  pad4[28];
 };
 
 /**

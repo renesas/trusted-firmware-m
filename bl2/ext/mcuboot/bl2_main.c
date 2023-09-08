@@ -128,6 +128,13 @@ int bl2_main(void)
         tfm_plat_provisioning_check_for_dummy_keys();
     }
 
+    plat_err = tfm_renesas_validate_provisioning();
+    if (plat_err != TFM_PLAT_ERR_SUCCESS)
+    {
+        BOOT_LOG_ERR("Validation failed");
+        FIH_PANIC;
+    }
+
     FIH_CALL(boot_nv_security_counter_init, fih_rc);
     if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
         BOOT_LOG_ERR("Error while initializing the security counter");
