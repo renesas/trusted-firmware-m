@@ -46,7 +46,7 @@ int tfm_plat_provisioning_is_required(void);
  */
 enum tfm_plat_err_t tfm_plat_provisioning_perform(void);
 
-#ifdef BL2
+#ifdef TFM_DUMMY_PROVISIONING
 /**
  * \brief                               Performs a validation of public key.
  *
