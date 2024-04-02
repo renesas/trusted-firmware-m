@@ -1,6 +1,6 @@
 /*==============================================================================
  Copyright (c) 2016-2018, The Linux Foundation.
- Copyright (c) 2018-2022, Laurence Lundblade.
+ Copyright (c) 2018-2023, Laurence Lundblade.
  Copyright (c) 2021, Arm Limited.
  All rights reserved.
 
@@ -44,6 +44,54 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fenv.h> /* feclearexcept(), fetestexcept() */
 
 #endif /* QCBOR_DISABLE_FLOAT_HW_USE */
+
+
+#if (defined(__GNUC__) && !defined(__clang__))
+/*
+ * This is how the -Wmaybe-uninitialized compiler warning is
+ * handled. It can’t be ignored because some version of gcc enable it
+ * with -Wall which is a common and useful gcc warning option. It also
+ * can’t be ignored because it is the goal of QCBOR to compile clean
+ * out of the box in all environments.
+ *
+ * The big problem with -Wmaybe-uninitialized is that it generates
+ * false positives. It complains things are uninitialized when they
+ * are not. This is because it is not a thorough static analyzer. This
+ * is why “maybe” is in its name. The problem is it is just not
+ * thorough enough to understand all the code (and someone saw fit to
+ * put it in gcc and worse to enable it with -Wall).
+ *
+ * One solution would be to change the code so -Wmaybe-uninitialized
+ * doesn’t get confused, for example adding an unnecessary extra
+ * initialization to zero. (If variables were truly uninitialized, the
+ * correct path is to understand the code thoroughly and set them to
+ * the correct value at the correct time; in essence this is already
+ * done; -Wmaybe-uninitialized just can’t tell). This path is not
+ * taken because it makes the code bigger and is kind of the tail
+ * wagging the dog.
+ *
+ * The solution here is to just use a pragma to disable it for the
+ * whole file. Disabling it for each line makes the code fairly ugly
+ * requiring #pragma to push, pop and ignore. Another reason is the
+ * warnings issues vary by version of gcc and which optimization
+ * optimizations are selected. Another reason is that compilers other
+ * than gcc don’t have -Wmaybe-uninitialized.
+ *
+ * One may ask how to be sure these warnings are false positives and
+ * not real issues. 1) The code has been read carefully to check. 2)
+ * Testing is pretty thorough. 3) This code has been run through
+ * thorough high-quality static analyzers.
+ *
+ * In particularly, most of the warnings are about
+ * Item.Item->uDataType being uninitialized. QCBORDecode_GetNext()
+ * *always* sets this value and test case confirm
+ * this. -Wmaybe-uninitialized just can't tell.
+ *
+ * https://stackoverflow.com/questions/5080848/disable-gcc-may-be-used-uninitialized-on-a-particular-variable
+ */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 
 
 
@@ -501,18 +549,11 @@ DecodeNesting_GetPreviousBoundedEnd(const QCBORDecodeNesting *pMe)
 static inline void
 StringAllocator_Free(const QCBORInternalAllocator *pMe, const void *pMem)
 {
-   /* These pragmas allow the "-Wcast-qual" warnings flag to be set for
-    * gcc and clang. This is the one place where the const needs to be
-    * cast away so const can be use in the rest of the code.
+   /* This cast to uintptr_t suppresses the "-Wcast-qual" warnings.
+    * This is the one place where the const needs to be cast away so const can
+    * be use in the rest of the code.
     */
-#ifndef _MSC_VER
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
-   (pMe->pfAllocator)(pMe->pAllocateCxt, (void *)pMem, 0);
-#ifndef _MSC_VER
-#pragma GCC diagnostic pop
-#endif
+   (pMe->pfAllocator)(pMe->pAllocateCxt, (void *)(uintptr_t)pMem, 0);
 }
 
 // StringAllocator_Reallocate called with pMem NULL is
@@ -523,14 +564,7 @@ StringAllocator_Reallocate(const QCBORInternalAllocator *pMe,
                            size_t uSize)
 {
    /* See comment in StringAllocator_Free() */
-#ifndef _MSC_VER
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
-   return (pMe->pfAllocator)(pMe->pAllocateCxt, (void *)pMem, uSize);
-#ifndef _MSC_VER
-#pragma GCC diagnostic pop
-#endif
+   return (pMe->pfAllocator)(pMe->pAllocateCxt, (void *)(uintptr_t)pMem, uSize);
 }
 
 static inline UsefulBuf
@@ -543,16 +577,9 @@ static inline void
 StringAllocator_Destruct(const QCBORInternalAllocator *pMe)
 {
    /* See comment in StringAllocator_Free() */
-#ifndef _MSC_VER
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
    if(pMe->pfAllocator) {
       (pMe->pfAllocator)(pMe->pAllocateCxt, NULL, 0);
    }
-#ifndef _MSC_VER
-#pragma GCC diagnostic pop
-#endif
 }
 #endif /* QCBOR_DISABLE_INDEFINITE_LENGTH_STRINGS */
 
@@ -3223,7 +3250,6 @@ MapSearch(QCBORDecodeContext *pMe,
       if(uReturn != QCBOR_SUCCESS) {
          goto Done;
       }
-
    } while (uNextNestLevel >= uMapNestLevel);
 
    uReturn = QCBOR_SUCCESS;
@@ -3329,7 +3355,7 @@ static QCBORError
 CheckTypeList(int uDataType, const uint8_t puTypeList[QCBOR_TAGSPEC_NUM_TYPES])
 {
    for(size_t i = 0; i < QCBOR_TAGSPEC_NUM_TYPES; i++) {
-      if(uDataType == puTypeList[i]) {
+      if(uDataType == puTypeList[i]) { /* -Wmaybe-uninitialized falsly warns here */
          return QCBOR_SUCCESS;
       }
    }
@@ -3365,10 +3391,11 @@ CheckTypeList(int uDataType, const uint8_t puTypeList[QCBOR_TAGSPEC_NUM_TYPES])
 static QCBORError
 CheckTagRequirement(const TagSpecification TagSpec, const QCBORItem *pItem)
 {
-   const int nItemType = pItem->uDataType;
+   const int nItemType = pItem->uDataType; /* -Wmaybe-uninitialized falsly warns here */
    const int nTagReq = TagSpec.uTagRequirement & ~QCBOR_TAG_REQUIREMENT_ALLOW_ADDITIONAL_TAGS;
 
 #ifndef QCBOR_DISABLE_TAGS
+   /* -Wmaybe-uninitialized falsly warns here */
    if(!(TagSpec.uTagRequirement & QCBOR_TAG_REQUIREMENT_ALLOW_ADDITIONAL_TAGS) &&
       pItem->uTags[0] != CBOR_TAG_INVALID16) {
       /* There are tags that QCBOR couldn't process on this item and
@@ -4362,7 +4389,20 @@ QCBORDecode_GetMIMEInternal(const uint8_t     uTagRequirement,
 typedef QCBORError (*fExponentiator)(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult);
 
 
-// The exponentiator that works on only positive numbers
+/**
+ * @brief  Base 10 exponentiate a mantissa and exponent into an unsigned 64-bit integer.
+ *
+ * @param[in] uMantissa  The unsigned integer mantissa.
+ * @param[in] nExponent  The signed integer exponent.
+ * @param[out] puResult  Place to return the unsigned integer result.
+ *
+ * This computes: mantissa * 10 ^^ exponent as for a decimal fraction. The output is a 64-bit
+ * unsigned integer.
+ *
+ * There are many inputs for which the result will not fit in the
+ * 64-bit integer and \ref QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW will
+ * be returned.
+ */
 static QCBORError
 Exponentitate10(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
 {
@@ -4375,7 +4415,7 @@ Exponentitate10(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
        */
       for(; nExponent > 0; nExponent--) {
          if(uResult > UINT64_MAX / 10) {
-            return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW; // Error overflow
+            return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
          }
          uResult = uResult * 10;
       }
@@ -4383,7 +4423,7 @@ Exponentitate10(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
       for(; nExponent < 0; nExponent++) {
          uResult = uResult / 10;
          if(uResult == 0) {
-            return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW; // Underflow error
+            return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
          }
       }
    }
@@ -4395,7 +4435,20 @@ Exponentitate10(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
 }
 
 
-// The exponentiator that works on only positive numbers
+/**
+ * @brief  Base 2 exponentiate a mantissa and exponent into an unsigned 64-bit integer.
+ *
+ * @param[in] uMantissa  The unsigned integer mantissa.
+ * @param[in] nExponent  The signed integer exponent.
+ * @param[out] puResult  Place to return the unsigned integer result.
+ *
+ * This computes: mantissa * 2 ^^ exponent as for a big float. The
+ * output is a 64-bit unsigned integer.
+ *
+ * There are many inputs for which the result will not fit in the
+ * 64-bit integer and \ref QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW will
+ * be returned.
+ */
 static QCBORError
 Exponentitate2(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
 {
@@ -4403,13 +4456,12 @@ Exponentitate2(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
 
    uResult = uMantissa;
 
-   /* This loop will run a maximum of 64 times because
-    * INT64_MAX < 2^31. More than that will cause
-    * exit with the overflow error
+   /* This loop will run a maximum of 64 times because INT64_MAX <
+    * 2^31. More than that will cause exit with the overflow error
     */
    while(nExponent > 0) {
       if(uResult > UINT64_MAX >> 1) {
-         return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW; // Error overflow
+         return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
       }
       uResult = uResult << 1;
       nExponent--;
@@ -4417,7 +4469,7 @@ Exponentitate2(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
 
    while(nExponent < 0 ) {
       if(uResult == 0) {
-         return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW; // Underflow error
+         return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
       }
       uResult = uResult >> 1;
       nExponent++;
@@ -4429,77 +4481,145 @@ Exponentitate2(uint64_t uMantissa, int64_t nExponent, uint64_t *puResult)
 }
 
 
-/*
- Compute value with signed mantissa and signed result. Works with
- exponent of 2 or 10 based on exponentiator.
+/**
+ * @brief Exponentiate a signed mantissa and signed exponent to produce a signed result.
+ *
+ * @param[in] nMantissa  Signed integer mantissa.
+ * @param[in] nExponent  Signed integer exponent.
+ * @param[out] pnResult  Place to put the signed integer result.
+ * @param[in] pfExp      Exponentiation function.
+ *
+ * @returns Error code
+ *
+ * \c pfExp performs exponentiation on and unsigned mantissa and
+ * produces an unsigned result. This converts the mantissa from signed
+ * and converts the result to signed. The exponentiation function is
+ * either for base 2 or base 10 (and could be other if needed).
  */
-static inline QCBORError ExponentiateNN(int64_t       nMantissa,
-                                        int64_t       nExponent,
-                                        int64_t       *pnResult,
-                                        fExponentiator pfExp)
+static QCBORError
+ExponentiateNN(int64_t         nMantissa,
+               int64_t         nExponent,
+               int64_t        *pnResult,
+               fExponentiator  pfExp)
 {
    uint64_t uResult;
+   uint64_t uMantissa;
 
-   // Take the absolute value of the mantissa and convert to unsigned.
-   // Improvement: this should be possible in one instruction
-   uint64_t uMantissa = nMantissa > 0 ? (uint64_t)nMantissa : (uint64_t)-nMantissa;
+   /* Take the absolute value and put it into an unsigned. */
+   if(nMantissa >= 0) {
+      /* Positive case is straightforward */
+      uMantissa = (uint64_t)nMantissa;
+   } else if(nMantissa != INT64_MIN) {
+      /* The common negative case. See next. */
+      uMantissa = (uint64_t)-nMantissa;
+   } else {
+      /* int64_t and uint64_t are always two's complement per the
+       * C standard (and since QCBOR uses these it only works with
+       * two's complement, which is pretty much universal these
+       * days). The range of a negative two's complement integer is
+       * one more that than a positive, so the simple code above might
+       * not work all the time because you can't simply negate the
+       * value INT64_MIN because it can't be represented in an
+       * int64_t. -INT64_MIN can however be represented in a
+       * uint64_t. Some compilers seem to recognize this case for the
+       * above code and put the correct value in uMantissa, however
+       * they are not required to do this by the C standard. This next
+       * line does however work for all compilers.
+       *
+       * This does assume two's complement where -INT64_MIN ==
+       * INT64_MAX + 1 (which wouldn't be true for one's complement or
+       * sign and magnitude (but we know we're using two's complement
+       * because int64_t requires it)).
+       *
+       * See these, particularly the detailed commentary:
+       * https://stackoverflow.com/questions/54915742/does-c99-mandate-a-int64-t-type-be-available-always
+       * https://stackoverflow.com/questions/37301078/is-negating-int-min-undefined-behaviour
+       */
+      uMantissa = (uint64_t)INT64_MAX+1;
+   }
 
-   // Do the exponentiation of the positive mantissa
+   /* Call the exponentiator passed for either base 2 or base 10.
+    * Here is where most of the overflow errors are caught. */
    QCBORError uReturn = (*pfExp)(uMantissa, nExponent, &uResult);
    if(uReturn) {
       return uReturn;
    }
 
-
-   /* (uint64_t)INT64_MAX+1 is used to represent the absolute value
-    of INT64_MIN. This assumes two's compliment representation where
-    INT64_MIN is one increment farther from 0 than INT64_MAX.
-    Trying to write -INT64_MIN doesn't work to get this because the
-    compiler tries to work with an int64_t which can't represent
-    -INT64_MIN.
-    */
-   uint64_t uMax = nMantissa > 0 ? INT64_MAX : (uint64_t)INT64_MAX+1;
-
-   // Error out if too large
-   if(uResult > uMax) {
-      return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
+   /* Convert back to the sign of the original mantissa */
+   if(nMantissa >= 0) {
+      if(uResult > INT64_MAX) {
+         return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
+      }
+      *pnResult = (int64_t)uResult;
+   } else {
+      /* (uint64_t)INT64_MAX+1 is used to represent the absolute value
+       * of INT64_MIN. This assumes two's compliment representation
+       * where INT64_MIN is one increment farther from 0 than
+       * INT64_MAX.  Trying to write -INT64_MIN doesn't work to get
+       * this because the compiler makes it an int64_t which can't
+       * represent -INT64_MIN. Also see above.
+       */
+      if(uResult > (uint64_t)INT64_MAX+1) {
+         return QCBOR_ERR_CONVERSION_UNDER_OVER_FLOW;
+      }
+      *pnResult = -(int64_t)uResult;
    }
-
-   // Casts are safe because of checks above
-   *pnResult = nMantissa > 0 ? (int64_t)uResult : -(int64_t)uResult;
 
    return QCBOR_SUCCESS;
 }
 
 
-/*
- Compute value with signed mantissa and unsigned result. Works with
- exponent of 2 or 10 based on exponentiator.
+/**
+ * @brief Exponentiate an unsigned mantissa and signed exponent to produce an unsigned result.
+ *
+ * @param[in] nMantissa  Signed integer mantissa.
+ * @param[in] nExponent  Signed integer exponent.
+ * @param[out] puResult  Place to put the signed integer result.
+ * @param[in] pfExp      Exponentiation function.
+ *
+ * @returns Error code
+ *
+ * \c pfExp performs exponentiation on and unsigned mantissa and
+ * produces an unsigned result. This errors out if the mantissa
+ * is negative because the output is unsigned.
  */
-static inline QCBORError ExponentitateNU(int64_t       nMantissa,
-                                         int64_t       nExponent,
-                                         uint64_t      *puResult,
-                                         fExponentiator pfExp)
+static QCBORError
+ExponentitateNU(int64_t        nMantissa,
+                int64_t        nExponent,
+                uint64_t      *puResult,
+                fExponentiator pfExp)
 {
    if(nMantissa < 0) {
       return QCBOR_ERR_NUMBER_SIGN_CONVERSION;
    }
 
-   // Cast to unsigned is OK because of check for negative
-   // Cast to unsigned is OK because UINT64_MAX > INT64_MAX
-   // Exponentiation is straight forward
+   /* Cast to unsigned is OK because of check for negative.
+    * Cast to unsigned is OK because UINT64_MAX > INT64_MAX.
+    * Exponentiation is straight forward
+    */
    return (*pfExp)((uint64_t)nMantissa, nExponent, puResult);
 }
 
 
-/*
- Compute value with signed mantissa and unsigned result. Works with
- exponent of 2 or 10 based on exponentiator.
+/**
+ * @brief Exponentiate an usnigned mantissa and unsigned exponent to produce an unsigned result.
+ *
+ * @param[in] uMantissa  Unsigned integer mantissa.
+ * @param[in] nExponent  Unsigned integer exponent.
+ * @param[out] puResult  Place to put the unsigned integer result.
+ * @param[in] pfExp      Exponentiation function.
+ *
+ * @returns Error code
+ *
+ * \c pfExp performs exponentiation on and unsigned mantissa and
+ * produces an unsigned result so this is just a wrapper that does
+ * nothing (and is likely inlined).
  */
-static inline QCBORError ExponentitateUU(uint64_t       uMantissa,
-                                         int64_t        nExponent,
-                                         uint64_t      *puResult,
-                                         fExponentiator pfExp)
+static QCBORError
+ExponentitateUU(uint64_t       uMantissa,
+                int64_t        nExponent,
+                uint64_t      *puResult,
+                fExponentiator pfExp)
 {
    return (*pfExp)(uMantissa, nExponent, puResult);
 }
@@ -4509,8 +4629,20 @@ static inline QCBORError ExponentitateUU(uint64_t       uMantissa,
 
 
 
-
-static QCBORError ConvertBigNumToUnsigned(const UsefulBufC BigNum, uint64_t uMax, uint64_t *pResult)
+/**
+ * @brief Convert a CBOR big number to a uint64_t.
+ *
+ * @param[in] BigNum  Bytes of the big number to convert.
+ * @param[in] uMax  Maximum value allowed for the result.
+ * @param[out] pResult  Place to put the unsigned integer result.
+ *
+ * @returns Error code
+ *
+ * Many values will overflow because  a big num can represent a much
+ * larger range than uint64_t.
+ */
+static QCBORError
+ConvertBigNumToUnsigned(const UsefulBufC BigNum, const uint64_t uMax, uint64_t *pResult)
 {
    uint64_t uResult;
 
@@ -4529,49 +4661,85 @@ static QCBORError ConvertBigNumToUnsigned(const UsefulBufC BigNum, uint64_t uMax
 }
 
 
-static inline QCBORError ConvertPositiveBigNumToUnsigned(const UsefulBufC BigNum, uint64_t *pResult)
+/**
+ * @brief Convert a CBOR postive big number to a uint64_t.
+ *
+ * @param[in] BigNum  Bytes of the big number to convert.
+ * @param[out] pResult  Place to put the unsigned integer result.
+ *
+ * @returns Error code
+ *
+ * Many values will overflow because  a big num can represent a much
+ * larger range than uint64_t.
+ */
+static QCBORError
+ConvertPositiveBigNumToUnsigned(const UsefulBufC BigNum, uint64_t *pResult)
 {
    return ConvertBigNumToUnsigned(BigNum, UINT64_MAX, pResult);
 }
 
 
-static inline QCBORError ConvertPositiveBigNumToSigned(const UsefulBufC BigNum, int64_t *pResult)
+/**
+ * @brief Convert a CBOR positive big number to an int64_t.
+ *
+ * @param[in] BigNum  Bytes of the big number to convert.
+ * @param[out] pResult  Place to put the signed integer result.
+ *
+ * @returns Error code
+ *
+ * Many values will overflow because  a big num can represent a much
+ * larger range than int64_t.
+ */
+static QCBORError
+ConvertPositiveBigNumToSigned(const UsefulBufC BigNum, int64_t *pResult)
 {
    uint64_t uResult;
-   QCBORError uError =  ConvertBigNumToUnsigned(BigNum, INT64_MAX, &uResult);
+   QCBORError uError = ConvertBigNumToUnsigned(BigNum, INT64_MAX, &uResult);
    if(uError) {
       return uError;
    }
-   /* Cast is safe because ConvertBigNum is told to limit to INT64_MAX */
+   /* Cast is safe because ConvertBigNumToUnsigned is told to limit to INT64_MAX */
    *pResult = (int64_t)uResult;
    return QCBOR_SUCCESS;
 }
 
 
-static inline QCBORError ConvertNegativeBigNumToSigned(const UsefulBufC BigNum, int64_t *pnResult)
+/**
+ * @brief Convert a CBOR negative big number to an int64_t.
+ *
+ * @param[in] BigNum  Bytes of the big number to convert.
+ * @param[out] pnResult  Place to put the signed integer result.
+ *
+ * @returns Error code
+ *
+ * Many values will overflow because  a big num can represent a much
+ * larger range than int64_t.
+ */
+static QCBORError
+ConvertNegativeBigNumToSigned(const UsefulBufC BigNum, int64_t *pnResult)
 {
    uint64_t uResult;
    /* The negative integer furthest from zero for a C int64_t is
-    INT64_MIN which is expressed as -INT64_MAX - 1. The value of a
-    negative number in CBOR is computed as -n - 1 where n is the
-    encoded integer, where n is what is in the variable BigNum. When
-    converting BigNum to a uint64_t, the maximum value is thus
-    INT64_MAX, so that when it -n - 1 is applied to it the result will
-    never be further from 0 than INT64_MIN.
-
-       -n - 1 <= INT64_MIN.
-       -n - 1 <= -INT64_MAX - 1
-        n     <= INT64_MAX.
+    * INT64_MIN which is expressed as -INT64_MAX - 1. The value of a
+    * negative number in CBOR is computed as -n - 1 where n is the
+    * encoded integer, where n is what is in the variable BigNum. When
+    * converting BigNum to a uint64_t, the maximum value is thus
+    * INT64_MAX, so that when it -n - 1 is applied to it the result
+    * will never be further from 0 than INT64_MIN.
+    *
+    *   -n - 1 <= INT64_MIN.
+    *   -n - 1 <= -INT64_MAX - 1
+    *    n     <= INT64_MAX.
     */
    QCBORError uError = ConvertBigNumToUnsigned(BigNum, INT64_MAX, &uResult);
    if(uError != QCBOR_SUCCESS) {
       return uError;
    }
 
-   /// Now apply -n - 1. The cast is safe because
-   // ConvertBigNumToUnsigned() is limited to INT64_MAX which does fit
-   // is the largest positive integer that an int64_t can
-   // represent. */
+   /* Now apply -n - 1. The cast is safe because
+    * ConvertBigNumToUnsigned() is limited to INT64_MAX which does fit
+    * is the largest positive integer that an int64_t can
+    * represent. */
    *pnResult =  -(int64_t)uResult - 1;
 
    return QCBOR_SUCCESS;
@@ -5069,7 +5237,7 @@ void QCBORDecode_GetUInt64ConvertInternalInMapSZ(QCBORDecodeContext *pMe,
 static QCBORError
 UInt64ConvertAll(const QCBORItem *pItem, uint32_t uConvertTypes, uint64_t *puValue)
 {
-   switch(pItem->uDataType) {
+   switch(pItem->uDataType) { /* -Wmaybe-uninitialized falsly warns here */
 
       case QCBOR_TYPE_POSBIGNUM:
          if(uConvertTypes & QCBOR_CONVERT_TYPE_BIG_NUM) {
@@ -5766,11 +5934,15 @@ static void ProcessMantissaAndExponentBig(QCBORDecodeContext *pMe,
 
       case QCBOR_TYPE_DECIMAL_FRACTION:
       case QCBOR_TYPE_BIGFLOAT:
+         /* See comments in ExponentiateNN() on handling INT64_MIN */
          if(pItem->val.expAndMantissa.Mantissa.nInt >= 0) {
             uMantissa = (uint64_t)pItem->val.expAndMantissa.Mantissa.nInt;
             *pbIsNegative = false;
-         } else {
+         } else if(pItem->val.expAndMantissa.Mantissa.nInt != INT64_MIN) {
             uMantissa = (uint64_t)-pItem->val.expAndMantissa.Mantissa.nInt;
+            *pbIsNegative = true;
+         } else {
+            uMantissa = (uint64_t)INT64_MAX+1;
             *pbIsNegative = true;
          }
          *pMantissa = ConvertIntToBigNum(uMantissa, BufferForMantissa);
