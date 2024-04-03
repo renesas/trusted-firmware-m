@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2021-2022, Arm Limited. All rights reserved.
- * Copyright (c) 2021-2022 Cypress Semiconductor Corporation (an Infineon
+ * Copyright (c) 2021-2023 Cypress Semiconductor Corporation (an Infineon
  * company) or an affiliate of Cypress Semiconductor Corporation. All rights
  * reserved.
  *
@@ -27,7 +27,7 @@
 
 #define TFM_SP_FWU_NDEPS                                        (2)
 #define TFM_SP_FWU_NSERVS                                       (1)
-#if TFM_LVL == 3
+#if TFM_ISOLATION_LEVEL == 3
 #define TFM_SP_FWU_NASSETS                                      (0 + 1)
 #else
 #define TFM_SP_FWU_NASSETS                                      (0)
@@ -35,12 +35,11 @@
 #define TFM_SP_FWU_NIRQS                                        (0)
 
 /* Memory region declaration */
-#if TFM_LVL == 3
+#if TFM_ISOLATION_LEVEL == 3
 REGION_DECLARE(Image$$, PT_TFM_SP_FWU_PRIVATE, _DATA_START$$Base);
 REGION_DECLARE(Image$$, PT_TFM_SP_FWU_PRIVATE, _DATA_END$$Base);
 #endif
 
-extern uint8_t tfm_sp_fwu_stack[];
 
 extern psa_status_t tfm_fwu_entry(void);
 
@@ -55,7 +54,7 @@ struct partition_tfm_sp_fwu_load_info_t {
     uintptr_t                       heap_addr;
     uint32_t                        deps[TFM_SP_FWU_NDEPS];
     struct service_load_info_t      services[TFM_SP_FWU_NSERVS];
-#if TFM_LVL == 3
+#if TFM_ISOLATION_LEVEL == 3
     struct asset_desc_t             assets[TFM_SP_FWU_NASSETS];
 #else
 #endif
@@ -63,11 +62,11 @@ struct partition_tfm_sp_fwu_load_info_t {
 
 /* Partition load, deps, service load data. Put to a dedicated section. */
 #if defined(__ICCARM__)
-#pragma location = ".part_load_priority_normal"
+#pragma location = ".part_load_priority_02"
 __root
 #endif /* __ICCARM__ */
 const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
-    __attribute__((used, section(".part_load_priority_normal"))) = {
+    __attribute__((used, section(".part_load_priority_02"))) = {
     .load_info = {
         .psa_ff_ver                 = 0x0101 | PARTITION_INFO_MAGIC,
         .pid                        = TFM_SP_FWU,
@@ -75,14 +74,14 @@ const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
                                     | PARTITION_MODEL_PSA_ROT
                                     | PARTITION_PRI_NORMAL,
         .entry                      = ENTRY_TO_POSITION(tfm_fwu_entry),
-        .stack_size                 = FWU_STACK_SIZE,
+        .stack_size                 = 0,
         .heap_size                  = 0,
         .ndeps                      = TFM_SP_FWU_NDEPS,
         .nservices                  = TFM_SP_FWU_NSERVS,
         .nassets                    = TFM_SP_FWU_NASSETS,
         .nirqs                      = TFM_SP_FWU_NIRQS,
     },
-    .stack_addr                     = (uintptr_t)tfm_sp_fwu_stack,
+    .stack_addr                     = 0,
     .heap_addr                      = 0,
     .deps = {
         TFM_CRYPTO_SID,
@@ -92,7 +91,6 @@ const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
         {
             .name_strid             = STRING_PTR_TO_STRID("TFM_FIRMWARE_UPDATE_SERVICE"),
             .sfn                    = ENTRY_TO_POSITION(tfm_firmware_update_service_sfn),
-            .signal                 = 1,
 
             .sid                    = 0x000000A0,
             .flags                  = 0
@@ -103,7 +101,7 @@ const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
             .version                = 1,
         },
     },
-#if TFM_LVL == 3
+#if TFM_ISOLATION_LEVEL == 3
     .assets                         = {
         {
             .mem.start              = (uintptr_t)&REGION_NAME(Image$$, PT_TFM_SP_FWU_PRIVATE, _DATA_START$$Base),
@@ -117,14 +115,14 @@ const struct partition_tfm_sp_fwu_load_info_t tfm_sp_fwu_load
 
 /* Placeholder for partition and service runtime space. Do not reference it. */
 #if defined(__ICCARM__)
-#pragma location=".bss.part_runtime_priority_normal"
+#pragma location=".bss.part_runtime_priority_02"
 __root
 #endif /* __ICCARM__ */
 static struct partition_t tfm_sp_fwu_partition_runtime_item
-    __attribute__((used, section(".bss.part_runtime_priority_normal")));
+    __attribute__((used, section(".bss.part_runtime_priority_02")));
 #if defined(__ICCARM__)
-#pragma location = ".bss.serv_runtime_priority_normal"
+#pragma location = ".bss.serv_runtime_priority_02"
 __root
 #endif /* __ICCARM__ */
 static struct service_t tfm_sp_fwu_service_runtime_item[TFM_SP_FWU_NSERVS]
-    __attribute__((used, section(".bss.serv_runtime_priority_normal")));
+    __attribute__((used, section(".bss.serv_runtime_priority_02")));

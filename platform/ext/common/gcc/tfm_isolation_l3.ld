@@ -143,8 +143,8 @@ SECTIONS
 
     .TFM_SP_FWU_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
     {
-        *tfm_*partition_fwu*:*(.text*)
-        *tfm_*partition_fwu*:*(.rodata*)
+        *tfm_*partition_fwu*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_fwu*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_FWU_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
