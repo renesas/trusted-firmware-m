@@ -67,6 +67,7 @@ extern "C"
 
 /****** USART Control Codes *****/
 
+#define DEFAULT_UART_CONTROL                 0
 #define ARM_USART_CONTROL_Pos                0
 #define ARM_USART_CONTROL_Msk               (0xFFUL << ARM_USART_CONTROL_Pos)
 

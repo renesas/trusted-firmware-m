@@ -78,160 +78,63 @@ SECTIONS
     /* GCC always places veneers at the end of .gnu.sgstubs section, so the only
      * way to align the end of .gnu.sgstubs section is to align start of the
      * next section */
-    .copy.table : ALIGN(TFM_LINKER_VENEERS_ALIGNMENT)
-#else
-    .copy.table : ALIGN(4)
-#endif
-    {
-        __copy_table_start__ = .;
-#ifdef RAM_VECTORS_SUPPORT
-        /* Copy interrupt vectors from flash to RAM */
-        LONG (__vectors_start__)                            /* From */
-        LONG (__ram_vectors_start__)                        /* To   */
-        LONG ((__vectors_end__ - __vectors_start__) / 4)    /* Size */
-#endif
-        LONG (LOADADDR(.spm_data))
-        LONG (ADDR(.spm_data))
-        LONG (SIZEOF(.spm_data) / 4)
-        LONG (LOADADDR(.TFM_DATA))
-        LONG (ADDR(.TFM_DATA))
-        LONG (SIZEOF(.TFM_DATA) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_PS_RWZI))
-        LONG (ADDR(.ER_TFM_SP_PS_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_PS_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_ITS_RWZI))
-        LONG (ADDR(.ER_TFM_SP_ITS_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_ITS_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_CRYPTO_RWZI))
-        LONG (ADDR(.ER_TFM_SP_CRYPTO_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_CRYPTO_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_PLATFORM_RWZI))
-        LONG (ADDR(.ER_TFM_SP_PLATFORM_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_PLATFORM_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI))
-        LONG (ADDR(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_FWU_RWZI))
-        LONG (ADDR(.ER_TFM_SP_FWU_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_FWU_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_SECURE_TEST_PARTITION_RWZI))
-        LONG (ADDR(.ER_TFM_SP_SECURE_TEST_PARTITION_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_SECURE_TEST_PARTITION_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI))
-        LONG (ADDR(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_IPC_SERVICE_TEST_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI))
-        LONG (ADDR(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_IPC_CLIENT_TEST_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_PS_TEST_RWZI))
-        LONG (ADDR(.ER_TFM_SP_PS_TEST_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_PS_TEST_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_SECURE_CLIENT_2_RWZI))
-        LONG (ADDR(.ER_TFM_SP_SECURE_CLIENT_2_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_SECURE_CLIENT_2_RWZI) / 4)
-        LONG (LOADADDR(.ER_TFM_SP_SLIH_TEST_RWZI))
-        LONG (ADDR(.ER_TFM_SP_SLIH_TEST_RWZI))
-        LONG (SIZEOF(.ER_TFM_SP_SLIH_TEST_RWZI) / 4)
-#if defined(S_RAM_CODE_START)
-        LONG (LOADADDR(.ER_CODE_SRAM))
-        LONG (ADDR(.ER_CODE_SRAM))
-        LONG (SIZEOF(.ER_CODE_SRAM) / 4)
-#endif
-
-        __copy_table_end__ = .;
-    } > FLASH
-
-    .zero.table : ALIGN(4)
-    {
-        __zero_table_start__ = .;
-        LONG (ADDR(.spm_bss))
-        LONG (SIZEOF(.spm_bss) / 4)
-#if defined(CONFIG_TFM_PARTITION_META)
-        LONG (ADDR(.TFM_SP_META_PTR))
-        LONG (SIZEOF(.TFM_SP_META_PTR) / 4)
-#endif
-        LONG (ADDR(.TFM_BSS))
-        LONG (SIZEOF(.TFM_BSS) / 4)
-        LONG (ADDR(.TFM_SP_PS_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_PS_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_ITS_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_ITS_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_CRYPTO_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_CRYPTO_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_PLATFORM_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_PLATFORM_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_INITIAL_ATTESTATION_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_INITIAL_ATTESTATION_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_FWU_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_FWU_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_SECURE_TEST_PARTITION_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_SECURE_TEST_PARTITION_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_IPC_SERVICE_TEST_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_IPC_CLIENT_TEST_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_PS_TEST_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_PS_TEST_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_SECURE_CLIENT_2_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_SECURE_CLIENT_2_RWZI_BSS) / 4)
-        LONG (ADDR(.TFM_SP_SLIH_TEST_RWZI_BSS))
-        LONG (SIZEOF(.TFM_SP_SLIH_TEST_RWZI_BSS) / 4)
-        __zero_table_end__ = .;
-    } > FLASH
 
     /**** Section for holding partition RO load data */
     /*
      * Sort the partition info by priority to guarantee the initing order.
      * The first loaded partition will be inited at last in SFN model.
      */
-    .TFM_SP_LOAD_LIST : ALIGN(4)
+    .TFM_SP_LOAD_LIST ALIGN(TFM_LINKER_VENEERS_ALIGNMENT) :
+#else
+    .TFM_SP_LOAD_LIST ALIGN(4) :
+#endif
     {
-       KEEP(*(.part_load_priority_lowest))
-       KEEP(*(.part_load_priority_low))
-       KEEP(*(.part_load_priority_normal))
-       KEEP(*(.part_load_priority_high))
+       KEEP(*(.part_load_priority_00))
+       KEEP(*(.part_load_priority_01))
+       KEEP(*(.part_load_priority_02))
+       KEEP(*(.part_load_priority_03))
     } > FLASH
     Image$$TFM_SP_LOAD_LIST$$RO$$Base = ADDR(.TFM_SP_LOAD_LIST);
     Image$$TFM_SP_LOAD_LIST$$RO$$Limit = ADDR(.TFM_SP_LOAD_LIST) + SIZEOF(.TFM_SP_LOAD_LIST);
 
     /**** PSA RoT RO CODE + RO-data starts here */
     . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
-    .TFM_SP_ITS_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
+    .TFM_SP_ITS_RO ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT) :
     {
-        *tfm_*partition_its.*:*(.text*)
-        *tfm_*partition_its.*:*(.rodata*)
+        *tfm_*partition_its.*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_its.*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_ITS_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
     Image$$TFM_SP_ITS_RO$$Base = ADDR(.TFM_SP_ITS_RO);
     Image$$TFM_SP_ITS_RO$$Limit = ADDR(.TFM_SP_ITS_RO) + SIZEOF(.TFM_SP_ITS_RO);
 
-    .TFM_SP_CRYPTO_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
+    .TFM_SP_CRYPTO_RO ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT) :
     {
-        *tfm_*partition_crypto.*:*(.text*)
-        *tfm_*partition_crypto.*:*(.rodata*)
-        *mbedcrypto.*:*(.text*)
-        *mbedcrypto.*:*(.rodata*)
+        *tfm_*partition_crypto.*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_crypto.*:(SORT_BY_ALIGNMENT(.rodata*))
+        *mbedcrypto.*:(SORT_BY_ALIGNMENT(.text*))
+        *mbedcrypto.*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
     Image$$TFM_SP_CRYPTO_RO$$Base = ADDR(.TFM_SP_CRYPTO_RO);
     Image$$TFM_SP_CRYPTO_RO$$Limit = ADDR(.TFM_SP_CRYPTO_RO) + SIZEOF(.TFM_SP_CRYPTO_RO);
 
-    .TFM_SP_PLATFORM_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
+    .TFM_SP_PLATFORM_RO ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT) :
     {
-        *tfm_*partition_platform.*:*(.text*)
-        *tfm_*partition_platform.*:*(.rodata*)
+        *tfm_*partition_platform.*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_platform.*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_PLATFORM_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
     Image$$TFM_SP_PLATFORM_RO$$Base = ADDR(.TFM_SP_PLATFORM_RO);
     Image$$TFM_SP_PLATFORM_RO$$Limit = ADDR(.TFM_SP_PLATFORM_RO) + SIZEOF(.TFM_SP_PLATFORM_RO);
 
-    .TFM_SP_INITIAL_ATTESTATION_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
+    .TFM_SP_INITIAL_ATTESTATION_RO ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT) :
     {
-        *tfm_*partition_attestation.*:*(.text*)
-        *tfm_*partition_attestation.*:*(.rodata*)
+        *tfm_*partition_attestation.*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_attestation.*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_INITIAL_ATTESTATION_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
@@ -240,8 +143,8 @@ SECTIONS
 
     .TFM_SP_FWU_RO : ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT)
     {
-        *tfm_*partition_fwu*:*(.text*)
-        *tfm_*partition_fwu*:*(.rodata*)
+        *tfm_*partition_fwu*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_fwu*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_FWU_PSA-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
@@ -281,10 +184,10 @@ SECTIONS
     /**** PSA RoT RO CODE + data ends here */
 
     /**** APPLICATION RoT RO CODE + data starts here */
-    .TFM_SP_PS_RO : ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT)
+    .TFM_SP_PS_RO ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT) :
     {
-        *tfm_*partition_ps.*:*(.text*)
-        *tfm_*partition_ps.*:*(.rodata*)
+        *tfm_*partition_ps.*:(SORT_BY_ALIGNMENT(.text*))
+        *tfm_*partition_ps.*:(SORT_BY_ALIGNMENT(.rodata*))
         *(TFM_SP_PS_APP-ROT_ATTR_FN)
         . = ALIGN(TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT);
     } > FLASH
@@ -325,10 +228,10 @@ SECTIONS
 
 #if defined(S_RAM_CODE_START)
     /* Flash drivers code that gets copied from Flash */
-    .ER_CODE_SRAM : ALIGN(4)
+    .ER_CODE_SRAM ALIGN(S_RAM_CODE_START, 4) :
     {
-        *libflash_drivers*:*(.text*)
-        *libflash_drivers*:*(.rodata*)
+        *libflash_drivers*:(SORT_BY_ALIGNMENT(.text*))
+        *libflash_drivers*:(SORT_BY_ALIGNMENT(.rodata*))
         KEEP(*(.ramfunc))
         . = ALIGN(4); /* This alignment is needed to make the section size 4 bytes aligned */
     } > CODE_RAM AT > FLASH
@@ -338,19 +241,79 @@ SECTIONS
 
     .ER_TFM_CODE : ALIGN(4)
     {
-        *startup*(.text*)
-        *libplatform_s*:*(.text*)
-        *libtfm_spm*:*(.text*)
+        /* .copy.table */
+        . = ALIGN(4);
+        __copy_table_start__ = .;
+#ifdef RAM_VECTORS_SUPPORT
+        /* Copy interrupt vectors from flash to RAM */
+        LONG (__vectors_start__)                            /* From */
+        LONG (__ram_vectors_start__)                        /* To   */
+        LONG ((__vectors_end__ - __vectors_start__) / 4)    /* Size */
+#endif
+        LONG (LOADADDR(.spm_data))
+        LONG (ADDR(.spm_data))
+        LONG (SIZEOF(.spm_data) / 4)
+        LONG (LOADADDR(.TFM_DATA))
+        LONG (ADDR(.TFM_DATA))
+        LONG (SIZEOF(.TFM_DATA) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_PS_RWZI))
+        LONG (ADDR(.ER_TFM_SP_PS_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_PS_RWZI) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_ITS_RWZI))
+        LONG (ADDR(.ER_TFM_SP_ITS_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_ITS_RWZI) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_CRYPTO_RWZI))
+        LONG (ADDR(.ER_TFM_SP_CRYPTO_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_CRYPTO_RWZI) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_PLATFORM_RWZI))
+        LONG (ADDR(.ER_TFM_SP_PLATFORM_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_PLATFORM_RWZI) / 4)
+        LONG (LOADADDR(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI))
+        LONG (ADDR(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI))
+        LONG (SIZEOF(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI) / 4)
+#if defined(S_RAM_CODE_START)
+        LONG (LOADADDR(.ER_CODE_SRAM))
+        LONG (ADDR(.ER_CODE_SRAM))
+        LONG (SIZEOF(.ER_CODE_SRAM) / 4)
+#endif
+        __copy_table_end__ = .;
 
-        *libplatform_s*:*(.rodata*)
-        *libtfm_spm*:*(.rodata*)
+        /* .zero.table */
+        . = ALIGN(4);
+        __zero_table_start__ = .;
+        LONG (ADDR(.spm_bss))
+        LONG (SIZEOF(.spm_bss) / 4)
+#if defined(CONFIG_TFM_PARTITION_META)
+        LONG (ADDR(.TFM_SP_META_PTR))
+        LONG (SIZEOF(.TFM_SP_META_PTR) / 4)
+#endif
+        LONG (ADDR(.TFM_BSS))
+        LONG (SIZEOF(.TFM_BSS) / 4)
+        LONG (ADDR(.TFM_SP_PS_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_PS_RWZI_BSS) / 4)
+        LONG (ADDR(.TFM_SP_ITS_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_ITS_RWZI_BSS) / 4)
+        LONG (ADDR(.TFM_SP_CRYPTO_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_CRYPTO_RWZI_BSS) / 4)
+        LONG (ADDR(.TFM_SP_PLATFORM_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_PLATFORM_RWZI_BSS) / 4)
+        LONG (ADDR(.TFM_SP_INITIAL_ATTESTATION_RWZI_BSS))
+        LONG (SIZEOF(.TFM_SP_INITIAL_ATTESTATION_RWZI_BSS) / 4)
+        __zero_table_end__ = .;
+
+        *startup*(.text*)
+        *libplatform_s*:(SORT_BY_ALIGNMENT(.text*))
+        *libtfm_spm*:(SORT_BY_ALIGNMENT(.text*))
+
+        *libplatform_s*:(SORT_BY_ALIGNMENT(.rodata*))
+        *libtfm_spm*:(SORT_BY_ALIGNMENT(.rodata*))
     } > FLASH
 
     /**** Unprivileged Secure code starts here */
-    .ER_UNPRIV_CODE : ALIGN(TFM_LINKER_UNPRIV_CODE_ALIGNMENT)
+    .ER_UNPRIV_CODE ALIGN(TFM_LINKER_UNPRIV_CODE_ALIGNMENT) :
     {
         *(SFN)
-        *(.text*)
+        *(SORT_BY_ALIGNMENT(.text*))
 
         KEEP(*(.init))
         KEEP(*(.fini))
@@ -369,14 +332,14 @@ SECTIONS
          *(SORT(.dtors.*))
          *(.dtors)
 
-        *(.rodata*)
+        *(SORT_BY_ALIGNMENT(.rodata*))
 
         KEEP(*(.eh_frame*))
 
         . = ALIGN(TFM_LINKER_UNPRIV_CODE_ALIGNMENT);
     } > FLASH
-    Image$$TFM_UNPRIV_CODE$$RO$$Base = ADDR(.ER_UNPRIV_CODE);
-    Image$$TFM_UNPRIV_CODE$$RO$$Limit = ADDR(.ER_UNPRIV_CODE) + SIZEOF(.ER_UNPRIV_CODE);
+    Image$$TFM_UNPRIV_CODE_START$$RO$$Base = ADDR(.ER_UNPRIV_CODE);
+    Image$$TFM_UNPRIV_CODE_END$$RO$$Limit = ADDR(.ER_UNPRIV_CODE) + SIZEOF(.ER_UNPRIV_CODE);
 
     /* Position tag */
     . = ALIGN(TFM_LINKER_PT_RO_ALIGNMENT);
@@ -397,10 +360,11 @@ SECTIONS
     /**** Base address of secure data area */
     .tfm_secure_data_start :
     {
-        . = ABSOLUTE(S_DATA_START) ;
+        /* Relocate current position to RAM */
+        . = ALIGN(4);
     } > RAM
 
-   /* Position tag */
+    /* Position tag */
     . = ALIGN(TFM_LINKER_PT_PRIV_RWZI_ALIGNMENT);
     Image$$PT_PRIV_RWZI_START$$Base = .;
 
@@ -408,12 +372,12 @@ SECTIONS
      * msp_stack is extended until the beginning of RAM, when shared_date
      * was read out by partitions
      */
-    .tfm_bl2_shared_data : ALIGN(TFM_LINKER_BL2_SHARED_DATA_ALIGNMENT)
+    .tfm_bl2_shared_data ALIGN(TFM_LINKER_BL2_SHARED_DATA_ALIGNMENT) :
     {
         . += BOOT_TFM_SHARED_DATA_SIZE;
     } > RAM
 
-    .msp_stack : ALIGN(TFM_LINKER_MSP_STACK_ALIGNMENT)
+    .msp_stack ALIGN(TFM_LINKER_MSP_STACK_ALIGNMENT) :
     {
         . += __msp_stack_size__ - 0x8;
     } > RAM
@@ -428,7 +392,7 @@ SECTIONS
 
 #if defined(ENABLE_HEAP)
     __heap_size__ = S_HEAP_SIZE;
-    .heap : ALIGN(8)
+    .heap ALIGN(8) :
     {
         __end__ = .;
         PROVIDE(end = .);
@@ -443,9 +407,9 @@ SECTIONS
     {
         *libtfm_spm*:*(.data*);
     } > RAM AT> FLASH
-    .spm_bss :
+    .spm_bss (NOLOAD):
     {
-        *libtfm_spm*:*(.bss*);
+        *libtfm_spm*:(SORT_BY_ALIGNMENT(.bss*));
     } > RAM AT> RAM
 
     /**** PSA RoT DATA start here */
@@ -454,19 +418,19 @@ SECTIONS
     . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_ITS_PRIVATE_DATA_START$$Base = .;
 
-    .ER_TFM_SP_ITS_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
+    .ER_TFM_SP_ITS_RWZI ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT) :
     {
-        *tfm_*partition_its.*:*(.data*)
+        *tfm_*partition_its.*:(SORT_BY_ALIGNMENT(.data*))
         *(TFM_SP_ITS_PSA-ROT_ATTR_RW)
         . = ALIGN(4);
     } > RAM AT> FLASH
     Image$$ER_TFM_SP_ITS_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_ITS_RWZI);
     Image$$ER_TFM_SP_ITS_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_ITS_RWZI) + SIZEOF(.ER_TFM_SP_ITS_RWZI);
 
-    .TFM_SP_ITS_RWZI_BSS : ALIGN(4)
+    .TFM_SP_ITS_RWZI_BSS ALIGN(4) (NOLOAD):
     {
         start_of_TFM_SP_ITS_RWZI = .;
-        *tfm_*partition_its.*:*(.bss*)
+        *tfm_*partition_its.*:(SORT_BY_ALIGNMENT(.bss*))
         *tfm_*partition_its.*:*(COMMON)
         *(TFM_SP_ITS_PSA-ROT_ATTR_ZI)
         . += (. - start_of_TFM_SP_ITS_RWZI) ? 0 : 4;
@@ -484,22 +448,22 @@ SECTIONS
     . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_CRYPTO_PRIVATE_DATA_START$$Base = .;
 
-    .ER_TFM_SP_CRYPTO_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
+    .ER_TFM_SP_CRYPTO_RWZI ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT) :
     {
-        *tfm_*partition_crypto.*:*(.data*)
-        *mbedcrypto.*:*(.data*)
+        *tfm_*partition_crypto.*:(SORT_BY_ALIGNMENT(.data*))
+        *mbedcrypto.*:(SORT_BY_ALIGNMENT(.data*))
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_RW)
         . = ALIGN(4);
     } > RAM AT> FLASH
     Image$$ER_TFM_SP_CRYPTO_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_CRYPTO_RWZI);
     Image$$ER_TFM_SP_CRYPTO_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_CRYPTO_RWZI) + SIZEOF(.ER_TFM_SP_CRYPTO_RWZI);
 
-    .TFM_SP_CRYPTO_RWZI_BSS : ALIGN(4)
+    .TFM_SP_CRYPTO_RWZI_BSS ALIGN(4) (NOLOAD):
     {
         start_of_TFM_SP_CRYPTO_RWZI = .;
-        *tfm_*partition_crypto.*:*(.bss*)
+        *tfm_*partition_crypto.*:(SORT_BY_ALIGNMENT(.bss*))
         *tfm_*partition_crypto.*:*(COMMON)
-        *mbedcrypto.*:*(.bss*)
+        *mbedcrypto.*:(SORT_BY_ALIGNMENT(.bss*))
         *mbedcrypto.*:*(COMMON)
         *(TFM_SP_CRYPTO_PSA-ROT_ATTR_ZI)
         . += (. - start_of_TFM_SP_CRYPTO_RWZI) ? 0 : 4;
@@ -517,19 +481,19 @@ SECTIONS
     . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_PLATFORM_PRIVATE_DATA_START$$Base = .;
 
-    .ER_TFM_SP_PLATFORM_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
+    .ER_TFM_SP_PLATFORM_RWZI ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT) :
     {
-        *tfm_*partition_platform.*:*(.data*)
+        *tfm_*partition_platform.*:(SORT_BY_ALIGNMENT(.data*))
         *(TFM_SP_PLATFORM_PSA-ROT_ATTR_RW)
         . = ALIGN(4);
     } > RAM AT> FLASH
     Image$$ER_TFM_SP_PLATFORM_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_PLATFORM_RWZI);
     Image$$ER_TFM_SP_PLATFORM_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_PLATFORM_RWZI) + SIZEOF(.ER_TFM_SP_PLATFORM_RWZI);
 
-    .TFM_SP_PLATFORM_RWZI_BSS : ALIGN(4)
+    .TFM_SP_PLATFORM_RWZI_BSS ALIGN(4) (NOLOAD):
     {
         start_of_TFM_SP_PLATFORM_RWZI = .;
-        *tfm_*partition_platform.*:*(.bss*)
+        *tfm_*partition_platform.*:(SORT_BY_ALIGNMENT(.bss*))
         *tfm_*partition_platform.*:*(COMMON)
         *(TFM_SP_PLATFORM_PSA-ROT_ATTR_ZI)
         . += (. - start_of_TFM_SP_PLATFORM_RWZI) ? 0 : 4;
@@ -547,19 +511,19 @@ SECTIONS
     . = ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_INITIAL_ATTESTATION_PRIVATE_DATA_START$$Base = .;
 
-    .ER_TFM_SP_INITIAL_ATTESTATION_RWZI : ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT)
+    .ER_TFM_SP_INITIAL_ATTESTATION_RWZI ALIGN(TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT) :
     {
-        *tfm_*partition_attestation.*:*(.data*)
+        *tfm_*partition_attestation.*:(SORT_BY_ALIGNMENT(.data*))
         *(TFM_SP_INITIAL_ATTESTATION_PSA-ROT_ATTR_RW)
         . = ALIGN(4);
     } > RAM AT> FLASH
     Image$$ER_TFM_SP_INITIAL_ATTESTATION_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI);
     Image$$ER_TFM_SP_INITIAL_ATTESTATION_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI) + SIZEOF(.ER_TFM_SP_INITIAL_ATTESTATION_RWZI);
 
-    .TFM_SP_INITIAL_ATTESTATION_RWZI_BSS : ALIGN(4)
+    .TFM_SP_INITIAL_ATTESTATION_RWZI_BSS ALIGN(4) (NOLOAD):
     {
         start_of_TFM_SP_INITIAL_ATTESTATION_RWZI = .;
-        *tfm_*partition_attestation.*:*(.bss*)
+        *tfm_*partition_attestation.*:(SORT_BY_ALIGNMENT(.bss*))
         *tfm_*partition_attestation.*:*(COMMON)
         *(TFM_SP_INITIAL_ATTESTATION_PSA-ROT_ATTR_ZI)
         . += (. - start_of_TFM_SP_INITIAL_ATTESTATION_RWZI) ? 0 : 4;
@@ -703,7 +667,7 @@ SECTIONS
     . = ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT);
     Image$$PT_TFM_SP_PS_PRIVATE_DATA_START$$Base = .;
 
-    .ER_TFM_SP_PS_RWZI : ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT)
+    .ER_TFM_SP_PS_RWZI ALIGN(TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT) :
     {
         *tfm_*partition_ps.*:*(.data*)
         *(TFM_SP_PS_APP-ROT_ATTR_RW)
@@ -712,10 +676,10 @@ SECTIONS
     Image$$.ER_TFM_SP_PS_RWZI$$RW$$Base = ADDR(.ER_TFM_SP_PS_RWZI);
     Image$$.ER_TFM_SP_PS_RWZI$$RW$$Limit = ADDR(.ER_TFM_SP_PS_RWZI) + SIZEOF(.ER_TFM_SP_PS_RWZI);
 
-    .TFM_SP_PS_RWZI_BSS : ALIGN(4)
+    .TFM_SP_PS_RWZI_BSS ALIGN(4) (NOLOAD):
     {
         start_of_TFM_SP_PS_RWZI = .;
-        *tfm_*partition_ps.*:*(.bss*)
+        *tfm_*partition_ps.*:(SORT_BY_ALIGNMENT(.bss*))
         *tfm_*partition_ps.*:*(COMMON)
         *(TFM_SP_PS_APP-ROT_ATTR_ZI)
         . += (. - start_of_TFM_SP_PS_RWZI) ? 0 : 4;
@@ -822,19 +786,19 @@ SECTIONS
     Image$$PT_APP_RWZI_END$$Base = .;
 
 #ifdef RAM_VECTORS_SUPPORT
-    .ramVectors (NOLOAD) : ALIGN(TFM_LINKER_RAM_VECTORS_ALIGNMENT)
+    .ramVectors ALIGN(TFM_LINKER_RAM_VECTORS_ALIGNMENT) (NOLOAD) :
     {
         __ram_vectors_start__ = .;
         KEEP(*(.ram_vectors))
         __ram_vectors_end__   = .;
     } > RAM
-    .TFM_DATA __ram_vectors_end__ : ALIGN(4)
+    .TFM_DATA __ram_vectors_end__ :
 #else
 
-    .TFM_DATA : ALIGN(4)
+    .TFM_DATA ALIGN(4) :
 #endif
     {
-        *(.data*)
+        *(SORT_BY_ALIGNMENT(.data*))
 
         . = ALIGN(4);
         /* preinit data */
@@ -864,36 +828,38 @@ SECTIONS
     Image$$ER_TFM_DATA$$RW$$Limit = ADDR(.TFM_DATA) + SIZEOF(.TFM_DATA);
 
 #if defined(CONFIG_TFM_PARTITION_META)
-    .TFM_SP_META_PTR : ALIGN(TFM_LINKER_SP_META_PTR_ALIGNMENT)
+    .TFM_SP_META_PTR ALIGN(TFM_LINKER_SP_META_PTR_ALIGNMENT) :
     {
         *(.bss.SP_META_PTR_SPRTL_INST)
         . = ALIGN(TFM_LINKER_SP_META_PTR_ALIGNMENT);
     } > RAM AT> RAM
     Image$$TFM_SP_META_PTR$$ZI$$Base = ADDR(.TFM_SP_META_PTR);
     Image$$TFM_SP_META_PTR$$ZI$$Limit = ADDR(.TFM_SP_META_PTR) + SIZEOF(.TFM_SP_META_PTR);
+    /* This is needed for the uniform configuration of MPU region. */
+    Image$$TFM_SP_META_PTR_END$$ZI$$Limit = Image$$TFM_SP_META_PTR$$ZI$$Limit;
 #endif
 
-    .TFM_BSS : ALIGN(4)
+    .TFM_BSS ALIGN(4) (NOLOAD):
     {
         __bss_start__ = .;
 
         /* The runtime partition placed order is same as load partition */
         __partition_runtime_start__ = .;
-        KEEP(*(.bss.part_runtime_priority_lowest))
-        KEEP(*(.bss.part_runtime_priority_low))
-        KEEP(*(.bss.part_runtime_priority_normal))
-        KEEP(*(.bss.part_runtime_priority_high))
+        KEEP(*(.bss.part_runtime_priority_00))
+        KEEP(*(.bss.part_runtime_priority_01))
+        KEEP(*(.bss.part_runtime_priority_02))
+        KEEP(*(.bss.part_runtime_priority_03))
         __partition_runtime_end__ = .;
         . = ALIGN(4);
 
         /* The runtime service placed order is same as load partition */
         __service_runtime_start__ = .;
-        KEEP(*(.bss.serv_runtime_priority_lowest))
-        KEEP(*(.bss.serv_runtime_priority_low))
-        KEEP(*(.bss.serv_runtime_priority_normal))
-        KEEP(*(.bss.serv_runtime_priority_high))
+        KEEP(*(.bss.serv_runtime_priority_00))
+        KEEP(*(.bss.serv_runtime_priority_01))
+        KEEP(*(.bss.serv_runtime_priority_02))
+        KEEP(*(.bss.serv_runtime_priority_03))
         __service_runtime_end__ = .;
-        *(.bss*)
+        *(SORT_BY_ALIGNMENT(.bss*))
         *(COMMON)
         . = ALIGN(4);
         __bss_end__ = .;
