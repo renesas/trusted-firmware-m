@@ -81,12 +81,30 @@ static fih_int tfm_core_init(void)
     FIH_RET(fih_int_encode(TFM_SUCCESS));
 }
 
+#if defined (__ICCARM__)
+#pragma language = extended
+#pragma section  = "ARM_LIB_STACK"
+
+
+uint32_t spm_boot_stack_top;
+uint32_t spm_boot_stack_bottom;
+uint32_t part_infolist_start;
+uint32_t part_infolist_end;
+uint32_t part_local_storage_ptr_pos;
+
+#endif
+
 int tfm_main(void)
 {
     fih_int fih_rc = FIH_FAILURE;
 
-    /* set Main Stack Pointer limit */
+ /* set Main Stack Pointer limit */
+#if defined(__GNUC__)
     tfm_arch_set_msplim(SPM_BOOT_STACK_TOP);
+#elif defined (__ICCARM__)
+    spm_boot_stack_top = (uint32_t)__section_begin("ARM_LIB_STACK");
+    tfm_arch_set_msplim(spm_boot_stack_top);
+#endif
 
     fih_delay_init();
 
