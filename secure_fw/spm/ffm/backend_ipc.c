@@ -259,11 +259,6 @@ void backend_init_comp_assuredly(struct partition_t *p_pt,
                param);
 }
 
-#if defined (__ICCARM__)
-#pragma language = extended
-#pragma section  = "TFM_SP_META_PTR"
-#endif
-
 uint32_t backend_system_run(void)
 {
     uint32_t control;
@@ -277,12 +272,7 @@ uint32_t backend_system_run(void)
     /* Init thread callback function. */
     thrd_set_query_callback(query_state);
 
-#if defined(__GNUC__)
     partition_meta_indicator_pos = (uintptr_t *)PART_LOCAL_STORAGE_PTR_POS;
-#elif defined (__ICCARM__)
-    part_local_storage_ptr_pos = (uint32_t)__section_begin("TFM_SP_META_PTR");
-    partition_meta_indicator_pos = (uintptr_t *)part_local_storage_ptr_pos;
-#endif
     control = thrd_start_scheduler(&CURRENT_THREAD);
 
     p_cur_pt = TO_CONTAINER(CURRENT_THREAD->p_context_ctrl,

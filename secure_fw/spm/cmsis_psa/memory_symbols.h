@@ -16,8 +16,18 @@
  * Symbols can be reserved by linkage, or globally defined in a
  * source file with toolchain-specific flags.
  */
-
-#if defined(__GNUC__)
+#if defined (__ICCARM__)
+extern uint32_t ARM_LIB_STACK$$Limit;
+extern uint32_t ARM_LIB_STACK$$Base;
+extern uint32_t TFM_SP_LOAD_LIST$$Base;
+extern uint32_t TFM_SP_LOAD_LIST$$Limit;
+extern uint32_t TFM_SP_META_PTR$$Base;
+extern uint32_t TFM_SP_META_PTR$$Limit;
+extern uint32_t ER_PART_RT_POOL$$Base;
+extern uint32_t ER_PART_RT_POOL$$Limit;
+extern uint32_t ER_SERV_RT_POOL$$Base;
+extern uint32_t ER_SERV_RT_POOL$$Limit;
+#endif
 /* ---------- SPM boot stack - the default stack when booting up ---------- */
 REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
 REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Limit);
@@ -61,22 +71,4 @@ REGION_DECLARE(Image$$, TFM_SP_META_PTR, $$ZI$$Base);
 
 #endif
 
-#elif defined (__ICCARM__)
-extern uint32_t spm_boot_stack_top;
-extern uint32_t spm_boot_stack_bottom;
-extern uint32_t part_infolist_start;
-extern uint32_t part_infolist_end;
-extern uint32_t part_local_storage_ptr_pos;
-#define SPM_BOOT_STACK_TOP            \
-                    (uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Base)
-#define SPM_BOOT_STACK_BOTTOM         \
-                    (uint32_t)&REGION_NAME(Image$$, ARM_LIB_STACK, $$ZI$$Limit)
-
-#define PART_INFOLIST_START           \
-                (uintptr_t)&REGION_NAME(Image$$, TFM_SP_LOAD_LIST, $$RO$$Base)
-#define PART_INFOLIST_END             \
-                (uintptr_t)&REGION_NAME(Image$$, TFM_SP_LOAD_LIST, $$RO$$Limit)
-#define PART_LOCAL_STORAGE_PTR_POS    \
-                ((uintptr_t)&REGION_NAME(Image$$, TFM_SP_META_PTR, $$ZI$$Base))
-#endif
 #endif /* __MEMORY_SYMBOLS_H__ */
