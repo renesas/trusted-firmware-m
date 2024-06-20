@@ -66,8 +66,13 @@ uint32_t backend_assert_signal(struct partition_t *p_pt, psa_signal_t signal);
 extern struct partition_head_t partition_listhead;
 #define PARTITION_LIST_ADDR (&partition_listhead)
 
+#if CONFIG_TFM_PSA_API_CROSS_CALL == 1
+/* Instance for SPM_THREAD_CONTEXT */
+#ifdef CONFIG_TFM_USE_TRUSTZONE
 /* TODO: Put this into NS Agent related service when available. */
 extern struct context_ctrl_t *p_spm_thread_context;
 #define SPM_THREAD_CONTEXT p_spm_thread_context
+#endif
+#endif
 
 #endif /* __BACKEND_H__ */
