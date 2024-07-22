@@ -120,53 +120,10 @@ define block ER_TFM_SP_INITIAL_ATTESTATION_RO  with alignment = TFM_LINKER_PSA_R
     ro section .rodata object *tfm_*partition_attestation.*,
        section TFM_SP_INITIAL_ATTESTATION_PSA-ROT_ATTR_FN,
 };
-define block ER_TFM_SP_FWU_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_fwu*,
-    ro section .rodata object *tfm_*partition_fwu*,
-       section TFM_SP_FWU_PSA-ROT_ATTR_FN,
-};
-define block ER_TFM_SP_SECURE_TEST_PARTITION_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_secure_client_service.*,
-    ro section .rodata object *tfm_*partition_secure_client_service.*,
-       section TFM_SP_SECURE_TEST_PARTITION_PSA-ROT_ATTR_FN,
-};
-define block ER_TFM_SP_IPC_SERVICE_TEST_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_ipc_service.*,
-    ro section .rodata object *tfm_*partition_ipc_service.*,
-       section TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_FN,
-};
-define block ER_TFM_SP_IPC_CLIENT_TEST_RO  with alignment = TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_ipc_client.*,
-    ro section .rodata object *tfm_*partition_ipc_client.*,
-       section TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_FN,
-};
-define block ER_TFM_SP_PS_TEST_RO  with alignment = TFM_LINKER_PSA_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_ps_test.*,
-    ro section .rodata object *tfm_*partition_ps_test.*,
-       section TFM_SP_PS_TEST_PSA-ROT_ATTR_FN,
-};
-define block ER_TFM_SP_SECURE_CLIENT_2_RO  with alignment = TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_secure_client_2.*,
-    ro section .rodata object *tfm_*partition_secure_client_2.*,
-       section TFM_SP_SECURE_CLIENT_2_APP-ROT_ATTR_FN,
-};
-define block ER_TFM_SP_SLIH_TEST_RO  with alignment = TFM_LINKER_APP_ROT_LINKER_CODE_ALIGNMENT
-{
-    ro section .text object *tfm_*partition_slih_test.*,
-    ro section .rodata object *tfm_*partition_slih_test.*,
-       section TFM_SP_SLIH_TEST_APP-ROT_ATTR_FN,
-};
 /**** blocks CODE + RO-data definition ends here*/
 
 /**** Block Unprivileged Secure code + RO-data definition starts here */
 define block TFM_UNPRIV_CODE_START with alignment = TFM_LINKER_UNPRIV_CODE_ALIGNMENT {
-    section SFN,
     readonly
 };
 
@@ -257,50 +214,6 @@ keep {block ER_PART_RT_POOL, block ER_SERV_RT_POOL};
 };
 /* Position  tag : start Block :*/
     define block PT_TFM_SP_INITIAL_ATTESTATION_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_FWU_PRIVATE_DATA_START with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_FWU_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_fwu*,
-	rw section .bss  object *tfm_*partition_fwu*,
-	section TFM_SP_FWU_PSA-ROT_ATTR_RW,
-	section TFM_SP_FWU_PSA-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_FWU_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_START with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_SECURE_TEST_PARTITION_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_secure_client_service.*,
-	rw section .bss  object *tfm_*partition_secure_client_service.*,
-	section TFM_SP_SECURE_TEST_PARTITION_PSA-ROT_ATTR_RW,
-	section TFM_SP_SECURE_TEST_PARTITION_PSA-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_IPC_SERVICE_TEST_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_ipc_service.*,
-	rw section .bss  object *tfm_*partition_ipc_service.*,
-	section TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_RW,
-	section TFM_SP_IPC_SERVICE_TEST_PSA-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_PS_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_PS_TEST_RWZI with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_ps_test.*,
-	rw section .bss  object *tfm_*partition_ps_test.*,
-	section TFM_SP_PS_TEST_PSA-ROT_ATTR_RW,
-	section TFM_SP_PS_TEST_PSA-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_PS_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_PSA_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
 
 /**** block Position tag  PSA RoT RWZI ends definition  */
 define block PT_PRIV_RWZI_END with alignment = TFM_LINKER_PT_PRIV_RWZI_ALIGNMENT, size = 0 { };
@@ -316,39 +229,6 @@ define block PT_PRIV_RWZI_END with alignment = TFM_LINKER_PT_PRIV_RWZI_ALIGNMENT
 };
 /* Position  tag : start Block :*/
     define block PT_TFM_SP_PS_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_IPC_CLIENT_TEST_RWZI with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_ipc_client.*,
-	rw section .bss  object *tfm_*partition_ipc_client.*,
-	section TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_RW,
-	section TFM_SP_IPC_CLIENT_TEST_APP-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_START with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_SECURE_CLIENT_2_RWZI with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_secure_client_2.*,
-	rw section .bss  object *tfm_*partition_secure_client_2.*,
-	section TFM_SP_SECURE_CLIENT_2_APP-ROT_ATTR_RW,
-	section TFM_SP_SECURE_CLIENT_2_APP-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-    /* Position  tag : start Block :*/
-    define block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_START with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
-
-    define block ER_TFM_SP_SLIH_TEST_RWZI with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT {
-	rw section .data object *tfm_*partition_slih_test.*,
-	rw section .bss  object *tfm_*partition_slih_test.*,
-	section TFM_SP_SLIH_TEST_APP-ROT_ATTR_RW,
-	section TFM_SP_SLIH_TEST_APP-ROT_ATTR_ZI,
-};
-/* Position  tag : start Block :*/
-    define block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_END with alignment = TFM_LINKER_APP_ROT_LINKER_DATA_ALIGNMENT, size = 0 { };
 
 #if defined(CONFIG_TFM_PARTITION_META)
 define block TFM_SP_META_PTR with alignment = TFM_LINKER_SP_META_PTR_ALIGNMENT {
@@ -383,16 +263,8 @@ define block LR_CODE with fixed order {
     block ER_TFM_SP_CRYPTO_RO,
     block ER_TFM_SP_PLATFORM_RO,
     block ER_TFM_SP_INITIAL_ATTESTATION_RO,
-    block ER_TFM_SP_FWU_RO,
-    block ER_TFM_SP_SECURE_TEST_PARTITION_RO,
-    block ER_TFM_SP_IPC_SERVICE_TEST_RO,
-    block ER_TFM_SP_PS_TEST_RO,
     /**** APPLICATION RoT RO CODE + data starts here */
     block ER_TFM_SP_PS_RO,
-    block ER_TFM_SP_IPC_CLIENT_TEST_RO,
-    block ER_TFM_SP_SECURE_CLIENT_2_RO,
-    block ER_TFM_SP_SLIH_TEST_RO,
-    block TFM_UNPRIV_CODE,
     block TFM_UNPRIV_CODE_START,
     block TFM_UNPRIV_CODE_END,
     block PT_RO_END,
@@ -444,18 +316,6 @@ define block DATA with fixed order {
     block PT_TFM_SP_INITIAL_ATTESTATION_PRIVATE_DATA_START,
     block ER_TFM_SP_INITIAL_ATTESTATION_RWZI,
     block PT_TFM_SP_INITIAL_ATTESTATION_PRIVATE_DATA_END,
-    block PT_TFM_SP_FWU_PRIVATE_DATA_START,
-    block ER_TFM_SP_FWU_RWZI,
-    block PT_TFM_SP_FWU_PRIVATE_DATA_END,
-    block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_START,
-    block ER_TFM_SP_SECURE_TEST_PARTITION_RWZI,
-    block PT_TFM_SP_SECURE_TEST_PARTITION_PRIVATE_DATA_END,
-    block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_START,
-    block ER_TFM_SP_IPC_SERVICE_TEST_RWZI,
-    block PT_TFM_SP_IPC_SERVICE_TEST_PRIVATE_DATA_END,
-    block PT_TFM_SP_PS_TEST_PRIVATE_DATA_START,
-    block ER_TFM_SP_PS_TEST_RWZI,
-    block PT_TFM_SP_PS_TEST_PRIVATE_DATA_END,
 
     block PT_PRIV_RWZI_END,
 
@@ -463,15 +323,6 @@ define block DATA with fixed order {
     block PT_TFM_SP_PS_PRIVATE_DATA_START,
     block ER_TFM_SP_PS_RWZI,
     block PT_TFM_SP_PS_PRIVATE_DATA_END,
-    block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_START,
-    block ER_TFM_SP_IPC_CLIENT_TEST_RWZI,
-    block PT_TFM_SP_IPC_CLIENT_TEST_PRIVATE_DATA_END,
-    block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_START,
-    block ER_TFM_SP_SECURE_CLIENT_2_RWZI,
-    block PT_TFM_SP_SECURE_CLIENT_2_PRIVATE_DATA_END,
-    block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_START,
-    block ER_TFM_SP_SLIH_TEST_RWZI,
-    block PT_TFM_SP_SLIH_TEST_PRIVATE_DATA_END,
 
 #if defined(CONFIG_TFM_PARTITION_META)
     block TFM_SP_META_PTR,
