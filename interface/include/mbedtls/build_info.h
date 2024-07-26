@@ -102,7 +102,7 @@
 #endif
 
 /* X.509, TLS and non-PSA crypto configuration */
-#if !deined(_RA_TZ_NONSECURE)
+#if !defined(_RA_TZ_NONSECURE)
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
 #else
@@ -151,7 +151,7 @@
 #endif
 
 /* PSA crypto configuration */
-#if !deined(_RA_TZ_NONSECURE)
+#if !defined(_RA_TZ_NONSECURE)
 #if defined(MBEDTLS_PSA_CRYPTO_CONFIG)
 #if defined(MBEDTLS_PSA_CRYPTO_CONFIG_FILE)
 #include MBEDTLS_PSA_CRYPTO_CONFIG_FILE
