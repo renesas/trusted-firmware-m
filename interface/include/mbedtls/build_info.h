@@ -102,10 +102,37 @@
 #endif
 
 /* X.509, TLS and non-PSA crypto configuration */
+#if !defined(_RA_TZ_NONSECURE)
 #if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/mbedtls_config.h"
+#include "mbedtls/config.h"
 #else
 #include MBEDTLS_CONFIG_FILE
+#endif
+#endif
+
+#if defined(MBEDTLS_PSA_CRYPTO_KEY_ID_ENCODES_OWNER)
+#undef MBEDTLS_PSA_CRYPTO_KEY_ID_ENCODES_OWNER
+#endif
+#if !defined(MBEDTLS_PSA_CRYPTO_CLIENT)
+#define MBEDTLS_PSA_CRYPTO_CLIENT
+#endif
+#if defined(MBEDTLS_ENTROPY_NV_SEED)
+#undef MBEDTLS_ENTROPY_NV_SEED
+#endif
+#if defined(MBEDTLS_ENTROPY_C)
+#undef MBEDTLS_ENTROPY_C
+#endif
+#if defined(MBEDTLS_PSA_CRYPTO_C)
+#undef MBEDTLS_PSA_CRYPTO_C
+#endif
+#if defined(MBEDTLS_PSA_CRYPTO_STORAGE_C)
+#undef MBEDTLS_PSA_CRYPTO_STORAGE_C
+#endif
+#if defined(MBEDTLS_PSA_CRYPTO_SPM)
+#undef MBEDTLS_PSA_CRYPTO_SPM
+#endif
+#if defined(MBEDTLS_PSA_CRYPTO_BUILTIN_KEYS)
+#undef MBEDTLS_PSA_CRYPTO_BUILTIN_KEYS
 #endif
 
 #if defined(MBEDTLS_CONFIG_VERSION) && ( \
@@ -124,6 +151,7 @@
 #endif
 
 /* PSA crypto configuration */
+#if !defined(_RA_TZ_NONSECURE)
 #if defined(MBEDTLS_PSA_CRYPTO_CONFIG)
 #if defined(MBEDTLS_PSA_CRYPTO_CONFIG_FILE)
 #include MBEDTLS_PSA_CRYPTO_CONFIG_FILE
@@ -134,6 +162,7 @@
 #include MBEDTLS_PSA_CRYPTO_USER_CONFIG_FILE
 #endif
 #endif /* defined(MBEDTLS_PSA_CRYPTO_CONFIG) */
+#endif
 
 /* Auto-enable MBEDTLS_CTR_DRBG_USE_128_BIT_KEY if
  * MBEDTLS_AES_ONLY_128_BIT_KEY_LENGTH and MBEDTLS_CTR_DRBG_C defined
