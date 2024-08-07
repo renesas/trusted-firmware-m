@@ -414,7 +414,7 @@ uint64_t backend_abi_entering_spm(void)
         tfm_core_panic();
     }
 #endif
-
+#if CONFIG_TFM_PSA_API_CROSS_CALL == 1
     /*
      * Check if caller stack is within SPM stack. If not, then stack needs to
      * switch. Otherwise, return zeros.
@@ -424,7 +424,7 @@ uint64_t backend_abi_entering_spm(void)
         sp       = SPM_THREAD_CONTEXT->sp;
         sp_limit = SPM_THREAD_CONTEXT->sp_limit;
     }
-
+#endif
     AAPCS_DUAL_U32_SET(spm_stack_info, sp, sp_limit);
 
     arch_acquire_sched_lock();

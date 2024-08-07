@@ -16,7 +16,18 @@
  * Symbols can be reserved by linkage, or globally defined in a
  * source file with toolchain-specific flags.
  */
-
+#if defined (__ICCARM__)
+extern uint32_t ARM_LIB_STACK$$Limit;
+extern uint32_t ARM_LIB_STACK$$Base;
+extern uint32_t TFM_SP_LOAD_LIST$$Base;
+extern uint32_t TFM_SP_LOAD_LIST$$Limit;
+extern uint32_t TFM_SP_META_PTR$$Base;
+extern uint32_t TFM_SP_META_PTR$$Limit;
+extern uint32_t ER_PART_RT_POOL$$Base;
+extern uint32_t ER_PART_RT_POOL$$Limit;
+extern uint32_t ER_SERV_RT_POOL$$Base;
+extern uint32_t ER_SERV_RT_POOL$$Limit;
+#endif
 
 /* ---------- SPM boot stack - the default stack when booting up ---------- */
 REGION_DECLARE(Image$$, ARM_LIB_STACK, $$ZI$$Base);
