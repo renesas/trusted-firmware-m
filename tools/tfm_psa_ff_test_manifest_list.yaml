@@ -14,7 +14,7 @@
   "manifest_list": [
    {
       "description": "PSA FF Test Client Partition",
-      "manifest": "${PSA_ARCH_TESTS_PATH}/api-tests/platform/manifests/client_partition_psa.json",
+      "manifest": "D:/peaks/ra/arm/psa-arch-tests/api-tests/platform/manifests/client_partition_psa.json",
       "output_path": "api-tests/platform/manifests",
       "version_major": 0,
       "version_minor": 1,
@@ -30,7 +30,7 @@
     },
     {
       "description": "PSA FF Test Server Partition",
-      "manifest": "${PSA_ARCH_TESTS_PATH}/api-tests/platform/manifests/server_partition_psa.json",
+      "manifest": "D:/peaks/ra/arm/psa-arch-tests/api-tests/platform/manifests/server_partition_psa.json",
       "output_path": "api-tests/platform/manifests",
       "version_major": 0,
       "version_minor": 1,
@@ -46,7 +46,7 @@
     },
     {
       "description": "PSA FF Test Driver Partition",
-      "manifest": "${PSA_ARCH_TESTS_PATH}/api-tests/platform/manifests/driver_partition_psa.json",
+      "manifest": "D:/peaks/ra/arm/psa-arch-tests/api-tests/platform/manifests/driver_partition_psa.json",
       "output_path": "api-tests/platform/manifests",
       "version_major": 0,
       "version_minor": 1,
