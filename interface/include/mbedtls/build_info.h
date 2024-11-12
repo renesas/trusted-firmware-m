@@ -101,6 +101,13 @@
 #define inline __inline
 #endif
 
+#if defined(MBEDTLS_CONFIG_FILES_READ)
+#error "Something went wrong: MBEDTLS_CONFIG_FILES_READ defined before reading the config files!"
+#endif
+#if defined(MBEDTLS_CONFIG_IS_FINALIZED)
+#error "Something went wrong: MBEDTLS_CONFIG_IS_FINALIZED defined before reading the config files!"
+#endif
+
 /* X.509, TLS and non-PSA crypto configuration */
 #if !defined(_RA_TZ_NONSECURE)
 #if !defined(MBEDTLS_CONFIG_FILE)
@@ -164,6 +171,8 @@
 #endif /* defined(MBEDTLS_PSA_CRYPTO_CONFIG) */
 #endif
 
+#define MBEDTLS_CONFIG_FILES_READ
+
 /* Auto-enable MBEDTLS_CTR_DRBG_USE_128_BIT_KEY if
  * MBEDTLS_AES_ONLY_128_BIT_KEY_LENGTH and MBEDTLS_CTR_DRBG_C defined
  * to ensure a 128-bit key size in CTR_DRBG.
@@ -197,6 +206,9 @@
 #include "mbedtls/config_adjust_x509.h"
 
 #include "mbedtls/config_adjust_ssl.h"
+
+
+#define MBEDTLS_CONFIG_IS_FINALIZED
 
 /* Make sure all configuration symbols are set before including check_config.h,
  * even the ones that are calculated programmatically. */
