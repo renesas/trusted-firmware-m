@@ -168,3 +168,119 @@ ARM_DRIVER_FLASH Driver_FLASH0 = {
     ARM_Flash_GetStatus,
     ARM_Flash_GetInfo
 };
+/*
+ * Data Flash Driver (Driver_FLASH1)
+ * For OTP/NV Counters and ITS storage
+ */
+
+static ARM_FLASH_INFO DataFlashInfo = {
+    .sector_info  = NULL,
+    .sector_count = FLASH_DATA_FLASH_SIZE / FLASH_DATA_FLASH_SECTOR_SIZE,
+    .sector_size  = FLASH_DATA_FLASH_SECTOR_SIZE,
+    .page_size    = FLASH_DATA_FLASH_SECTOR_SIZE,
+    .program_unit = 1,  /* 1 byte programming */
+    .erased_value = 0xFF
+};
+
+static int32_t ARM_DataFlash_Initialize(ARM_Flash_SignalEvent_t cb_event)
+{
+    /* Data flash shares the same flash controller as code flash */
+    return ARM_Flash_Initialize(cb_event);
+}
+
+static int32_t ARM_DataFlash_Uninitialize(void)
+{
+    /* Data flash shares initialization with code flash */
+    return ARM_DRIVER_OK;
+}
+
+static int32_t ARM_DataFlash_ReadData(uint32_t addr, void *data, uint32_t cnt)
+{
+    /* Data flash base address */
+    if (addr >= FLASH_DATA_FLASH_BASE &&
+        (addr + cnt) <= (FLASH_DATA_FLASH_BASE + FLASH_DATA_FLASH_SIZE)) {
+        memcpy(data, (void *)addr, cnt);
+        return ARM_DRIVER_OK;
+    }
+    return ARM_DRIVER_ERROR_PARAMETER;
+}
+
+static int32_t ARM_DataFlash_ProgramData(uint32_t addr, const void *data, uint32_t cnt)
+{
+    if (!data || cnt == 0) {
+        return ARM_DRIVER_ERROR_PARAMETER;
+    }
+    
+    /* Verify address is in data flash range */
+    if (addr < FLASH_DATA_FLASH_BASE ||
+        (addr + cnt) > (FLASH_DATA_FLASH_BASE + FLASH_DATA_FLASH_SIZE)) {
+        return ARM_DRIVER_ERROR_PARAMETER;
+    }
+
+    flash_state.status.busy = 1;
+    fsp_err_t err = R_FLASH_HP_Write(&g_flash0_ctrl, (uint32_t)data, addr, cnt);
+    flash_state.status.busy = 0;
+
+    if (FSP_SUCCESS != err) {
+        flash_state.status.error = 1;
+        return ARM_DRIVER_ERROR;
+    }
+
+    return ARM_DRIVER_OK;
+}
+
+static int32_t ARM_DataFlash_EraseSector(uint32_t addr)
+{
+    /* Verify address is in data flash range */
+    if (addr < FLASH_DATA_FLASH_BASE ||
+        addr >= (FLASH_DATA_FLASH_BASE + FLASH_DATA_FLASH_SIZE)) {
+        return ARM_DRIVER_ERROR_PARAMETER;
+    }
+
+    flash_state.status.busy = 1;
+
+    /* Data flash erase: 1 block = 64 bytes */
+    uint32_t num_blocks = FLASH_DATA_FLASH_SECTOR_SIZE / FLASH_DATA_FLASH_SECTOR_SIZE;
+    fsp_err_t err = R_FLASH_HP_Erase(&g_flash0_ctrl, addr, num_blocks);
+
+    flash_state.status.busy = 0;
+
+    if (FSP_SUCCESS != err) {
+        flash_state.status.error = 1;
+        return ARM_DRIVER_ERROR;
+    }
+
+    return ARM_DRIVER_OK;
+}
+
+static int32_t ARM_DataFlash_EraseChip(void)
+{
+    uint32_t addr;
+    for (addr = FLASH_DATA_FLASH_BASE;
+         addr < (FLASH_DATA_FLASH_BASE + FLASH_DATA_FLASH_SIZE);
+         addr += FLASH_DATA_FLASH_SECTOR_SIZE) {
+        if (ARM_DataFlash_EraseSector(addr) != ARM_DRIVER_OK) {
+            return ARM_DRIVER_ERROR;
+        }
+    }
+    return ARM_DRIVER_OK;
+}
+
+static ARM_FLASH_INFO *ARM_DataFlash_GetInfo(void)
+{
+    return &DataFlashInfo;
+}
+
+ARM_DRIVER_FLASH Driver_FLASH1 = {
+    ARM_Flash_GetVersion,
+    ARM_Flash_GetCapabilities,
+    ARM_DataFlash_Initialize,
+    ARM_DataFlash_Uninitialize,
+    ARM_Flash_PowerControl,
+    ARM_DataFlash_ReadData,
+    ARM_DataFlash_ProgramData,
+    ARM_DataFlash_EraseSector,
+    ARM_DataFlash_EraseChip,
+    ARM_Flash_GetStatus,
+    ARM_DataFlash_GetInfo
+};

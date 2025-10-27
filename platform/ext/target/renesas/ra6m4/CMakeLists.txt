@@ -37,10 +37,12 @@ target_sources(platform_s
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
         ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_isolation.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/tfm_interrupts.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/tfm_peripherals_def.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
+        # Use common ARMv8-M isolation implementation
+        ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
+        $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_interrupts.c>
 )
 
 # Platform include directories
@@ -48,6 +50,8 @@ target_include_directories(platform_s
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
+    PRIVATE
+        ${PLATFORM_DIR}/ext/common
 )
 
 ############################ BL2 Configuration #################################

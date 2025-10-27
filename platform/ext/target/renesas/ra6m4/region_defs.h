@@ -56,12 +56,17 @@
 #define NS_DATA_SIZE                    NS_RAM_SIZE
 #define NS_DATA_LIMIT                   (NS_DATA_START + NS_DATA_SIZE - 1)
 
-/* Non-Secure Callable (NSC) region */
+/* Non-Secure Callable (NSC) region - at end of secure code */
 #define CMSE_VENEER_REGION_SIZE         0x400       /* 1KB */
+#define CMSE_VENEER_REGION_START        (S_CODE_START + S_CODE_SIZE - CMSE_VENEER_REGION_SIZE)
 
 /* Bootloader regions */
+#ifndef BL2_HEADER_SIZE
 #define BL2_HEADER_SIZE                 0x400       /* 1KB */
+#endif
+#ifndef BL2_TRAILER_SIZE
 #define BL2_TRAILER_SIZE                0x800       /* 2KB */
+#endif
 
 /* MPU region alignment requirements for ARMv8-M */
 #define MPU_REGION_ALIGNMENT            0x20        /* 32 bytes minimum */
@@ -73,6 +78,12 @@
 /* Peripheral access from secure world */
 #define S_PERIPHERAL_ALIAS_BASE         PERIPHERAL_BASE
 #define NS_PERIPHERAL_ALIAS_BASE        (PERIPHERAL_BASE + 0x10000000)
+
+/* Peripheral limits for SAU configuration */
+#define PERIPHERALS_BASE_S              S_PERIPHERAL_ALIAS_BASE
+#define PERIPHERALS_LIMIT_S             (S_PERIPHERAL_ALIAS_BASE + PERIPHERAL_SIZE - 1)
+#define PERIPHERALS_BASE_NS             NS_PERIPHERAL_ALIAS_BASE
+#define PERIPHERALS_LIMIT_NS            (NS_PERIPHERAL_ALIAS_BASE + PERIPHERAL_SIZE - 1)
 
 /* NVIC Configuration */
 #define NVIC_USER_IRQ_OFFSET            16

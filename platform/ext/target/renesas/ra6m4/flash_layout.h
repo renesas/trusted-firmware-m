@@ -76,14 +76,20 @@
 #define TFM_HAL_FLASH_PROGRAM_UNIT          0x1     /* 1 byte programming */
 
 /* Flash driver definitions for OTP/NV counters */
-#define OTP_NV_COUNTERS_FLASH_DEV           FLASH_DEVICE_DATA
-#define TFM_HAL_ITS_FLASH_DRIVER            FLASH_DEVICE_DATA
+/* Use Driver_FLASH1 for data flash (OTP/ITS storage) */
+#define TFM_HAL_ITS_FLASH_DRIVER            Driver_FLASH1
 #define TFM_HAL_ITS_PROGRAM_UNIT            0x1
+
+/* OTP_NV_COUNTERS_FLASH_DEV will default to TFM_HAL_ITS_FLASH_DRIVER if not defined */
+/* Uncomment below to use a different driver for OTP counters */
+/* #define OTP_NV_COUNTERS_FLASH_DEV       Driver_FLASH1 */
 
 /* OTP NV Counters configuration */
 #define TFM_OTP_NV_COUNTERS_AREA_ADDR       FLASH_OTP_NV_COUNTERS_AREA_OFFSET
 #define TFM_OTP_NV_COUNTERS_AREA_SIZE       FLASH_OTP_NV_COUNTERS_AREA_SIZE
 #define TFM_OTP_NV_COUNTERS_SECTOR_SIZE     FLASH_DATA_FLASH_SECTOR_SIZE
-#define TFM_OTP_NV_COUNTERS_BACKUP_AREA_ADDR (TFM_OTP_NV_COUNTERS_AREA_ADDR +                                               TFM_OTP_NV_COUNTERS_AREA_SIZE)
+#define TFM_OTP_NV_COUNTERS_BACKUP_AREA_ADDR (TFM_OTP_NV_COUNTERS_AREA_ADDR + \
+                                              TFM_OTP_NV_COUNTERS_AREA_SIZE)
+#define OTP_NV_COUNTERS_WRITE_BLOCK_SIZE    1  /* 1 byte write unit for data flash */
 
 #endif /* __FLASH_LAYOUT_H__ */
