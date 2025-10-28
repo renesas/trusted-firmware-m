@@ -6,6 +6,12 @@
 
 Complete platform port of ARM Trusted Firmware-M (TF-M) to Renesas RA6M4 (R7FA6M4AF) microcontroller with full PSA services and MCUboot integration.
 
+**TF-M Configuration:**
+- **SPM Backend**: SFN (Secure Function Model) - lightweight, no IPC overhead
+- **Isolation Level**: 1 - Basic TrustZone isolation, no MPU between partitions
+- **Profile**: Custom (Medium + Attestation) - Crypto, ITS, PS, Attestation, Platform
+- **Optimized for**: Resource-constrained devices with ~20% less RAM than IPC model
+
 ### Features Implemented
 
 #### Core Platform
@@ -72,19 +78,21 @@ Complete platform port of ARM Trusted Firmware-M (TF-M) to Renesas RA6M4 (R7FA6M
 
 ### Build Results
 
-With all services enabled:
+With all services enabled and INFO level logging:
 
 | Component | Flash Used | Flash Allocated | Utilization | RAM Used |
 |-----------|------------|-----------------|-------------|----------|
-| BL2 (MCUboot) | 26 KB | 128 KB | 19.95% | 20 KB |
-| TF-M Secure | 115 KB | 128 KB | 90.08% | 47 KB |
+| BL2 (MCUboot) | 25 KB | 128 KB | 19.1% | 19 KB |
+| TF-M Secure | 121 KB | 128 KB | 92.1% | 47 KB |
+
+**Note**: Logging adds ~2.6 KB to TF-M Secure for UART driver and stdio infrastructure. To disable logging and reduce size, set `TFM_PARTITION_LOG_LEVEL=TFM_PARTITION_LOG_LEVEL_SILENCE` and `TFM_SPM_LOG_LEVEL=TFM_SPM_LOG_LEVEL_SILENCE` in config.cmake.
 
 ### Memory Map
 
 #### Code Flash (1 MB)
 ```
-0x00000000 - 0x0001FFFF: BL2 Bootloader (128 KB, 26 KB used)
-0x00020000 - 0x0003FFFF: Secure Primary Slot (128 KB, 115 KB used)
+0x00000000 - 0x0001FFFF: BL2 Bootloader (128 KB, 25 KB used)
+0x00020000 - 0x0003FFFF: Secure Primary Slot (128 KB, 121 KB used)
 0x00040000 - 0x0005FFFF: Non-Secure Primary Slot (128 KB)
 0x00060000 - 0x0007FFFF: Secure Secondary Slot (128 KB) - OTA
 0x00080000 - 0x0009FFFF: NS Secondary Slot (128 KB) - OTA
@@ -134,6 +142,13 @@ With all services enabled:
    - **Issue**: Generic MCUboot lacks RA6M4 optimizations
    - **Solution**: Auto-download Renesas MCUboot fork
    - **Files**: `config.cmake:97-99`
+
+8. **UART Driver Not Linked**
+   - **Issue**: UART driver compiled but not linked (logging was silenced, causing linker garbage collection)
+   - **Root Cause**: TFM_PARTITION_LOG_LEVEL and TFM_SPM_LOG_LEVEL were set to SILENCE
+   - **Solution**: Enabled INFO level logging to activate UART driver chain
+   - **Files**: `config.cmake:25-28`
+   - **Result**: UART driver now functional (+2.6 KB for logging infrastructure)
 
 ### Testing Status
 

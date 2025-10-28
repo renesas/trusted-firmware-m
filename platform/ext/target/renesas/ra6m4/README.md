@@ -2,6 +2,8 @@
 
 Complete platform port of ARM Trusted Firmware-M for the Renesas RA6M4 (R7FA6M4AF) microcontroller.
 
+**Configuration**: SFN (Secure Function) model with Isolation Level 1 - optimized for resource-constrained devices.
+
 ## Quick Start
 
 See [BUILD.md](BUILD.md) for detailed build instructions.
@@ -34,8 +36,8 @@ See [BUILD.md](BUILD.md) for detailed build instructions.
 
 **Code Flash (1 MB)**
 ```
-0x00000000: BL2 Bootloader          (128 KB, ~26 KB used)
-0x00020000: Secure Primary Slot     (128 KB, ~115 KB used)
+0x00000000: BL2 Bootloader          (128 KB, ~25 KB used)
+0x00020000: Secure Primary Slot     (128 KB, ~121 KB used with logging)
 0x00040000: Non-Secure Primary Slot (128 KB)
 0x00060000: Secure Secondary Slot   (128 KB) - OTA
 0x00080000: NS Secondary Slot       (128 KB) - OTA
@@ -68,6 +70,13 @@ See [BUILD.md](BUILD.md) for detailed build instructions.
 - Authenticated firmware images
 - Revert on boot failure
 
+### Debug Output
+- UART logging via SCI channel 0
+- 115200 baud, 8-N-1 configuration
+- Pins: P411 (TXD), P410 (RXD)
+- INFO level logging enabled by default
+- Adds ~2.6 KB to secure firmware
+
 ## Architecture
 
 ### Platform Files
@@ -87,6 +96,35 @@ Modular Renesas FSP libraries:
 - **fsp_bsp** - Board support, clocks, GPIO
 - **fsp_uart** - SCI UART HAL
 - **fsp_flash** - Flash HP driver
+
+## TF-M Configuration
+
+### SPM Backend: SFN (Secure Function Model)
+- **Lightweight execution model** with direct function calls (no IPC overhead)
+- Services run in **handler mode** with shared stack
+- **Lower memory footprint** than IPC model (~20% less RAM usage)
+- Best for **resource-constrained devices** like RA6M4
+- Trade-off: No inter-partition isolation (only Secure vs Non-Secure)
+
+### Isolation Level: 1
+- **Basic TrustZone isolation** between Secure and Non-Secure worlds
+- **No MPU isolation** between secure partitions (all run in same privileged context)
+- Minimal overhead - suitable for devices with limited RAM
+- SAU/IDAU/MPC/PPC configured for peripheral protection
+
+### Profile: Custom
+This port uses a **custom service configuration** (not a predefined profile):
+- ✅ Crypto + ITS + PS + Attestation + Platform
+- Closest to **Profile Medium** with Initial Attestation added
+- More capable than Small, lighter than Large
+
+**Comparison to standard profiles:**
+| Profile | Services | Use Case |
+|---------|----------|----------|
+| Small | ITS only | Minimal storage |
+| Medium | ITS + PS + Crypto | Typical IoT device |
+| Large | Medium + Attestation + FWU | Feature-rich device |
+| **RA6M4 (Custom)** | Medium + Attestation | Security + Storage |
 
 ## Key Implementations
 
@@ -112,6 +150,23 @@ set(MCUBOOT_VERSION "2.1.0+renesas.3")
 - Driver_FLASH0: Code flash for firmware
 - Driver_FLASH1: Data flash for ITS/PS/OTP
 - Different sector sizes handled per driver
+
+### 5. Debug Logging Configuration
+UART logging is enabled by default for debugging. To control log levels:
+
+**Enable logging (default):**
+```cmake
+set(TFM_PARTITION_LOG_LEVEL TFM_PARTITION_LOG_LEVEL_INFO)
+set(TFM_SPM_LOG_LEVEL TFM_SPM_LOG_LEVEL_INFO)
+```
+
+**Disable logging (saves ~2.6 KB):**
+```cmake
+set(TFM_PARTITION_LOG_LEVEL TFM_PARTITION_LOG_LEVEL_SILENCE)
+set(TFM_SPM_LOG_LEVEL TFM_SPM_LOG_LEVEL_SILENCE)
+```
+
+When logging is silenced, the UART driver is removed by linker garbage collection.
 
 ## Requirements
 

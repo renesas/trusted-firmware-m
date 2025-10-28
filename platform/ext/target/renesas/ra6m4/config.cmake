@@ -22,6 +22,11 @@ set(TFM_PARTITION_PROTECTED_STORAGE     ON          CACHE BOOL      "Enable Prot
 set(TFM_PARTITION_INITIAL_ATTESTATION   ON          CACHE BOOL      "Enable Initial Attestation partition")
 set(TFM_PARTITION_PLATFORM              ON          CACHE BOOL      "Enable Platform partition")
 
+# Logging configuration
+set(TFM_PARTITION_LOG_LEVEL             TFM_PARTITION_LOG_LEVEL_INFO    CACHE STRING    "Partition log level")
+set(TFM_SPM_LOG_LEVEL                   TFM_SPM_LOG_LEVEL_INFO          CACHE STRING    "SPM log level")
+set(PLATFORM_DEFAULT_UART_STDOUT        ON                              CACHE BOOL      "Use UART for stdout")
+
 # Crypto configuration
 set(CRYPTO_HW_ACCELERATOR               OFF         CACHE BOOL      "Use hardware crypto acceleration if available")
 set(CRYPTO_TFM_BUILTIN_KEYS_DRIVER      ON          CACHE BOOL      "Enable TF-M builtin keys driver")
