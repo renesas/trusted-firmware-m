@@ -31,9 +31,23 @@
 #define SRAM_BASE                       0x20000000
 #define TOTAL_RAM_SIZE                  0x00040000  /* 256KB */
 
+
+/* Vector table sizes */
+#define S_CODE_VECTOR_TABLE_SIZE        0x800       /* 2048 bytes for secure vector table (496 entries) */
+
 /* Secure and Non-Secure RAM split (128KB each) */
 #define S_RAM_SIZE                      0x00020000  /* 128KB */
 #define NS_RAM_SIZE                     0x00020000  /* 128KB */
+/* Stack sizes */
+#define S_MSP_STACK_SIZE                0x0800      /* 2KB Main Stack for Secure */
+#define S_PSP_STACK_SIZE                0x0800      /* 2KB Process Stack for Secure */
+#define NS_MSP_STACK_SIZE               0x0400      /* 1KB Main Stack for Non-Secure */
+#define NS_PSP_STACK_SIZE               0x0C00      /* 3KB Process Stack for Non-Secure */
+#define S_HEAP_SIZE                     0x0200      /* 512 bytes Heap for Secure */
+#define NS_HEAP_SIZE                    0x1000      /* 4KB Heap for Non-Secure */
+#define NS_STACK_SIZE                   0x0400      /* 1KB for NS (used by NSPE) */
+
+
 
 #define S_RAM_ALIAS_BASE                SRAM_BASE
 #define NS_RAM_ALIAS_BASE               (SRAM_BASE + S_RAM_SIZE)
@@ -49,6 +63,7 @@
 
 /* Non-Secure regions */
 #define NS_CODE_START                   NS_ROM_ALIAS_BASE
+#define NS_PARTITION_START              NS_CODE_START
 #define NS_CODE_SIZE                    FLASH_NS_PARTITION_SIZE
 #define NS_CODE_LIMIT                   (NS_CODE_START + NS_CODE_SIZE - 1)
 
@@ -67,6 +82,30 @@
 #ifndef BL2_TRAILER_SIZE
 #define BL2_TRAILER_SIZE                0x800       /* 2KB */
 #endif
+/* Secondary partition (for MCUBoot firmware update) */
+/* Note: RA6M4 has only 1MB flash - not enough for true A/B partitioning */
+/* These are placeholders for MCUBoot compatibility */
+#define SECONDARY_PARTITION_START       0x0         /* Placeholder - no secondary partition */
+#define SECONDARY_PARTITION_SIZE        0x0         /* Placeholder - no secondary partition */
+/* Shared boot measurement data (for MCUBoot to TF-M) */
+/* Allocate small RAM area for boot measurements */
+#define SHARED_BOOT_MEASUREMENT_BASE    (S_RAM_ALIAS_BASE)
+#define SHARED_BOOT_MEASUREMENT_SIZE    0x100       /* 256 bytes */
+#define BOOT_TFM_SHARED_DATA_BASE       (SHARED_BOOT_MEASUREMENT_BASE + SHARED_BOOT_MEASUREMENT_SIZE)
+#define BOOT_TFM_SHARED_DATA_SIZE       0x400       /* 1KB for boot shared data */
+
+/* BL2 (MCUBoot) memory regions */
+#define BL2_HEAP_SIZE                   0x1000      /* 4KB heap for BL2 */
+#define BL2_MSP_STACK_SIZE              0x800       /* 2KB main stack for BL2 */
+#define BL2_PSP_STACK_SIZE              0x800       /* 2KB process stack for BL2 */
+
+#define BL2_CODE_START                  (S_ROM_ALIAS_BASE + FLASH_AREA_BL2_OFFSET)
+#define BL2_CODE_SIZE                   FLASH_AREA_BL2_SIZE
+#define BL2_CODE_LIMIT                  (BL2_CODE_START + BL2_CODE_SIZE - 1)
+
+#define BL2_DATA_START                  S_RAM_ALIAS_BASE
+#define BL2_DATA_SIZE                   TOTAL_RAM_SIZE
+#define BL2_DATA_LIMIT                  (BL2_DATA_START + BL2_DATA_SIZE - 1)
 
 /* MPU region alignment requirements for ARMv8-M */
 #define MPU_REGION_ALIGNMENT            0x20        /* 32 bytes minimum */

@@ -1,0 +1,12 @@
+/* Use Driver_FLASH1 for data flash (OTP/ITS/PS storage) */
+#define TFM_HAL_ITS_FLASH_DRIVER            Driver_FLASH1
+#define TFM_HAL_ITS_PROGRAM_UNIT            0x1
+#define TFM_HAL_ITS_FLASH_AREA_ADDR         FLASH_ITS_AREA_OFFSET
+#define TFM_HAL_ITS_FLASH_AREA_SIZE         FLASH_ITS_AREA_SIZE
+#define TFM_HAL_ITS_SECTORS_PER_BLOCK       (0x800 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 32 sectors per block */
+
+#define TFM_HAL_PS_FLASH_DRIVER             Driver_FLASH1
+#define TFM_HAL_PS_PROGRAM_UNIT             0x1
+#define TFM_HAL_PS_FLASH_AREA_ADDR          FLASH_PS_AREA_OFFSET
+#define TFM_HAL_PS_FLASH_AREA_SIZE          FLASH_PS_AREA_SIZE
+#define TFM_HAL_PS_SECTORS_PER_BLOCK        (0xC00 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 48 sectors per block */
