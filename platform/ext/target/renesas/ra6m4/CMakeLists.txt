@@ -126,6 +126,7 @@ target_add_scatter_file(tfm_s
 
 # __STACK_SEAL alias is provided in tfm_hal_platform.c
 
+
 ############################ Install ###########################################
 
 # Install platform headers for TF-M
