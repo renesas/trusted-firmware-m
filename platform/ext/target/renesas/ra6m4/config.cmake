@@ -13,7 +13,41 @@
 set(TFM_MULTI_CORE_TOPOLOGY    OFF         CACHE BOOL      "Whether to build for a dual-core platform")
 set(CONFIG_TFM_USE_TRUSTZONE   ON          CACHE BOOL      "Enable use of TrustZone to transition between NSPE and SPE")
 
+############################ TF-M Secure Partitions #############################
+
+# Enable TF-M secure services
+set(TFM_PARTITION_CRYPTO                ON          CACHE BOOL      "Enable Crypto partition")
+set(TFM_PARTITION_INTERNAL_TRUSTED_STORAGE ON       CACHE BOOL      "Enable Internal Trusted Storage partition")
+set(TFM_PARTITION_PROTECTED_STORAGE     ON          CACHE BOOL      "Enable Protected Storage partition")
+set(TFM_PARTITION_INITIAL_ATTESTATION   ON          CACHE BOOL      "Enable Initial Attestation partition")
+set(TFM_PARTITION_PLATFORM              ON          CACHE BOOL      "Enable Platform partition")
+
+# Crypto configuration
+set(CRYPTO_HW_ACCELERATOR               OFF         CACHE BOOL      "Use hardware crypto acceleration if available")
+set(CRYPTO_TFM_BUILTIN_KEYS_DRIVER      ON          CACHE BOOL      "Enable TF-M builtin keys driver")
+
+# Storage configuration
+set(PS_CRYPTO_AEAD_ALG                  PSA_ALG_GCM CACHE STRING    "AEAD algorithm for Protected Storage")
+set(PS_ENCRYPTION                       ON          CACHE BOOL      "Enable encryption for Protected Storage")
+
+# Attestation configuration
+set(SYMMETRIC_INITIAL_ATTESTATION       OFF         CACHE BOOL      "Use symmetric crypto for attestation (OFF = asymmetric)")
+set(ATTEST_KEY_BITS                     256         CACHE STRING    "Size of attestation key in bits")
+set(PSA_INITIAL_ATTEST_MAX_TOKEN_SIZE   0x250       CACHE STRING    "Maximum attestation token size")
+
 ############################ BL2 ###############################################
+
+# Use Renesas-specific MCUboot (includes RA6M4 optimizations)
+# Set to "DOWNLOAD" to automatically fetch from Renesas GitHub
+# Or set to a local path if you have it cloned already
+if(NOT DEFINED MCUBOOT_PATH)
+    set(MCUBOOT_PATH                    "DOWNLOAD"  CACHE PATH      "Path to MCUboot (or DOWNLOAD to fetch Renesas version automatically)")
+endif()
+
+# Override MCUboot repository and version to use Renesas fork
+set(MCUBOOT_GIT_REPOSITORY              "https://github.com/renesas/mcuboot.git" CACHE STRING "MCUboot repository URL")
+set(MCUBOOT_VERSION                     "2.1.0+renesas.3" CACHE STRING "MCUboot version tag")
+
 
 if(BL2)
     set(BL2_TRAILER_SIZE                    0x800       CACHE STRING    "Trailer size")
@@ -42,19 +76,32 @@ set(PLATFORM_DEFAULT_SYSTEM_RESET       ON)
 ############################ Flash Layout ######################################
 
 # Renesas RA6M4: 1MB Flash, 256KB RAM
-# Flash layout:
-#   BL2:        0x00000000 - 0x0001FFFF (128KB)
-#   Secure:     0x00020000 - 0x0007FFFF (384KB)
-#   Non-Secure: 0x00080000 - 0x000FFFFF (512KB)
+# Flash layout depends on whether BL2 is enabled
 
 set(FLASH_AREA_BL2_OFFSET               0x0         CACHE STRING    "BL2 area offset")
 set(FLASH_AREA_BL2_SIZE                 0x20000     CACHE STRING    "BL2 area size (128KB)")
 
-set(FLASH_S_PARTITION_OFFSET            0x20000     CACHE STRING    "Secure partition offset")
-set(FLASH_S_PARTITION_SIZE              0x60000     CACHE STRING    "Secure partition size (384KB)")
-
-set(FLASH_NS_PARTITION_OFFSET           0x80000     CACHE STRING    "Non-secure partition offset")
-set(FLASH_NS_PARTITION_SIZE             0x80000     CACHE STRING    "Non-secure partition size (512KB)")
+if(BL2)
+    # With BL2 - Optimized for MCUboot swap mode:
+    #   BL2:              0x00000000 - 0x0001FFFF (128KB)
+    #   Secure Primary:   0x00020000 - 0x0003FFFF (128KB) - TF-M uses ~31KB
+    #   NS Primary:       0x00040000 - 0x0005FFFF (128KB)
+    #   Secure Secondary: 0x00060000 - 0x0007FFFF (128KB)
+    #   NS Secondary:     0x00080000 - 0x0009FFFF (128KB)
+    #   Scratch:          0x000A0000 - 0x000FFFFF (384KB)
+    set(FLASH_S_PARTITION_OFFSET        0x20000     CACHE STRING    "Secure partition offset")
+    set(FLASH_S_PARTITION_SIZE          0x20000     CACHE STRING    "Secure partition size (128KB)")
+    set(FLASH_NS_PARTITION_OFFSET       0x40000     CACHE STRING    "Non-secure partition offset")
+    set(FLASH_NS_PARTITION_SIZE         0x20000     CACHE STRING    "Non-secure partition size (128KB)")
+else()
+    # Without BL2:
+    #   Secure:     0x00000000 - 0x0009FFFF (640KB)
+    #   Non-Secure: 0x000A0000 - 0x000FFFFF (384KB)
+    set(FLASH_S_PARTITION_OFFSET        0x0         CACHE STRING    "Secure partition offset")
+    set(FLASH_S_PARTITION_SIZE          0xA0000     CACHE STRING    "Secure partition size (640KB)")
+    set(FLASH_NS_PARTITION_OFFSET       0xA0000     CACHE STRING    "Non-secure partition offset")
+    set(FLASH_NS_PARTITION_SIZE         0x60000     CACHE STRING    "Non-secure partition size (384KB)")
+endif()
 
 set(FLASH_BASE_ADDRESS                  0x00000000  CACHE STRING    "Flash base address")
 set(FLASH_TOTAL_SIZE                    0x00100000  CACHE STRING    "Total flash size (1MB)")
@@ -78,3 +125,11 @@ set(USE_FSP_MODULES                     ON          CACHE BOOL      "Use modular
 
 # List of FSP modules to include
 set(FSP_MODULES                         "bsp;uart;flash" CACHE STRING "FSP modules to link")
+
+############################ MbedTLS Configuration ##############################
+
+# Disable pthread search in MbedTLS (not applicable for bare-metal)
+set(THREADS_PREFER_PTHREAD_FLAG         OFF         CACHE BOOL      "Disable pthread for MbedTLS")
+set(CMAKE_THREAD_LIBS_INIT              ""          CACHE STRING    "No threading library for bare-metal")
+set(CMAKE_HAVE_THREADS_LIBRARY          FALSE       CACHE BOOL      "No threads library available")
+set(CMAKE_USE_PTHREADS_INIT             FALSE       CACHE BOOL      "Do not use pthreads")

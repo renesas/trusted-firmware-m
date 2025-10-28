@@ -23,7 +23,8 @@ target_sources(fsp_bsp
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_sdram.c
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_security.c
         # ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/ra6m4/bsp_linker.c  # Excluded - TF-M handles startup
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c
+        ${FSP_BASE_DIR}/bsp_init_stub.c  # Stub for g_init_info
+        # ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c  # Excluded - using TF-M startup
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/system.c
         ${FSP_BASE_DIR}/fsp/ra/board/ra6m4_ek/board_init.c
         ${FSP_BASE_DIR}/fsp/ra/board/ra6m4_ek/board_leds.c
@@ -60,9 +61,8 @@ target_compile_definitions(fsp_bsp
 # BSP compile options for GCC ARM (compatible with TF-M toolchain)
 target_compile_options(fsp_bsp
     PRIVATE
-        -mfloat-abi=hard
+        -mfloat-abi=soft  # Match TF-M's soft float ABI
         -mcpu=cortex-m33
-        -mfpu=fpv5-sp-d16
         -mthumb
         -std=c99
         -fmessage-length=0

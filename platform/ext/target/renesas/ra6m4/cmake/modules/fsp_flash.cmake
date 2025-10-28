@@ -10,6 +10,7 @@ add_library(fsp_flash STATIC)
 target_sources(fsp_flash
     PRIVATE
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/r_flash_hp/r_flash_hp.c
+        ${FSP_BASE_DIR}/fsp/ra_gen/hal_data.c
 )
 
 # Flash depends on BSP
