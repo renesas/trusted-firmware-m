@@ -14,4 +14,8 @@
 /* UART Driver */
 #define UART0_DEV NS
 
+/* STDIO UART Driver for TF-M logging */
+extern ARM_DRIVER_USART Driver_USART0;
+#define TFM_DRIVER_STDIO Driver_USART0
+
 #endif /* __DEVICE_CFG_H__ */

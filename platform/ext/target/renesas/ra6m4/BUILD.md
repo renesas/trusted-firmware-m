@@ -1,0 +1,193 @@
+# Building TF-M for Renesas RA6M4
+
+Complete build instructions for the TF-M RA6M4 port.
+
+## Prerequisites
+
+### Required Tools
+
+1. ARM GNU Toolchain 13.2.1 or later
+2. CMake 3.21 or later  
+3. Ninja Build System
+4. Python 3.8 or later
+5. Git
+
+### Python Dependencies
+
+Install required packages:
+```bash
+python3 -m pip install jinja2 pyyaml click cbor2 cryptography intelhex
+```
+
+## Quick Build
+
+```bash
+# 1. Create build directory
+mkdir build_ra6m4 && cd build_ra6m4
+
+# 2. Configure
+cmake .. -GNinja -DTFM_PLATFORM=renesas/ra6m4 -DCMAKE_BUILD_TYPE=MinSizeRel -DBL2=ON
+
+# 3. Build  
+cmake --build .
+
+# 4. Output in build_ra6m4/bin/
+ls -lh bin/*.bin
+```
+
+## Output Files
+
+- **bl2.bin** - MCUboot bootloader (26 KB)
+- **tfm_s.bin** - TF-M secure firmware (115 KB)
+- **tfm_s_signed.bin** - Signed image for deployment (128 KB)
+
+## Build Options
+
+### Essential Options
+
+- TFM_PLATFORM - Target platform (renesas/ra6m4)
+- CMAKE_BUILD_TYPE - Build type (MinSizeRel recommended)
+- DBL2 - Enable MCUboot bootloader (ON/OFF)
+
+### Service Configuration
+
+All services enabled by default. To disable:
+
+```bash
+cmake .. -DTFM_PARTITION_CRYPTO=OFF
+```
+
+Available services:
+- TFM_PARTITION_CRYPTO - Crypto partition
+- TFM_PARTITION_INTERNAL_TRUSTED_STORAGE - ITS
+- TFM_PARTITION_PROTECTED_STORAGE - PS with AES-GCM
+- TFM_PARTITION_INITIAL_ATTESTATION - Attestation  
+- TFM_PARTITION_PLATFORM - Platform services
+
+## Build Configurations
+
+### Development Build
+
+```bash
+cmake .. -GNinja -DTFM_PLATFORM=renesas/ra6m4 -DCMAKE_BUILD_TYPE=Debug -DBL2=ON
+```
+
+### Production Build
+
+```bash
+cmake .. -GNinja -DTFM_PLATFORM=renesas/ra6m4 -DCMAKE_BUILD_TYPE=MinSizeRel -DBL2=ON -DTFM_DUMMY_PROVISIONING=OFF
+```
+
+Note: Production requires proper key provisioning.
+
+### Without Bootloader
+
+```bash
+cmake .. -GNinja -DTFM_PLATFORM=renesas/ra6m4 -DBL2=OFF
+```
+
+## Flashing
+
+### With MCUboot
+
+1. Flash bl2.bin at 0x00000000
+2. Flash tfm_s_signed.bin at 0x00020000
+
+### Without MCUboot
+
+1. Flash tfm_s.bin at 0x00000000
+
+### Using J-Link
+
+```bash
+JLinkExe -device R7FA6M4AF -if SWD -speed 4000
+loadbin bl2.bin 0x00000000
+loadbin tfm_s_signed.bin 0x00020000
+r
+g
+```
+
+## Common Issues
+
+### MbedTLS Threading Error
+Already fixed in config.cmake with threading disabled.
+
+### Flash Driver Not Found
+Verify FSP files exist in fsp/ directory.
+
+### Vector Table Overflow
+Already fixed in region_defs.h (2048 bytes allocated).
+
+## Verify Build
+
+```bash
+cd build_ra6m4/bin
+arm-none-eabi-size bl2.axf tfm_s.axf
+```
+
+Expected output:
+```
+   text    data     bss     dec     hex filename
+  25988     160   19920   46068    b3f4 bl2.axf
+ 117777     180   48288  166245   28965 tfm_s.axf
+```
+
+## Clean Build
+
+```bash
+rm -rf build_ra6m4
+mkdir build_ra6m4 && cd build_ra6m4
+cmake .. -GNinja -DTFM_PLATFORM=renesas/ra6m4 -DCMAKE_BUILD_TYPE=MinSizeRel -DBL2=ON
+cmake --build .
+```
+
+## Debugging
+
+### Enable Debug Logging
+
+```bash
+cmake .. -DTFM_SPM_LOG_LEVEL=TFM_SPM_LOG_LEVEL_DEBUG
+```
+
+Output on UART (115200 baud).
+
+### GDB Debugging
+
+```bash
+arm-none-eabi-gdb bin/tfm_s.axf
+target remote localhost:2331
+load
+break main
+continue
+```
+
+## Advanced Configuration
+
+### Custom Memory Layout
+
+Edit flash_layout.h:
+```c
+#define FLASH_AREA_0_SIZE 0x20000  // Change secure partition size
+```
+
+### Enable Hardware Crypto
+
+Edit config.cmake:
+```cmake
+set(CRYPTO_HW_ACCELERATOR ON)
+```
+
+Note: Requires implementing crypto HAL functions.
+
+## Next Steps
+
+1. Flash binaries to EK-RA6M4 board
+2. Verify boot sequence via UART
+3. Test PSA API functionality
+4. Develop non-secure application
+5. Test OTA firmware updates
+
+---
+
+Build Time: 5-10 minutes (first build with downloads)
+Last Updated: October 2025

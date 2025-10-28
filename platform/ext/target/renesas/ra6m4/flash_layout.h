@@ -12,10 +12,27 @@
  * Total Flash: 1MB (0x100000)
  * Flash Block Size: 8KB (minimum erase size)
  *
- * Memory Map:
- * 0x0000_0000 - 0x0001_FFFF : BL2 Bootloader (128KB)
- * 0x0002_0000 - 0x0007_FFFF : Secure Image (384KB)
- * 0x0008_0000 - 0x000F_FFFF : Non-Secure Image (512KB)
+ * Optimized Memory Map for MCUboot Swap Mode:
+ *
+ * Without BL2:
+ * 0x0000_0000 - 0x000F_FFFF : All available for application (1MB)
+ *
+ * With BL2 (MCUboot) - Full configuration with all TF-M services:
+ * 0x0000_0000 - 0x0001_FFFF : BL2 Bootloader (128KB allocated, ~26KB used)
+ * 0x0002_0000 - 0x0003_FFFF : Secure Image Primary Slot (128KB allocated, ~115KB used)
+ * 0x0004_0000 - 0x0005_FFFF : Non-Secure Image Primary Slot (128KB)
+ * 0x0006_0000 - 0x0007_FFFF : Secure Image Secondary Slot (128KB) - OTA updates
+ * 0x0008_0000 - 0x0009_FFFF : Non-Secure Image Secondary Slot (128KB) - OTA updates
+ * 0x000A_0000 - 0x000F_FFFF : Scratch Area (384KB) - for MCUboot swap operations
+ *
+ * Current TF-M build (with Crypto, ITS, PS, Attestation, Platform services):
+ *   - BL2 (MCUboot): 26KB flash, 20KB RAM (19.95% of allocation)
+ *   - TF-M Secure: 115KB flash, 47KB RAM (90.08% of allocation)
+ *
+ * Data Flash (8KB at 0x0800_0000):
+ *   - OTP/NV Counters: 2KB
+ *   - Protected Storage (PS): 3KB - encrypted with AES-GCM
+ *   - Internal Trusted Storage (ITS): 2KB
  */
 
 /* Flash base address */
@@ -31,23 +48,47 @@
 /* Sector size (minimum erase unit) for RA6M4 */
 #define FLASH_AREA_IMAGE_SECTOR_SIZE    0x2000      /* 8KB */
 
-/* Maximum number of status entries supported by the bootloader */
-#define MCUBOOT_STATUS_MAX_ENTRIES      ((FLASH_NS_PARTITION_SIZE) / \
-                                         FLASH_AREA_IMAGE_SECTOR_SIZE)
-
 /* Flash area for secure image (primary slot) */
 #define FLASH_AREA_0_ID                 1
-#define FLASH_AREA_0_OFFSET             (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)
-#define FLASH_AREA_0_SIZE               0x60000     /* 384KB */
+#ifdef BL2
+#define FLASH_AREA_0_OFFSET             (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)  /* 0x20000 */
+#define FLASH_AREA_0_SIZE               0x20000     /* 128KB - optimized for TF-M actual size */
+#else
+#define FLASH_AREA_0_OFFSET             0x0         /* Without BL2, start at beginning of flash */
+#define FLASH_AREA_0_SIZE               0xA0000     /* 640KB without BL2 */
+#endif
 
 /* Flash area for non-secure image (primary slot) */
 #define FLASH_AREA_1_ID                 2
-#define FLASH_AREA_1_OFFSET             (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)
-#define FLASH_AREA_1_SIZE               0x80000     /* 512KB */
+#define FLASH_AREA_1_OFFSET             (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)  /* 0x40000 */
+#define FLASH_AREA_1_SIZE               0x20000     /* 128KB */
+
+/* Secondary slot for secure image (for MCUboot swap upgrade) */
+#define FLASH_AREA_2_ID                 (FLASH_AREA_1_ID + 1)
+#define FLASH_AREA_2_OFFSET             (FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE)  /* 0x60000 */
+#define FLASH_AREA_2_SIZE               0x20000     /* 128KB */
+
+/* Secondary slot for non-secure image (for MCUboot swap upgrade) */
+#define FLASH_AREA_3_ID                 (FLASH_AREA_2_ID + 1)
+#define FLASH_AREA_3_OFFSET             (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)  /* 0x80000 */
+#define FLASH_AREA_3_SIZE               0x20000     /* 128KB */
+
+/* Scratch area for MCUboot swap operations */
+#define FLASH_AREA_SCRATCH_ID           (FLASH_AREA_3_ID + 1)
+#define FLASH_AREA_SCRATCH_OFFSET       (FLASH_AREA_3_OFFSET + FLASH_AREA_3_SIZE)  /* 0xA0000 */
+#define FLASH_AREA_SCRATCH_SIZE         0x60000     /* 384KB */
 
 /* Secure partition sizes */
 #define FLASH_S_PARTITION_SIZE          FLASH_AREA_0_SIZE
 #define FLASH_NS_PARTITION_SIZE         FLASH_AREA_1_SIZE
+
+/* Maximum number of image sectors (for MCUboot) */
+/* Based on largest partition size (scratch area is 384KB) */
+#define MCUBOOT_MAX_IMG_SECTORS         (FLASH_AREA_SCRATCH_SIZE / \
+                                         FLASH_AREA_IMAGE_SECTOR_SIZE)  /* 384KB / 8KB = 48 sectors */
+
+/* Maximum number of status entries supported by the bootloader */
+#define MCUBOOT_STATUS_MAX_ENTRIES      MCUBOOT_MAX_IMG_SECTORS
 
 /* Data Flash area for PS/ITS/NV counters */
 #define FLASH_DATA_FLASH_BASE           0x08000000
@@ -76,9 +117,22 @@
 #define TFM_HAL_FLASH_PROGRAM_UNIT          0x1     /* 1 byte programming */
 
 /* Flash driver definitions for OTP/NV counters */
+/* Flash device name for BL2 (MCUboot) */
+#define FLASH_DEV_NAME                  Driver_FLASH0
+
 /* Use Driver_FLASH1 for data flash (OTP/ITS storage) */
 #define TFM_HAL_ITS_FLASH_DRIVER            Driver_FLASH1
 #define TFM_HAL_ITS_PROGRAM_UNIT            0x1
+
+#define TFM_HAL_ITS_FLASH_AREA_ADDR         FLASH_ITS_AREA_OFFSET
+#define TFM_HAL_ITS_FLASH_AREA_SIZE         FLASH_ITS_AREA_SIZE
+#define TFM_HAL_ITS_SECTORS_PER_BLOCK       (0x800 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 32 sectors per block */
+
+#define TFM_HAL_PS_FLASH_DRIVER             Driver_FLASH1
+#define TFM_HAL_PS_PROGRAM_UNIT             0x1
+#define TFM_HAL_PS_FLASH_AREA_ADDR          FLASH_PS_AREA_OFFSET
+#define TFM_HAL_PS_FLASH_AREA_SIZE          FLASH_PS_AREA_SIZE
+#define TFM_HAL_PS_SECTORS_PER_BLOCK        (0xC00 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 48 sectors per block */
 
 /* OTP_NV_COUNTERS_FLASH_DEV will default to TFM_HAL_ITS_FLASH_DRIVER if not defined */
 /* Uncomment below to use a different driver for OTP counters */
