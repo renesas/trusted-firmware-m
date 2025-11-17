@@ -127,6 +127,33 @@ target_add_scatter_file(tfm_s
 # __STACK_SEAL alias is provided in tfm_hal_platform.c
 
 
+############################ Non-Secure Configuration ##########################
+
+# Non-secure platform configuration is in ns/CMakeLists.txt
+# This gets included automatically by TF-M build system when building NS side
+
+# Option to use external FSP-based non-secure application
+set(FSP_NS_APP_DIR "" CACHE PATH "Path to external FSP non-secure application")
+
+if(FSP_NS_APP_DIR)
+    # Use external FSP NS application
+    message(STATUS "Using external FSP NS application: ${FSP_NS_APP_DIR}")
+
+    if(NOT EXISTS "${FSP_NS_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake")
+        message(FATAL_ERROR
+            "TF-M integration file not found in FSP NS application.\n"
+            "Expected: ${FSP_NS_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake\n"
+            "Make sure the FSP project has TF-M integration files."
+        )
+    endif()
+
+    # Include the FSP NS application's TF-M integration layer
+    include(${FSP_NS_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake)
+else()
+    # Use built-in test application
+    add_subdirectory(ns_app)
+endif()
+
 ############################ Install ###########################################
 
 # Install platform headers for TF-M
