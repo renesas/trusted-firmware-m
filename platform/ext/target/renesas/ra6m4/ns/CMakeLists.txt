@@ -23,7 +23,6 @@ include(${PLATFORM_DIR}/cmake/modules/fsp_uart.cmake)
 target_sources(platform_ns
     PRIVATE
         ${PLATFORM_DIR}/cmsis_drivers/Driver_USART.c
-        ${PLATFORM_DIR}/bsp_init_stub.c  # Provides weak symbols for g_hal_init and FreeRTOS TZ functions
         ${PLATFORM_DIR}/ns/syscalls_ns.c  # Newlib syscalls for NS app
 )
 
