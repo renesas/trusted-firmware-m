@@ -131,6 +131,7 @@ target_add_scatter_file(tfm_s
 
 # Non-secure platform configuration is in ns/CMakeLists.txt
 # This gets included automatically by TF-M build system when building NS side
+add_subdirectory(ns)
 
 # Option to use external FSP-based non-secure application
 set(FSP_NS_APP_DIR "" CACHE PATH "Path to external FSP non-secure application")

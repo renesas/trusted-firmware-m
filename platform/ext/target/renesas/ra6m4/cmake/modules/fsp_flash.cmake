@@ -4,7 +4,9 @@
 # FSP base directory is relative to this platform directory
 set(FSP_BASE_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
+if(NOT TARGET fsp_flash)
 add_library(fsp_flash STATIC)
+endif()
 
 # Flash source files
 target_sources(fsp_flash

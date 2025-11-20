@@ -33,10 +33,29 @@ const bsp_init_info_t g_init_info =
     .p_nocache_list = nocache_list
 };
 
-/* Stub main stack - TF-M manages its own stack from linker script */
+/* Stub main stack - only for secure side (NS uses FSP startup.c) */
 #include <stdint.h>
 #ifndef BSP_CFG_STACK_MAIN_BYTES
 #define BSP_CFG_STACK_MAIN_BYTES 0x400  /* 1KB dummy stack */
 #endif
 
-uint8_t g_main_stack[BSP_CFG_STACK_MAIN_BYTES] __attribute__((section(".noinit")));
+/* Weak g_main_stack - allows NS startup.c to override */
+#if !defined(DOMAIN_NS) && !defined(__DOMAIN_NS)
+__attribute__((weak)) uint8_t g_main_stack[BSP_CFG_STACK_MAIN_BYTES] __attribute__((section(".noinit")));
+#endif
+
+/* Weak stub for HAL init - FSP applications provide their own implementation */
+__attribute__((weak)) void g_hal_init(void) {
+    /* Empty - FSP applications provide their own implementation */
+}
+
+/* Weak stubs for FreeRTOS TrustZone functions - needed for NS with FreeRTOS */
+__attribute__((weak)) uint32_t vPortAllocateSecureContext(uint32_t ulSecureStackSize) {
+    (void)ulSecureStackSize;
+    return 0;  /* Stub - real implementation in FreeRTOS port */
+}
+
+__attribute__((weak)) void vPortFreeSecureContext(uint32_t *pulSecureContext) {
+    (void)pulSecureContext;
+    /* Stub - real implementation in FreeRTOS port */
+}

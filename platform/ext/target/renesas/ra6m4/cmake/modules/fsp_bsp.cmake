@@ -4,7 +4,10 @@
 # FSP base directory is relative to this platform directory
 set(FSP_BASE_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
-add_library(fsp_bsp STATIC)
+# Only create the library if it doesn't already exist (shared between S and NS)
+if(NOT TARGET fsp_bsp)
+    add_library(fsp_bsp STATIC)
+endif()
 
 # BSP source files
 target_sources(fsp_bsp
@@ -23,7 +26,7 @@ target_sources(fsp_bsp
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_sdram.c
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_security.c
         # ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/ra6m4/bsp_linker.c  # Excluded - TF-M handles startup
-        ${FSP_BASE_DIR}/bsp_init_stub.c  # Stub for g_init_info
+        ${FSP_BASE_DIR}/bsp_init_stub.c  # Stub for g_init_info and g_main_stack
         # ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c  # Excluded - using TF-M startup
         ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/system.c
         ${FSP_BASE_DIR}/fsp/ra/board/ra6m4_ek/board_init.c
