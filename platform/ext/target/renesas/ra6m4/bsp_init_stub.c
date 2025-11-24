@@ -22,8 +22,8 @@ static const bsp_mpu_nocache_info_t nocache_list[] = {
     /* Empty - no nocache regions */
 };
 
-/* Stub initialization data structure */
-const bsp_init_info_t g_init_info =
+/* Weak stub initialization data structure - can be overridden by real g_init_info */
+__attribute__((weak)) const bsp_init_info_t g_init_info =
 {
     .zero_count  = 0,
     .p_zero_list = zero_list,
