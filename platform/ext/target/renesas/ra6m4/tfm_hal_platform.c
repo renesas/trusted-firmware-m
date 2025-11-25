@@ -21,6 +21,16 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
 
 enum tfm_hal_status_t tfm_hal_platform_init(void)
 {
+    /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
+     * SystemInit() in system.c during Reset_Handler, before main() is entered.
+     * This configures the system to 200 MHz from the 24 MHz XTAL:
+     *   - XTAL: 24 MHz
+     *   - PLL: (24 MHz / 3) * 25 = 200 MHz
+     *   - ICLK (system clock): 200 MHz
+     *
+     * No additional clock configuration is needed here.
+     */
+
     /* Note: target_cfg.h functions are called by TF-M framework */
     return TFM_HAL_SUCCESS;
 }
