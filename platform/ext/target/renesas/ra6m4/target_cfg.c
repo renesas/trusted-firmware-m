@@ -87,13 +87,20 @@ enum tfm_plat_err_t init_debug(void)
 /*----------------- NVIC interrupt target state to NS configuration ----------*/
 enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void)
 {
-    /* Interrupt target state is configured by TF-M framework */
+    /* Interrupt target state is set in bsp_irq_cfg() in bsp_irq.c
+     * FSP's BSP initialization handles the NVIC_ITNS configuration for
+     * routing interrupts to secure or non-secure state based on the
+     * interrupt configuration in the RASC-generated code. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 /*----------------- NVIC interrupt enabling for S peripherals ----------------*/
 enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
-    /* Platform-specific interrupts can be enabled here */
+    /* Platform-specific secure interrupts can be enabled here
+     * Example:
+     *   NVIC_EnableIRQ(UART0_S_IRQ);
+     *   NVIC_EnableIRQ(TIMER0_S_IRQ);
+     */
     return TFM_PLAT_ERR_SUCCESS;
 }
