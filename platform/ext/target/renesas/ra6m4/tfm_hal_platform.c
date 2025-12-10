@@ -10,6 +10,7 @@
 #include "bsp_api.h"
 #include "cmsis.h"
 #include "tfm_platform_system.h"
+#include "fih.h"
 
 /* Linker script provides __StackSeal. TF-M SPM code expects __STACK_SEAL.
  * We provide __STACK_SEAL as a weak symbol in the same section. */
@@ -19,7 +20,7 @@ extern uint64_t __StackSeal;
 __attribute__((weak, section(".msp_stack_seal_res")))
 uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
 
-enum tfm_hal_status_t tfm_hal_platform_init(void)
+FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
 {
     /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
      * SystemInit() in system.c during Reset_Handler, before main() is entered.
@@ -32,7 +33,7 @@ enum tfm_hal_status_t tfm_hal_platform_init(void)
      */
 
     /* Note: target_cfg.h functions are called by TF-M framework */
-    return TFM_HAL_SUCCESS;
+    FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
 }
 
 void tfm_hal_system_reset(void)

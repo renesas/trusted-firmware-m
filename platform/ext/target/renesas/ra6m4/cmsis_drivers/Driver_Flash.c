@@ -119,8 +119,6 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
 
     /* Validate flash parameters match our configuration
      * RA6M4 code flash: 1MB total, 8KB sector size */
-    uint32_t flash_size = (info.code_flash.p_block_array[info.code_flash.num_regions - 1U].block_section_end_addr -
-                           info.code_flash.p_block_array[0].block_section_st_addr + 1U);
     uint32_t page_size = info.code_flash.p_block_array[info.code_flash.num_regions - 1U].block_size;
 
     /* Validate against configured values */

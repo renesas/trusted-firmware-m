@@ -44,6 +44,11 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
 __attribute__((weak)) uint8_t g_main_stack[BSP_CFG_STACK_MAIN_BYTES] __attribute__((section(".noinit")));
 #endif
 
+/* Forward declarations for weak stubs */
+void g_hal_init(void);
+uint32_t vPortAllocateSecureContext(uint32_t ulSecureStackSize);
+void vPortFreeSecureContext(uint32_t *pulSecureContext);
+
 /* Weak stub for HAL init - FSP applications provide their own implementation */
 __attribute__((weak)) void g_hal_init(void) {
     /* Empty - FSP applications provide their own implementation */
