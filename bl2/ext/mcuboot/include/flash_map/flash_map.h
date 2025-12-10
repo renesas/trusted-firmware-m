@@ -58,7 +58,9 @@ extern "C" {
  * Pick a random device ID for it that's unlikely to collide with
  * anything "real".
  */
+#ifndef FLASH_DEVICE_ID
 #define FLASH_DEVICE_ID                 100
+#endif
 #define FLASH_DEVICE_BASE               FLASH_BASE_ADDRESS
 
 /*
