@@ -20,6 +20,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_flash.cmake)
 target_compile_definitions(platform_s
     PRIVATE
         TFM_PLATFORM_RA6M4=1
+        _RA_ORDINAL=1
 )
 
 # Enable CMSE for TrustZone

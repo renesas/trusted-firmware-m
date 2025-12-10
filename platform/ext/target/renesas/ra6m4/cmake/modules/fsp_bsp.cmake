@@ -54,10 +54,12 @@ target_include_directories(fsp_bsp
 )
 
 # BSP compile definitions
+# Note: _RA_ORDINAL is NOT defined here - it's target-specific:
+#   - Secure side (S): _RA_ORDINAL=1 (defined by secure targets)
+#   - Non-secure side (NS): _RA_ORDINAL=2 (defined by NS app's RASC_CMAKE_DEFINITIONS)
 target_compile_definitions(fsp_bsp
     PUBLIC
         _RA_CORE=CM33
-        _RA_ORDINAL=1
         _RENESAS_RA_
 )
 
