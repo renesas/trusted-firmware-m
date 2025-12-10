@@ -235,9 +235,40 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
             platform_bl2
     )
 
+    # Sign NS image (tfm_ns from FSP_Project_ra6m4_ns_rtos or default NS app)
+    add_custom_target(tfm_ns_signed_bin
+        SOURCES tfm_ns_signed.bin
+    )
+    add_custom_command(OUTPUT tfm_ns_signed.bin
+        DEPENDS tfm_ns signing_layout_ns
+        DEPENDS $<IF:$<BOOL:${MCUBOOT_GENERATE_SIGNING_KEYPAIR}>,generated_private_key,>
+        WORKING_DIRECTORY ${MCUBOOT_PATH}/scripts
+
+        #Sign non-secure binary image with provided secret key
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/wrapper/wrapper.py
+            -v ${MCUBOOT_IMAGE_VERSION_NS}
+            --layout $<TARGET_OBJECTS:signing_layout_ns>
+            -k ${MCUBOOT_KEY_NS}
+            --public-key-format $<IF:$<BOOL:${MCUBOOT_HW_KEY}>,full,hash>
+            --align ${MCUBOOT_ALIGN_VAL}
+            --pad
+            --pad-header
+            -H ${BL2_HEADER_SIZE}
+            -s ${MCUBOOT_SECURITY_COUNTER_NS}
+            -L ${MCUBOOT_ENC_KEY_LEN}
+            -d \"\(0,${MCUBOOT_S_IMAGE_MIN_VER}\)\"
+            $<$<STREQUAL:${MCUBOOT_UPGRADE_STRATEGY},OVERWRITE_ONLY>:--overwrite-only>
+            $<$<BOOL:${MCUBOOT_CONFIRM_IMAGE}>:--confirm>
+            $<$<BOOL:${MCUBOOT_ENC_IMAGES}>:-E${MCUBOOT_KEY_ENC}>
+            $<$<BOOL:${MCUBOOT_MEASURED_BOOT}>:--measured-boot-record>
+            $<TARGET_FILE_DIR:tfm_ns>/tfm_ns.bin
+            ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin $<TARGET_FILE_DIR:bl2>
+    )
+
     add_custom_target(signed_images
         ALL
-        DEPENDS tfm_s_signed_bin
+        DEPENDS tfm_s_signed_bin tfm_ns_signed_bin
     )
 
 endif()
