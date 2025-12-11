@@ -17,11 +17,11 @@ cmake_minimum_required(VERSION 3.21)
 #
 # Example CMake configuration:
 #   -DFSP_BL2_APP_DIR=C:/path/to/FSP_Project_ra6m4_bl2
-#   -DFSP_S_APP_DIR=C:/path/to/FSP_Project_ra6m4_s       (future use)
+#   -DFSP_S_APP_DIR=C:/path/to/FSP_Project_ra6m4_s_rtos
 #   -DFSP_NS_APP_DIR=C:/path/to/FSP_Project_ra6m4_ns_rtos
 
 set(FSP_BL2_APP_DIR "" CACHE PATH "Path to RASC-generated FSP BL2 (MCUboot) project")
-set(FSP_S_APP_DIR "" CACHE PATH "Path to RASC-generated FSP Secure project (future)")
+set(FSP_S_APP_DIR "" CACHE PATH "Path to RASC-generated FSP Secure project")
 set(FSP_NS_APP_DIR "" CACHE PATH "Path to RASC-generated FSP Non-Secure application")
 
 ############################ FSP Integration ###################################
