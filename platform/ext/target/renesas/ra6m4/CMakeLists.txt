@@ -7,6 +7,23 @@
 
 cmake_minimum_required(VERSION 3.21)
 
+############################ FSP RASC Project Paths ############################
+#
+# These variables allow using RASC-generated FSP projects for BL2, Secure, and
+# Non-Secure components. When set, the corresponding FSP project's TF-M
+# integration layer will be used instead of the default TF-M implementation.
+#
+# Each FSP project must have a tfm_integration/CMakeLists_tfm.cmake file.
+#
+# Example CMake configuration:
+#   -DFSP_BL2_APP_DIR=C:/path/to/FSP_Project_ra6m4_bl2
+#   -DFSP_S_APP_DIR=C:/path/to/FSP_Project_ra6m4_s       (future use)
+#   -DFSP_NS_APP_DIR=C:/path/to/FSP_Project_ra6m4_ns_rtos
+
+set(FSP_BL2_APP_DIR "" CACHE PATH "Path to RASC-generated FSP BL2 (MCUboot) project")
+set(FSP_S_APP_DIR "" CACHE PATH "Path to RASC-generated FSP Secure project (future)")
+set(FSP_NS_APP_DIR "" CACHE PATH "Path to RASC-generated FSP Non-Secure application")
+
 ############################ FSP Integration ###################################
 
 # Include FSP modular libraries (self-contained in platform directory)
@@ -69,9 +86,6 @@ target_include_directories(platform_region_defs
 )
 
 ############################ BL2 Configuration #################################
-
-# Option to use external FSP-based BL2 (MCUboot) project
-set(FSP_BL2_APP_DIR "" CACHE PATH "Path to external FSP BL2 (MCUboot) application")
 
 if(BL2)
     if(FSP_BL2_APP_DIR)
@@ -198,9 +212,6 @@ target_add_scatter_file(tfm_s
 # Non-secure platform configuration is in ns/CMakeLists.txt
 # This gets included automatically by TF-M build system when building NS side
 add_subdirectory(ns)
-
-# Option to use external FSP-based non-secure application
-set(FSP_NS_APP_DIR "" CACHE PATH "Path to external FSP non-secure application")
 
 if(FSP_NS_APP_DIR)
     # Use external FSP NS application
