@@ -70,43 +70,108 @@ target_include_directories(platform_region_defs
 
 ############################ BL2 Configuration #################################
 
+# Option to use external FSP-based BL2 (MCUboot) project
+set(FSP_BL2_APP_DIR "" CACHE PATH "Path to external FSP BL2 (MCUboot) application")
+
 if(BL2)
-    # BL2 (MCUBoot) executable target
-    target_sources(bl2
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
-    )
+    if(FSP_BL2_APP_DIR)
+        # Use external FSP BL2 project with OFS regions and RASC-generated configuration
+        message(STATUS "Using external FSP BL2 application: ${FSP_BL2_APP_DIR}")
 
-    target_add_scatter_file(bl2
-        $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
-        $<$<C_COMPILER_ID:GNU>:${PLATFORM_DIR}/ext/common/gcc/tfm_common_bl2.ld>
-        $<$<C_COMPILER_ID:IAR>:${PLATFORM_DIR}/ext/common/iar/tfm_common_bl2.icf>
-        $<$<C_COMPILER_ID:Clang>:${PLATFORM_DIR}/ext/common/llvm/tfm_common_bl2.ld>
-    )
+        if(NOT EXISTS "${FSP_BL2_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake")
+            message(FATAL_ERROR
+                "TF-M integration file not found in FSP BL2 application.\n"
+                "Expected: ${FSP_BL2_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake\n"
+                "Make sure the FSP project has TF-M integration files."
+            )
+        endif()
 
-    # Platform library for BL2
-    target_sources(platform_bl2
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c
-    )
+        # Include the FSP BL2 project's TF-M integration layer
+        include(${FSP_BL2_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake)
 
-    target_link_libraries(platform_bl2
-        PUBLIC
-            fsp_bsp
-            fsp_flash
-            fsp_uart
-    )
+        # BL2 uses FSP startup with OFS regions
+        target_sources(bl2
+            PRIVATE
+                # FSP startup provides Reset_Handler, vector table, and OFS data
+                ${FSP_BL2_APP_DIR}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c
+                ${FSP_BL2_APP_DIR}/ra/fsp/src/bsp/mcu/ra6m4/bsp_linker.c
+        )
 
-    target_include_directories(platform_bl2
-        PUBLIC
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
-        PRIVATE
-            ${PLATFORM_DIR}/ext/common
-    )
+        # Use FSP linker script (includes OFS memory regions)
+        target_add_scatter_file(bl2
+            $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
+            $<$<C_COMPILER_ID:GNU>:${FSP_BL2_APP_DIR}/script/fsp.ld>
+            $<$<C_COMPILER_ID:IAR>:${PLATFORM_DIR}/ext/common/iar/tfm_common_bl2.icf>
+            $<$<C_COMPILER_ID:Clang>:${PLATFORM_DIR}/ext/common/llvm/tfm_common_bl2.ld>
+        )
+
+        # Add FSP BL2 project directory for linker script includes (memory_regions.ld, etc.)
+        target_link_options(bl2
+            PRIVATE
+                -L${FSP_BL2_APP_DIR}
+        )
+
+        # Platform library for BL2 uses FSP BL2 BSP
+        target_sources(platform_bl2
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c
+        )
+
+        target_link_libraries(platform_bl2
+            PUBLIC
+                fsp_bsp_bl2
+                fsp_flash_bl2
+        )
+
+        target_include_directories(platform_bl2
+            PUBLIC
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
+                ${FSP_BL2_INCLUDE_DIRS}
+            PRIVATE
+                ${PLATFORM_DIR}/ext/common
+        )
+    else()
+        # Use default TF-M BL2 with platform FSP BSP (no OFS regions)
+        target_sources(bl2
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
+        )
+
+        target_add_scatter_file(bl2
+            $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
+            $<$<C_COMPILER_ID:GNU>:${PLATFORM_DIR}/ext/common/gcc/tfm_common_bl2.ld>
+            $<$<C_COMPILER_ID:IAR>:${PLATFORM_DIR}/ext/common/iar/tfm_common_bl2.icf>
+            $<$<C_COMPILER_ID:Clang>:${PLATFORM_DIR}/ext/common/llvm/tfm_common_bl2.ld>
+        )
+
+        # Platform library for BL2
+        target_sources(platform_bl2
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c
+        )
+
+        target_link_libraries(platform_bl2
+            PUBLIC
+                fsp_bsp
+                fsp_flash
+                fsp_uart
+        )
+
+        target_include_directories(platform_bl2
+            PUBLIC
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
+            PRIVATE
+                ${PLATFORM_DIR}/ext/common
+        )
+    endif()
 
     # Enable CMSE for BL2 platform library
     target_compile_options(platform_bl2
