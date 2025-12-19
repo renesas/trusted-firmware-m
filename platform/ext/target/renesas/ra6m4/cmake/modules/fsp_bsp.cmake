@@ -1,8 +1,18 @@
 # FSP BSP (Board Support Package) Library
 # This library contains core BSP functionality required by all modules
+#
+# When FSP_S_APP_DIR is set, sources are pulled from the external RASC project.
+# Otherwise, sources are pulled from the embedded fsp/ directory.
 
-# FSP base directory is relative to this platform directory
-set(FSP_BASE_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
+# Determine FSP source directory
+if(FSP_S_APP_DIR)
+    set(FSP_S_DIR ${FSP_S_APP_DIR})
+    message(STATUS "FSP BSP: Using external RASC project: ${FSP_S_DIR}")
+else()
+    # Fall back to embedded FSP sources in platform directory
+    set(FSP_S_DIR ${CMAKE_CURRENT_LIST_DIR}/../../fsp)
+    message(STATUS "FSP BSP: Using embedded sources: ${FSP_S_DIR}")
+endif()
 
 # Only create the library if it doesn't already exist (shared between S and NS)
 if(NOT TARGET fsp_bsp)
@@ -12,45 +22,69 @@ endif()
 # BSP source files
 target_sources(fsp_bsp
     PRIVATE
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_common.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_clocks.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_delay.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_group_irq.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_guard.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_io.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_ipc.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_irq.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_macl.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_register_protection.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_sbrk.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_sdram.c
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/all/bsp_security.c
-        # ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/ra6m4/bsp_linker.c  # Excluded - TF-M handles startup
-        ${FSP_BASE_DIR}/bsp_init_stub.c  # Stub for g_init_info and g_main_stack
-        # ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c  # Excluded - using TF-M startup
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/system.c
-        ${FSP_BASE_DIR}/fsp/ra/board/ra6m4_ek/board_init.c
-        ${FSP_BASE_DIR}/fsp/ra/board/ra6m4_ek/board_leds.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_common.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_clocks.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_delay.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_group_irq.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_guard.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_io.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_irq.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_register_protection.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_sbrk.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_security.c
+        ${FSP_S_DIR}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/system.c
         # I/O Port driver (required by most peripherals)
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/r_ioport/r_ioport.c
+        ${FSP_S_DIR}/ra/fsp/src/r_ioport/r_ioport.c
         # Generated files
-        ${FSP_BASE_DIR}/fsp/ra_gen/common_data.c
-        ${FSP_BASE_DIR}/fsp/ra_gen/pin_data.c
-        ${FSP_BASE_DIR}/fsp/ra_gen/vector_data.c
+        ${FSP_S_DIR}/ra_gen/common_data.c
+        ${FSP_S_DIR}/ra_gen/pin_data.c
+        ${FSP_S_DIR}/ra_gen/vector_data.c
 )
+
+# Conditionally include files that may not exist in all projects
+if(EXISTS "${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_ipc.c")
+    target_sources(fsp_bsp PRIVATE ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_ipc.c)
+endif()
+if(EXISTS "${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_macl.c")
+    target_sources(fsp_bsp PRIVATE ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_macl.c)
+endif()
+if(EXISTS "${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_sdram.c")
+    target_sources(fsp_bsp PRIVATE ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/all/bsp_sdram.c)
+endif()
+if(EXISTS "${FSP_S_DIR}/ra/board/ra6m4_ek/board_init.c")
+    target_sources(fsp_bsp PRIVATE ${FSP_S_DIR}/ra/board/ra6m4_ek/board_init.c)
+endif()
+if(EXISTS "${FSP_S_DIR}/ra/board/ra6m4_ek/board_leds.c")
+    target_sources(fsp_bsp PRIVATE ${FSP_S_DIR}/ra/board/ra6m4_ek/board_leds.c)
+endif()
+
+# Add stub file for g_init_info when not using FSP startup
+# (TF-M handles startup, so we need stubs for FSP linker init symbols)
+if(NOT FSP_S_APP_DIR)
+    # Use stub from embedded sources
+    target_sources(fsp_bsp PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../../bsp_init_stub.c)
+else()
+    # When using external RASC project, check if stub exists there
+    if(EXISTS "${FSP_S_DIR}/tfm_integration/bsp_init_stub.c")
+        target_sources(fsp_bsp PRIVATE ${FSP_S_DIR}/tfm_integration/bsp_init_stub.c)
+    else()
+        # Fall back to platform stub
+        target_sources(fsp_bsp PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../../bsp_init_stub.c)
+    endif()
+endif()
 
 # BSP include directories (PUBLIC so dependent modules can use them)
 target_include_directories(fsp_bsp
     PUBLIC
-        ${FSP_BASE_DIR}/fsp/ra/arm/CMSIS_6/CMSIS/Core/Include
-        ${FSP_BASE_DIR}/fsp/ra/fsp/inc
-        ${FSP_BASE_DIR}/fsp/ra/fsp/inc/api
-        ${FSP_BASE_DIR}/fsp/ra/fsp/inc/instances
-        ${FSP_BASE_DIR}/fsp/ra/fsp/src/bsp/mcu/ra6m4
-        ${FSP_BASE_DIR}/fsp/ra_cfg/fsp_cfg
-        ${FSP_BASE_DIR}/fsp/ra_cfg/fsp_cfg/bsp
-        ${FSP_BASE_DIR}/fsp/ra_gen
-        ${FSP_BASE_DIR}/fsp
+        ${FSP_S_DIR}/ra/arm/CMSIS_6/CMSIS/Core/Include
+        ${FSP_S_DIR}/ra/fsp/inc
+        ${FSP_S_DIR}/ra/fsp/inc/api
+        ${FSP_S_DIR}/ra/fsp/inc/instances
+        ${FSP_S_DIR}/ra/fsp/src/bsp/mcu/ra6m4
+        ${FSP_S_DIR}/ra_cfg/fsp_cfg
+        ${FSP_S_DIR}/ra_cfg/fsp_cfg/bsp
+        ${FSP_S_DIR}/ra_gen
+        ${FSP_S_DIR}
 )
 
 # BSP compile definitions
