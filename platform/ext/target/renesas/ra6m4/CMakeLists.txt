@@ -65,6 +65,7 @@ target_sources(platform_s
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
         ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/attest_hal.c
         # Use common ARMv8-M isolation implementation
         ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
         $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_interrupts.c>

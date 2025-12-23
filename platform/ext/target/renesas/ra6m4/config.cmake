@@ -39,6 +39,7 @@ set(PS_ENCRYPTION                       ON          CACHE BOOL      "Enable encr
 set(SYMMETRIC_INITIAL_ATTESTATION       OFF         CACHE BOOL      "Use symmetric crypto for attestation (OFF = asymmetric)")
 set(ATTEST_KEY_BITS                     256         CACHE STRING    "Size of attestation key in bits")
 set(PSA_INITIAL_ATTEST_MAX_TOKEN_SIZE   0x250       CACHE STRING    "Maximum attestation token size")
+set(PLATFORM_DEFAULT_ATTEST_HAL         OFF         CACHE BOOL      "Use platform-specific attestation HAL")
 
 ############################ BL2 ###############################################
 
