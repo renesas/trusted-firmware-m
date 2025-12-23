@@ -26,3 +26,9 @@ target_link_libraries(fsp_uart
     PUBLIC
         fsp_bsp
 )
+
+# UART compile options - must include -mcmse for TrustZone secure builds
+target_compile_options(fsp_uart
+    PRIVATE
+        -mcmse             # Enable CMSE intrinsics for TrustZone
+)

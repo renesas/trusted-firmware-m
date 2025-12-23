@@ -27,3 +27,9 @@ target_link_libraries(fsp_flash
     PUBLIC
         fsp_bsp
 )
+
+# Flash compile options - must include -mcmse for TrustZone secure builds
+target_compile_options(fsp_flash
+    PRIVATE
+        -mcmse             # Enable CMSE intrinsics for TrustZone
+)

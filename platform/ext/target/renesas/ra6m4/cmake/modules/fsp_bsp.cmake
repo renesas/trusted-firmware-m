@@ -95,6 +95,7 @@ target_compile_definitions(fsp_bsp
     PUBLIC
         _RA_CORE=CM33
         _RENESAS_RA_
+        _RA_TZ_SECURE=1
 )
 
 # BSP compile options for GCC ARM (compatible with TF-M toolchain)
@@ -103,6 +104,7 @@ target_compile_options(fsp_bsp
         -mfloat-abi=soft  # Match TF-M's soft float ABI
         -mcpu=cortex-m33
         -mthumb
+        -mcmse             # Enable CMSE intrinsics for TrustZone
         -std=c99
         -fmessage-length=0
         -fsigned-char

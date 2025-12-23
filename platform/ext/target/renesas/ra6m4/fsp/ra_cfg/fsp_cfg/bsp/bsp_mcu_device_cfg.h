@@ -2,4 +2,5 @@
 #ifndef BSP_MCU_DEVICE_CFG_H_
 #define BSP_MCU_DEVICE_CFG_H_
 #define BSP_CFG_MCU_PART_SERIES (6)
+#define BSP_CFG_CPU_CORE        (0)    /* Primary CPU core (single-core RA6M4) */
 #endif /* BSP_MCU_DEVICE_CFG_H_ */

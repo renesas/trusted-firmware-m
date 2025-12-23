@@ -38,6 +38,7 @@ target_compile_definitions(platform_s
     PRIVATE
         TFM_PLATFORM_RA6M4=1
         _RA_ORDINAL=1
+        _RA_TZ_SECURE=1
 )
 
 # Enable CMSE for TrustZone
