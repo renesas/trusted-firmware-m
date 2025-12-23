@@ -27,6 +27,14 @@
 #define S_ROM_ALIAS_BASE                (FLASH_BASE_ADDRESS + FLASH_AREA_0_OFFSET)
 #define NS_ROM_ALIAS_BASE               (FLASH_BASE_ADDRESS + FLASH_AREA_1_OFFSET)
 
+/* BL2 (MCUboot) header and trailer sizes - defined early as they're used in code region calculations */
+#ifndef BL2_HEADER_SIZE
+#define BL2_HEADER_SIZE                 0x400       /* 1KB */
+#endif
+#ifndef BL2_TRAILER_SIZE
+#define BL2_TRAILER_SIZE                0x800       /* 2KB */
+#endif
+
 /* SRAM memory */
 #define SRAM_BASE                       0x20000000
 #define TOTAL_RAM_SIZE                  0x00040000  /* 256KB */
@@ -53,8 +61,16 @@
 #define NS_RAM_ALIAS_BASE               (SRAM_BASE + S_RAM_SIZE)
 
 /* Secure regions */
+/* When BL2 is enabled, MCUboot header (BL2_HEADER_SIZE) precedes the image.
+ * S_CODE_START must account for this header offset so the linker places
+ * code at the correct execution address after MCUboot loads the image. */
+#ifdef BL2
+#define S_CODE_START                    (S_ROM_ALIAS_BASE + BL2_HEADER_SIZE)
+#define S_CODE_SIZE                     (FLASH_S_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+#else
 #define S_CODE_START                    S_ROM_ALIAS_BASE
 #define S_CODE_SIZE                     FLASH_S_PARTITION_SIZE
+#endif
 #define S_CODE_LIMIT                    (S_CODE_START + S_CODE_SIZE - 1)
 
 #define S_DATA_START                    S_RAM_ALIAS_BASE
@@ -62,9 +78,15 @@
 #define S_DATA_LIMIT                    (S_DATA_START + S_DATA_SIZE - 1)
 
 /* Non-Secure regions */
+/* Same as secure: when BL2 is enabled, account for MCUboot header offset */
+#ifdef BL2
+#define NS_CODE_START                   (NS_ROM_ALIAS_BASE + BL2_HEADER_SIZE)
+#define NS_CODE_SIZE                    (FLASH_NS_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+#else
 #define NS_CODE_START                   NS_ROM_ALIAS_BASE
-#define NS_PARTITION_START              NS_CODE_START
 #define NS_CODE_SIZE                    FLASH_NS_PARTITION_SIZE
+#endif
+#define NS_PARTITION_START              NS_ROM_ALIAS_BASE  /* Start of partition (including header) */
 #define NS_CODE_LIMIT                   (NS_CODE_START + NS_CODE_SIZE - 1)
 
 #define NS_DATA_START                   NS_RAM_ALIAS_BASE
@@ -75,13 +97,6 @@
 #define CMSE_VENEER_REGION_SIZE         0x400       /* 1KB */
 #define CMSE_VENEER_REGION_START        (S_CODE_START + S_CODE_SIZE - CMSE_VENEER_REGION_SIZE)
 
-/* Bootloader regions */
-#ifndef BL2_HEADER_SIZE
-#define BL2_HEADER_SIZE                 0x400       /* 1KB */
-#endif
-#ifndef BL2_TRAILER_SIZE
-#define BL2_TRAILER_SIZE                0x800       /* 2KB */
-#endif
 /* Secondary partition (for MCUBoot firmware update) */
 /* Note: RA6M4 has only 1MB flash - not enough for true A/B partitioning */
 /* These are placeholders for MCUBoot compatibility */
