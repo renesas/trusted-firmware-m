@@ -25,7 +25,20 @@ set(TFM_PARTITION_PLATFORM              ON          CACHE BOOL      "Enable Plat
 # Logging configuration
 set(TFM_PARTITION_LOG_LEVEL             TFM_PARTITION_LOG_LEVEL_INFO    CACHE STRING    "Partition log level")
 set(TFM_SPM_LOG_LEVEL                   TFM_SPM_LOG_LEVEL_INFO          CACHE STRING    "SPM log level")
-set(PLATFORM_DEFAULT_UART_STDOUT        ON                              CACHE BOOL      "Use UART for stdout")
+
+# stdout backend selection.
+#   RA6M4_STDOUT_RTT ON  -> TF-M/MCUboot logs go to SEGGER RTT over J-Link
+#                           (no UART wiring; the common uart_stdout.c is disabled
+#                            and platform/.../rtt/rtt_stdout.c is compiled instead).
+#   RA6M4_STDOUT_RTT OFF -> use the FSP SCI UART via the common uart_stdout.c.
+# The FSP UART driver (cmsis_drivers/Driver_USART.c) is untouched in both cases;
+# switching is just this one flag.
+set(RA6M4_STDOUT_RTT                    ON                              CACHE BOOL      "Route TF-M/MCUboot stdout to SEGGER RTT instead of SCI UART")
+if(RA6M4_STDOUT_RTT)
+    set(PLATFORM_DEFAULT_UART_STDOUT    OFF                             CACHE BOOL      "Use UART for stdout" FORCE)
+else()
+    set(PLATFORM_DEFAULT_UART_STDOUT    ON                              CACHE BOOL      "Use UART for stdout" FORCE)
+endif()
 
 # Crypto configuration
 set(CRYPTO_HW_ACCELERATOR               OFF         CACHE BOOL      "Use hardware crypto acceleration if available")
@@ -75,7 +88,11 @@ endif()
 
 ############################ Platform Drivers ##################################
 
-set(PLATFORM_DEFAULT_UART_STDOUT        ON)
+# Keep the stdout backend consistent with RA6M4_STDOUT_RTT set above
+# (do not force UART stdout on when RTT is selected).
+if(NOT RA6M4_STDOUT_RTT)
+    set(PLATFORM_DEFAULT_UART_STDOUT    ON)
+endif()
 set(UART0_BASE_S                        0x40070000) # SCI0 base address
 set(PLATFORM_DEFAULT_SYSTEM_RESET       ON)
 

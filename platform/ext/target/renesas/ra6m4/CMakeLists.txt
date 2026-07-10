@@ -70,6 +70,9 @@ target_sources(platform_s
         # Use common ARMv8-M isolation implementation
         ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
         $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_interrupts.c>
+        # SEGGER RTT stdout backend (replaces common uart_stdout.c when RA6M4_STDOUT_RTT=ON)
+        $<$<BOOL:${RA6M4_STDOUT_RTT}>:${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c>
+        $<$<BOOL:${RA6M4_STDOUT_RTT}>:${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c>
 )
 
 # Platform include directories
@@ -79,6 +82,7 @@ target_include_directories(platform_s
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
     PRIVATE
         ${PLATFORM_DIR}/ext/common
+        $<$<BOOL:${RA6M4_STDOUT_RTT}>:${CMAKE_CURRENT_SOURCE_DIR}/rtt>
         # attest_hal.c uses tfm_strnlen() (declared here, defined in tfm_sprt runtime lib)
         ${CMAKE_SOURCE_DIR}/secure_fw/partitions/lib/runtime/include
 )
@@ -196,6 +200,20 @@ if(BL2)
         PUBLIC
             ${COMPILER_CMSE_FLAG}
     )
+
+    # SEGGER RTT stdout backend for BL2 (MCUboot logs over J-Link) when selected.
+    # platform_bl2 is defined in both the external and default BL2 branches above.
+    if(RA6M4_STDOUT_RTT)
+        target_sources(platform_bl2
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c
+        )
+        target_include_directories(platform_bl2
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/rtt
+        )
+    endif()
 endif()
 ############################ Linker Scripts ####################################
 
