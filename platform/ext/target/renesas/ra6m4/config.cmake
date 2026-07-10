@@ -100,21 +100,28 @@ set(PLATFORM_DEFAULT_SYSTEM_RESET       ON)
 
 # Renesas RA6M4: 1MB Flash, 256KB RAM
 # Flash layout depends on whether BL2 is enabled
+#
+# IMPORTANT: For the ra6m4 platform, the AUTHORITATIVE flash/RAM layout is the
+# static header flash_layout.h (+ region_defs.h), which MCUboot and TF-M use.
+# The FLASH_*_PARTITION_* cache variables below are NOT consumed by this platform
+# or by common code (only mps3 platforms read them) - they are kept only to
+# describe intent and MUST be kept consistent with flash_layout.h. The values
+# here were previously stale; they now match flash_layout.h:
+#   BL2:              0x00000 - 0x1FFFF (128KB)
+#   Secure Primary:   0x20000 - 0x4FFFF (192KB)  [FLASH_AREA_0]
+#   NS Primary:       0x50000 - 0x6FFFF (128KB)  [FLASH_AREA_1]
+#   Secure Secondary: 0x70000 - 0x9FFFF (192KB)  [FLASH_AREA_2]
+#   NS Secondary:     0xA0000 - 0xBFFFF (128KB)  [FLASH_AREA_3]
+#   Scratch:          0xC0000 - 0xFFFFF (256KB)
+# NS code runs at NS_CODE_START = 0x50000 + BL2_HEADER 0x400 = 0x50400.
 
 set(FLASH_AREA_BL2_OFFSET               0x0         CACHE STRING    "BL2 area offset")
 set(FLASH_AREA_BL2_SIZE                 0x20000     CACHE STRING    "BL2 area size (128KB)")
 
 if(BL2)
-    # With BL2 - Optimized for MCUboot swap mode:
-    #   BL2:              0x00000000 - 0x0001FFFF (128KB)
-    #   Secure Primary:   0x00020000 - 0x0003FFFF (128KB) - TF-M uses ~31KB
-    #   NS Primary:       0x00040000 - 0x0005FFFF (128KB)
-    #   Secure Secondary: 0x00060000 - 0x0007FFFF (128KB)
-    #   NS Secondary:     0x00080000 - 0x0009FFFF (128KB)
-    #   Scratch:          0x000A0000 - 0x000FFFFF (384KB)
     set(FLASH_S_PARTITION_OFFSET        0x20000     CACHE STRING    "Secure partition offset")
-    set(FLASH_S_PARTITION_SIZE          0x20000     CACHE STRING    "Secure partition size (128KB)")
-    set(FLASH_NS_PARTITION_OFFSET       0x40000     CACHE STRING    "Non-secure partition offset")
+    set(FLASH_S_PARTITION_SIZE          0x30000     CACHE STRING    "Secure partition size (192KB)")
+    set(FLASH_NS_PARTITION_OFFSET       0x50000     CACHE STRING    "Non-secure partition offset")
     set(FLASH_NS_PARTITION_SIZE         0x20000     CACHE STRING    "Non-secure partition size (128KB)")
 else()
     # Without BL2:
