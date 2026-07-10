@@ -79,6 +79,8 @@ target_include_directories(platform_s
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
     PRIVATE
         ${PLATFORM_DIR}/ext/common
+        # attest_hal.c uses tfm_strnlen() (declared here, defined in tfm_sprt runtime lib)
+        ${CMAKE_SOURCE_DIR}/secure_fw/partitions/lib/runtime/include
 )
 
 # Add platform directory to region_defs target so linker scripts can find region_defs.h
