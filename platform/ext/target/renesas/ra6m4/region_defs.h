@@ -93,6 +93,15 @@
 #define NS_DATA_SIZE                    NS_RAM_SIZE
 #define NS_DATA_LIMIT                   (NS_DATA_START + NS_DATA_SIZE - 1)
 
+/* Place the CMSE veneers (.gnu.sgstubs) at the END of the secure code region so
+ * the NSC region sits at the Secure->Non-Secure boundary. RA6M4 attributes code
+ * flash as contiguous [Secure][NSC][Non-Secure] (programmed via RFP), which
+ * requires the veneers at that boundary - not TF-M's default beginning placement.
+ * This uses TF-M's own generated linker (via the macro below), the same upstream
+ * pattern as the nordic_nrf / lairdconnectivity platforms - no custom linker copy
+ * to maintain across TF-M versions. */
+#define TFM_LINKER_VENEERS_LOCATION_END
+
 /* Non-Secure Callable (NSC) region - at end of secure code */
 #define CMSE_VENEER_REGION_SIZE         0x400       /* 1KB */
 #define CMSE_VENEER_REGION_START        (S_CODE_START + S_CODE_SIZE - CMSE_VENEER_REGION_SIZE)
