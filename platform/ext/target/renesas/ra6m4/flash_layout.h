@@ -46,7 +46,11 @@
 #define FLASH_AREA_BL2_SIZE             0x20000     /* 128KB */
 
 /* Sector size (minimum erase unit) for RA6M4 */
-#define FLASH_AREA_IMAGE_SECTOR_SIZE    0x2000      /* 8KB */
+/* RA6M4 HP code flash: region 0 (0x0-0xFFFF) = 8KB blocks, region 1 (0x10000+)
+ * = 32KB blocks. All MCUboot-managed slots (S @0x20000, NS @0x50000, scratch)
+ * live in region 1, so the erase/sector unit must be the 32KB region-1 block.
+ * Slot offsets are all 32KB-aligned. */
+#define FLASH_AREA_IMAGE_SECTOR_SIZE    0x8000      /* 32KB (RA6M4 region-1 block) */
 
 /* Flash area for secure image (primary slot) */
 #define FLASH_AREA_0_ID                 1

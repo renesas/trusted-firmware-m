@@ -19,8 +19,11 @@
 #define ARG_UNUSED(arg)  (void)(arg)
 #endif
 
-/* RA6M4 Flash HP block size */
-#define FLASH_HP_BLOCK_SIZE  BSP_FEATURE_FLASH_HP_CF_REGION0_BLOCK_SIZE
+/* RA6M4 Flash HP code-flash block size for the MCUboot-managed region.
+ * Region 0 (0x0-0xFFFF) uses 8KB blocks; region 1 (0x10000+) uses 32KB blocks.
+ * All MCUboot slots are in region 1, so use the region-1 (32KB) block size -
+ * this must match FLASH_AREA_IMAGE_SECTOR_SIZE so erases are full 32KB blocks. */
+#define FLASH_HP_BLOCK_SIZE  BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE
 
 #define ARM_FLASH_DRV_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(1,1) /* Enhanced version */
 
