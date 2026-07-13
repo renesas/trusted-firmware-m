@@ -106,6 +106,14 @@
 #define CMSE_VENEER_REGION_SIZE         0x400       /* 1KB */
 #define CMSE_VENEER_REGION_START        (S_CODE_START + S_CODE_SIZE - CMSE_VENEER_REGION_SIZE)
 
+/* Pin the veneer section at a FIXED, slot-boundary address (not end-of-code) so
+ * the NSC region is STABLE across firmware updates - the RA6M4 hardware TZ/NSC
+ * boundary is programmed once (provisioning) and must not shift when the secure
+ * image size changes. TFM_LINKER_VENEERS_START is #ifndef-overridable in TF-M's
+ * generated linker (tfm_isolation_s.ld.template), so this stays on TF-M's own
+ * linker - no platform linker copy to maintain. */
+#define TFM_LINKER_VENEERS_START        CMSE_VENEER_REGION_START
+
 /* Secondary partition (for MCUBoot firmware update) */
 /* Note: RA6M4 has only 1MB flash - not enough for true A/B partitioning */
 /* These are placeholders for MCUBoot compatibility */
