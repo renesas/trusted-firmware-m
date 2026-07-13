@@ -157,15 +157,26 @@ if(BL2)
                 ${PLATFORM_DIR}/ext/common
         )
     else()
-        # Use default TF-M BL2 with platform FSP BSP (no OFS regions)
+        # Use default TF-M BL2 with platform FSP BSP.
+        # bl2_option_setting.c (OFS) is compiled straight into the bl2 executable,
+        # NOT a static lib: nothing references the OFS symbols, so from an archive
+        # the linker would never pull the object in (KEEP only helps once linked).
         target_sources(bl2
             PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/bl2_option_setting.c
         )
 
+        # BL2 uses a platform-owned linker script = TF-M's tfm_common_bl2.ld PLUS
+        # the RA6M4 OFS option-setting sections (BL2-only; see bl2_option_setting.c).
+        # GNU ld INSERT cannot augment a -T main script from a second -T fragment,
+        # so this is a documented copy of tfm_common_bl2.ld - keep in sync with TF-M
+        # on version bumps (the ONLY forked linker; the secure/NS side stays on
+        # TF-M's generated linker via region_defs.h macros). Secure/NS images are
+        # MCUboot-signed/contiguous and carry NO OFS.
         target_add_scatter_file(bl2
             $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
-            $<$<C_COMPILER_ID:GNU>:${PLATFORM_DIR}/ext/common/gcc/tfm_common_bl2.ld>
+            $<$<C_COMPILER_ID:GNU>:${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_bl2.ld>
             $<$<C_COMPILER_ID:IAR>:${PLATFORM_DIR}/ext/common/iar/tfm_common_bl2.icf>
             $<$<C_COMPILER_ID:Clang>:${PLATFORM_DIR}/ext/common/llvm/tfm_common_bl2.ld>
         )
