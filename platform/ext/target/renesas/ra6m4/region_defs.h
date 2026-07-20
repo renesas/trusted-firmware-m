@@ -135,7 +135,11 @@
 #define BL2_MSP_STACK_SIZE              0x800       /* 2KB main stack for BL2 */
 #define BL2_PSP_STACK_SIZE              0x800       /* 2KB process stack for BL2 */
 
-#define BL2_CODE_START                  (S_ROM_ALIAS_BASE + FLASH_AREA_BL2_OFFSET)
+/* BL2 is the bootloader: it lives at the base of flash (FLASH_AREA_BL2_OFFSET
+ * == 0), NOT at the secure image base. Using S_ROM_ALIAS_BASE here (0x20000)
+ * linked BL2 into the SECURE slot, so the reset vector at 0x0 was empty and
+ * tfm_s_signed.bin was later written on top of the bootloader. */
+#define BL2_CODE_START                  (FLASH_BASE_ADDRESS + FLASH_AREA_BL2_OFFSET)
 #define BL2_CODE_SIZE                   FLASH_AREA_BL2_SIZE
 #define BL2_CODE_LIMIT                  (BL2_CODE_START + BL2_CODE_SIZE - 1)
 
