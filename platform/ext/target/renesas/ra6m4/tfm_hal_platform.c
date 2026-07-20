@@ -29,8 +29,18 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      *   - PLL: (24 MHz / 3) * 25 = 200 MHz
      *   - ICLK (system clock): 200 MHz
      *
-     * No additional clock configuration is needed here.
+     * No additional clock *configuration* is needed here - BUT the cached
+     * SystemCoreClock value must be recomputed: SystemInit() runs before
+     * __PROGRAM_START() does the C-runtime init, and with the RASC config's
+     * BSP_CFG_EARLY_INIT=0 the SystemCoreClock variable lives in plain .bss,
+     * so it is zeroed immediately after SystemInit set it. Any FSP driver that
+     * derives a peripheral clock via R_FSP_SystemClockHzGet() (== SystemCoreClock
+     * >> divider) would then see 0 - e.g. R_FLASH_HP_Open() rejects it with
+     * FSP_ERR_FCLK (FCLK below the 4 MHz minimum). g_clock_freq[] lives in
+     * .ram_noinit and survives, so SystemCoreClockUpdate() restores the real
+     * value. Idempotent; also done defensively in Driver_Flash.c.
      */
+    SystemCoreClockUpdate();
 
     /* Note: target_cfg.h functions are called by TF-M framework */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));

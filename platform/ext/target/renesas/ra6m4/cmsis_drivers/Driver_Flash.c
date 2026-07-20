@@ -96,6 +96,26 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
 {
     ARG_UNUSED(cb_event);
 
+    /* Recompute SystemCoreClock before any FSP flash call.
+     *
+     * TF-M's startup calls SystemInit() (which runs bsp_clock_init() and sets
+     * SystemCoreClock) BEFORE __PROGRAM_START() performs the C-runtime init.
+     * FSP normally protects such state via BSP_CFG_EARLY_INIT, which places
+     * SystemCoreClock in .ram_noinit; the RASC config here has
+     * BSP_CFG_EARLY_INIT=0, so SystemCoreClock lands in plain .bss and is
+     * ZEROED by the C-runtime init right after SystemInit computed it.
+     *
+     * R_FLASH_HP_Open() derives FCLK via R_FSP_SystemClockHzGet(), which is
+     * SystemCoreClock >> divider. With SystemCoreClock == 0 that yields FCLK 0,
+     * which is below FLASH_HP_MINIMUM_SUPPORTED_FCLK_FREQ (4 MHz), so Open
+     * fails with FSP_ERR_FCLK and BL2 dies in boot_platform_init.
+     *
+     * g_clock_freq[] (the actual clock-tree state) lives in .ram_noinit and
+     * survives, so SystemCoreClockUpdate() restores the correct value. Cheap
+     * and idempotent, and keeps the port working regardless of the RASC
+     * BSP_CFG_EARLY_INIT setting. */
+    SystemCoreClockUpdate();
+
     flash_state.status.busy = 1;
     flash_state.status.error = 1;
 
