@@ -153,6 +153,36 @@ SECTIONS
     } > RAM AT > FLASH
     Image$$ER_DATA$$Base = ADDR(.data);
 
+    /* FSP uninitialised RAM - handled the same way FSP's own linker does.
+     *
+     * FSP places state that must survive the C-runtime init in .ram_noinit via
+     * BSP_SECTION_NOINIT / BSP_SECTION_EARLY_INIT (e.g. SystemCoreClock,
+     * g_clock_freq[], g_protect_counters[]). TF-M's startup calls SystemInit()
+     * (bsp_clock_init) BEFORE __PROGRAM_START() does the C-runtime init, so
+     * anything that lands in .bss is zeroed immediately after FSP computed it -
+     * which made R_FLASH_HP_Open() see FCLK == 0 and fail with FSP_ERR_FCLK.
+     *
+     * Declared BEFORE .bss so the prefixed variant (.bss.ram_noinit, used by
+     * toolchains where BSP_UNINIT_SECTION_PREFIX is ".bss") is matched here and
+     * not swallowed by *(.bss*), and NOLOAD so no flash image is emitted and the
+     * C-runtime init neither copies nor zeroes it. Because the zero table only
+     * covers ADDR(.bss)..SIZEOF(.bss), this region is never cleared.
+     *
+     * NOTE: for SystemCoreClock et al. to actually carry the .ram_noinit
+     * attribute, the RASC config must have BSP_CFG_EARLY_INIT = 1. With
+     * BSP_CFG_EARLY_INIT = 0 they have no section attribute and still land in
+     * .bss - the platform code additionally calls SystemCoreClockUpdate()
+     * defensively so the port is correct either way. */
+    .ram_noinit (NOLOAD) : ALIGN(4)
+    {
+        . = ALIGN(4);
+        __ram_noinit_start__ = .;
+        *(.bss.ram_noinit*)
+        *(.ram_noinit*)
+        . = ALIGN(4);
+        __ram_noinit_end__ = .;
+    } > RAM
+
     .bss : ALIGN(4)
     {
         . = ALIGN(4);
