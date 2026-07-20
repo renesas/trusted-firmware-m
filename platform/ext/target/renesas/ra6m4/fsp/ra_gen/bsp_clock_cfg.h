@@ -1,7 +1,7 @@
 /* generated configuration header file - do not edit */
 #ifndef BSP_CLOCK_CFG_H_
 #define BSP_CLOCK_CFG_H_
-#define BSP_CFG_CLOCKS_SECURE (0)
+#define BSP_CFG_CLOCKS_SECURE (1)
 #define BSP_CFG_CLOCKS_OVERRIDE (0)
 #define BSP_CFG_XTAL_HZ (24000000) /* XTAL 24000000Hz */
 #define BSP_CFG_HOCO_FREQUENCY (2) /* HOCO 20MHz */
