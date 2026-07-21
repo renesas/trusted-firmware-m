@@ -231,23 +231,14 @@ SECTIONS
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 
-    /* RA6M4 option-setting memory (OFS) - BL2 ONLY.
-     * Places the RASC-configured OFS sections emitted by bl2_option_setting.c at
-     * their fixed hardware addresses (0x0100A100-0x0100A2CF). BL2 is flashed
-     * directly (not MCUboot-signed), so this non-contiguous region is fine here;
-     * the secure/NS images must NOT carry OFS (signed, contiguous). Addresses per
-     * the RA6M4 option-setting map (FSP memory_regions.ld). */
-    .option_setting_ofs0        0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
-    .option_setting_dualsel     0x0100A110 : { KEEP(*(.option_setting_dualsel)) }
-    .option_setting_ofs1        0x0100A180 : { KEEP(*(.option_setting_ofs1)) }
-    .option_setting_banksel     0x0100A190 : { KEEP(*(.option_setting_banksel)) }
-    .option_setting_bps         0x0100A1C0 : { KEEP(*(.option_setting_bps)) }
-    .option_setting_pbps        0x0100A1E0 : { KEEP(*(.option_setting_pbps)) }
-    .option_setting_ofs1_sec    0x0100A200 : { KEEP(*(.option_setting_ofs1_sec)) }
-    .option_setting_banksel_sec 0x0100A210 : { KEEP(*(.option_setting_banksel_sec)) }
-    .option_setting_bps_sec     0x0100A240 : { KEEP(*(.option_setting_bps_sec)) }
-    .option_setting_pbps_sec    0x0100A260 : { KEEP(*(.option_setting_pbps_sec)) }
-    .option_setting_ofs1_sel    0x0100A280 : { KEEP(*(.option_setting_ofs1_sel)) }
-    .option_setting_banksel_sel 0x0100A290 : { KEEP(*(.option_setting_banksel_sel)) }
-    .option_setting_bps_sel     0x0100A2C0 : { KEEP(*(.option_setting_bps_sel)) }
+    /* NO OFS / option-setting sections here - deliberately.
+     * The RA6M4 option/config memory (0x0100A100-0x0100A2CF) is programmed by the
+     * flash FCU as ONE Configuration-Set block covering OFS + Security-MPU + FAW
+     * (incl. the one-time FSPR permanence bit). A raw J-Link/Ozone flash of an image
+     * that contains a PARTIAL option region fills the rest of that block with zeros,
+     * which clears FSPR = 0 and PERMANENTLY BRICKS the part. This destroyed two
+     * EK-RA6M4 boards. Option memory must be programmed ONLY by an RA-aware tool
+     * (RFP) with a complete, FSPR-preserving config, verified by reading FAWMON
+     * back. It must NEVER appear in a BL2/secure/NS image flashed by a debugger.
+     * See DESIGN.md 8.4. Do not re-add .option_setting_* sections to any image. */
 }
