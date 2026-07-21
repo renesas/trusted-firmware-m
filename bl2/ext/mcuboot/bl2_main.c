@@ -109,6 +109,20 @@ static inline void uart_putch(char ch)
 
 int main(void)
 {
+#ifdef BL2_HALT_AT_MAIN
+    /* Brick-investigation guard (see trusted-firmware-m platform ra6m4 / DESIGN.md 8.4).
+     * Spin at the very start of main, before BL2 does ANY work (no MCUboot, no flash,
+     * no platform init beyond FSP SystemInit which already ran in Reset_Handler). This
+     * lets a freshly programmed board be checked over J-Link for survival of flash +
+     * startup without executing the bootloader:
+     *   read FAWMON @0x407FE0DC  -> bit15 FSPR: 1 = alive, 0 = permanently bricked.
+     * If alive here  -> the brick is caused by what BL2 does AFTER main (MCUboot / flash).
+     * If dead here   -> the cause is flashing or startup, not BL2's boot logic.
+     * Enable with -DRA6M4_BL2_HALT_AT_MAIN=ON. Remove before any real boot/upstream. */
+    while (1) {
+        __asm volatile ("nop");
+    }
+#endif
     int err;
     fih_ret fih_rc = FIH_FAILURE;
     fih_ret recovery_succeeded = FIH_FAILURE;

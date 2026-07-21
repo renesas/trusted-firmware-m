@@ -168,6 +168,15 @@ if(BL2)
                 ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
         )
 
+        # DEBUG (brick investigation, DESIGN.md 8.4): spin at the very start of BL2
+        # main() before any bootloader work, so a freshly programmed board can be
+        # checked (read FAWMON/FSPR over J-Link) for survival of flash+startup without
+        # running MCUboot. Toggle: -DRA6M4_BL2_HALT_AT_MAIN=ON. Default OFF.
+        if(RA6M4_BL2_HALT_AT_MAIN)
+            message(WARNING "RA6M4_BL2_HALT_AT_MAIN=ON - BL2 will spin at main(); not a bootable image")
+            target_compile_definitions(bl2 PRIVATE BL2_HALT_AT_MAIN=1)
+        endif()
+
         # BL2 uses a platform-owned linker script = a copy of TF-M's tfm_common_bl2.ld
         # with the .ram_noinit fix (FCLK/SystemCoreClock, DESIGN.md 8.1). GNU ld INSERT
         # cannot augment a -T main script from a second -T fragment, so this is a
