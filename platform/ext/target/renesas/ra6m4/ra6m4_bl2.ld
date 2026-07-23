@@ -26,6 +26,30 @@ MEMORY
 {
     FLASH (rx)  : ORIGIN = BL2_CODE_START, LENGTH = BL2_CODE_SIZE
     RAM   (rwx) : ORIGIN = BL2_DATA_START, LENGTH = BL2_DATA_SIZE
+
+    /* RA6M4 option-setting (OFS) memory - ONE region PER WORD, exactly as FSP's
+     * generated fsp_gen.ld does it. This is safety-critical: a separate, exactly-
+     * sized MEMORY region per option word forces GNU ld to emit a SEPARATE PT_LOAD
+     * segment for each (4 or 12 bytes), with NO span across the gaps between them.
+     * A tool that flashes by program header then writes ONLY the configured words.
+     * The previous (bricking) layout placed these at absolute addresses in the
+     * default region, so ld coalesced them into one 0x184 segment spanning
+     * 0x0100A100-0x0100A284 and ZERO-FILLED the gaps - flashing that programmed
+     * PBPS(0x0100A1E0)=0 => permanent block protect => bricked two boards.
+     * See DESIGN.md 8.4. Addresses are the fixed RA6M4 config-area map. */
+    OPTION_SETTING_OFS0        (r) : ORIGIN = 0x0100A100, LENGTH = 0x04
+    OPTION_SETTING_DUALSEL     (r) : ORIGIN = 0x0100A110, LENGTH = 0x04
+    OPTION_SETTING_OFS1        (r) : ORIGIN = 0x0100A180, LENGTH = 0x04
+    OPTION_SETTING_BANKSEL     (r) : ORIGIN = 0x0100A190, LENGTH = 0x04
+    OPTION_SETTING_BPS         (r) : ORIGIN = 0x0100A1C0, LENGTH = 0x0C
+    OPTION_SETTING_PBPS        (r) : ORIGIN = 0x0100A1E0, LENGTH = 0x0C
+    OPTION_SETTING_OFS1_SEC    (r) : ORIGIN = 0x0100A200, LENGTH = 0x04
+    OPTION_SETTING_BANKSEL_SEC (r) : ORIGIN = 0x0100A210, LENGTH = 0x04
+    OPTION_SETTING_BPS_SEC     (r) : ORIGIN = 0x0100A240, LENGTH = 0x0C
+    OPTION_SETTING_PBPS_SEC    (r) : ORIGIN = 0x0100A260, LENGTH = 0x0C
+    OPTION_SETTING_OFS1_SEL    (r) : ORIGIN = 0x0100A280, LENGTH = 0x04
+    OPTION_SETTING_BANKSEL_SEL (r) : ORIGIN = 0x0100A290, LENGTH = 0x04
+    OPTION_SETTING_BPS_SEL     (r) : ORIGIN = 0x0100A2C0, LENGTH = 0x0C
 }
 
 __heap_size__  = BL2_HEAP_SIZE;
@@ -231,14 +255,26 @@ SECTIONS
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 
-    /* NO OFS / option-setting sections here - deliberately.
-     * The RA6M4 option/config memory (0x0100A100-0x0100A2CF) is programmed by the
-     * flash FCU as ONE Configuration-Set block covering OFS + Security-MPU + FAW
-     * (incl. the one-time FSPR permanence bit). A raw J-Link/Ozone flash of an image
-     * that contains a PARTIAL option region fills the rest of that block with zeros,
-     * which clears FSPR = 0 and PERMANENTLY BRICKS the part. This destroyed two
-     * EK-RA6M4 boards. Option memory must be programmed ONLY by an RA-aware tool
-     * (RFP) with a complete, FSPR-preserving config, verified by reading FAWMON
-     * back. It must NEVER appear in a BL2/secure/NS image flashed by a debugger.
-     * See DESIGN.md 8.4. Do not re-add .option_setting_* sections to any image. */
+    /* RA6M4 option-setting (OFS) - BL2 ONLY, placed EXACTLY as FSP's generated
+     * fsp_gen.ld does: each option word into its OWN, exactly-sized MEMORY region
+     * (declared above), so ld emits a SEPARATE PT_LOAD segment per word and NEVER
+     * spans/zero-fills the gaps. Only words actually emitted by bl2_option_setting.c
+     * (i.e. configured via BSP_CFG_OPTION_SETTING_* in RASC) produce a segment;
+     * unconfigured ones stay empty and emit nothing - matching FSP, where fsp_gen.ld
+     * only contains entries for configured OFS. DO NOT collapse these into one region
+     * or place them at absolute addresses in a shared region - that reintroduces the
+     * gap-filled span that bricked two boards (DESIGN.md 8.4). */
+    .option_setting_ofs0        : { KEEP(*(.option_setting_ofs0))        } > OPTION_SETTING_OFS0
+    .option_setting_dualsel     : { KEEP(*(.option_setting_dualsel))     } > OPTION_SETTING_DUALSEL
+    .option_setting_ofs1        : { KEEP(*(.option_setting_ofs1))        } > OPTION_SETTING_OFS1
+    .option_setting_banksel     : { KEEP(*(.option_setting_banksel))     } > OPTION_SETTING_BANKSEL
+    .option_setting_bps         : { KEEP(*(.option_setting_bps))         } > OPTION_SETTING_BPS
+    .option_setting_pbps        : { KEEP(*(.option_setting_pbps))        } > OPTION_SETTING_PBPS
+    .option_setting_ofs1_sec    : { KEEP(*(.option_setting_ofs1_sec))    } > OPTION_SETTING_OFS1_SEC
+    .option_setting_banksel_sec : { KEEP(*(.option_setting_banksel_sec)) } > OPTION_SETTING_BANKSEL_SEC
+    .option_setting_bps_sec     : { KEEP(*(.option_setting_bps_sec))     } > OPTION_SETTING_BPS_SEC
+    .option_setting_pbps_sec    : { KEEP(*(.option_setting_pbps_sec))    } > OPTION_SETTING_PBPS_SEC
+    .option_setting_ofs1_sel    : { KEEP(*(.option_setting_ofs1_sel))    } > OPTION_SETTING_OFS1_SEL
+    .option_setting_banksel_sel : { KEEP(*(.option_setting_banksel_sel)) } > OPTION_SETTING_BANKSEL_SEL
+    .option_setting_bps_sel     : { KEEP(*(.option_setting_bps_sel))     } > OPTION_SETTING_BPS_SEL
 }

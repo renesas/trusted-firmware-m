@@ -158,15 +158,35 @@ if(BL2)
         )
     else()
         # Use default TF-M BL2 with platform FSP BSP.
-        # NO OFS / option-setting source here - deliberately removed. Flashing an
-        # image that contains RA6M4 option-memory sections via J-Link/Ozone
-        # PERMANENTLY BRICKS the part (clears the FSPR permanence bit); it cost two
-        # boards. Option memory is programmed ONLY by RFP, never linked into an
-        # image. See DESIGN.md 8.4. Do NOT add bl2_option_setting.c back.
+        # bl2_option_setting.c emits the RA6M4 OFS words (.option_setting_*) that RASC
+        # configured (BSP_CFG_OPTION_SETTING_*), into the bl2 executable (not a lib, or
+        # the linker wouldn't pull it in). SAFETY: ra6m4_bl2.ld places each word in its
+        # OWN exactly-sized MEMORY region (like FSP's fsp_gen.ld) so each becomes a
+        # separate PT_LOAD segment - NO gap-filled span. The earlier all-in-one-region
+        # layout let ld coalesce them into a zero-filled segment that programmed
+        # PBPS=0 and bricked two boards. See DESIGN.md 8.4. Keep the per-region linker.
         target_sources(bl2
             PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/bl2_option_setting.c
         )
+
+        # OFS brick guard, run automatically on EVERY build: fail the build if the
+        # option-setting words landed in one gap-filled PT_LOAD segment (the layout
+        # that programmed PBPS=0 and bricked two boards). Discrete per-word segments
+        # pass. A custom target in ALL that depends on bl2 (bl2 is defined in another
+        # directory, so add_custom_command TARGET POST_BUILD can't be used here).
+        # See DESIGN.md 8.4 and check_ofs.py.
+        find_program(PYTHON_EXECUTABLE NAMES python3 python)
+        if(PYTHON_EXECUTABLE)
+            add_custom_target(bl2_ofs_guard ALL
+                COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
+                        ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_ofs.py $<TARGET_FILE:bl2>
+                COMMENT "OFS brick guard: checking bl2 for a spanning option-setting segment")
+            add_dependencies(bl2_ofs_guard bl2)
+        else()
+            message(WARNING "python not found - OFS brick guard (check_ofs.py) will NOT run on bl2 builds")
+        endif()
 
         # DEBUG (brick investigation, DESIGN.md 8.4): spin at the very start of BL2
         # main() before any bootloader work, so a freshly programmed board can be
