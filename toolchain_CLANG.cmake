@@ -146,6 +146,8 @@ macro(add_convert_to_bin_target target)
         COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${target}> ${bin_dir}/${target}.bin
         COMMAND ${CMAKE_OBJCOPY} -O elf32-littlearm $<TARGET_FILE:${target}> ${bin_dir}/${target}.elf
         COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${target}> ${bin_dir}/${target}.hex
+        # Always emit an S-record too (see fsp_cmake/DESIGN.md 8.4).
+        COMMAND ${CMAKE_OBJCOPY} -O srec --srec-forceS3 $<TARGET_FILE:${target}> ${bin_dir}/${target}.srec
     )
 endmacro()
 

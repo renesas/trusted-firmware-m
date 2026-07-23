@@ -300,11 +300,26 @@ macro(add_convert_to_bin_target target)
             ${bin_dir}/${target}.hex
     )
 
+    # Always emit an S-record next to the final ELF. --srec-forceS3 keeps 4-byte
+    # addresses so high-address records (e.g. the RA option-setting/config area at
+    # 0x0100A1xx) are captured - these SRECs are the primary artifact for diffing
+    # what an image actually programs (see fsp_cmake/DESIGN.md 8.4).
+    add_custom_target(${target}_srec
+        SOURCES ${bin_dir}/${target}.srec
+    )
+    add_custom_command(OUTPUT ${bin_dir}/${target}.srec
+        DEPENDS ${target}
+        COMMAND ${CMAKE_OBJCOPY}
+            -O srec --srec-forceS3 $<TARGET_FILE:${target}>
+            ${bin_dir}/${target}.srec
+    )
+
     add_custom_target(${target}_binaries
         ALL
         DEPENDS ${target}_bin
         DEPENDS ${target}_elf
         DEPENDS ${target}_hex
+        DEPENDS ${target}_srec
     )
 endmacro()
 
