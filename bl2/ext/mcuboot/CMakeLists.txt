@@ -212,6 +212,10 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_s_signed.bin $<TARGET_FILE_DIR:bl2>
     )
 
+    # NS image is only signed when the NS side is actually built (FSP_NS_APP_DIR / NS=ON).
+    # Without it (e.g. RA6E1 BL2-first bring-up) tfm_ns doesn't exist; skip NS signing.
+    set(SIGNED_IMAGES_DEPS tfm_s_signed_bin)
+    if(TARGET tfm_ns)
     set(IMAGE_TYPE "NS_IMAGE")
     set(FLASH_AREA_NUM ${MCUBOOT_NS_IMAGE_FLASH_AREA_NUM})
     configure_file(signing_layout.c.in signing_layout_ns.c @ONLY)
@@ -266,9 +270,12 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin $<TARGET_FILE_DIR:bl2>
     )
 
+    list(APPEND SIGNED_IMAGES_DEPS tfm_ns_signed_bin)
+    endif()
+
     add_custom_target(signed_images
         ALL
-        DEPENDS tfm_s_signed_bin tfm_ns_signed_bin
+        DEPENDS ${SIGNED_IMAGES_DEPS}
     )
 
 endif()

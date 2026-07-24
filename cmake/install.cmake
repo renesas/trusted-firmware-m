@@ -218,7 +218,9 @@ if(BL2 AND PLATFORM_DEFAULT_IMAGE_SIGNING)
     install(FILES $<TARGET_FILE_DIR:bl2>/image_s_signing_public_key.pem
             DESTINATION ${INSTALL_IMAGE_SIGNING_DIR}/keys)
 
-    if(MCUBOOT_IMAGE_NUMBER GREATER 1)
+    # signing_layout_ns only exists when the NS image is built (see bl2/ext/mcuboot).
+    # A BL2-first bring-up without NS has MCUBOOT_IMAGE_NUMBER>1 but no NS target.
+    if(MCUBOOT_IMAGE_NUMBER GREATER 1 AND TARGET signing_layout_ns)
         install(FILES $<TARGET_OBJECTS:signing_layout_ns>
                 DESTINATION ${INSTALL_IMAGE_SIGNING_DIR}/layout_files)
         install(FILES ${MCUBOOT_KEY_NS}
