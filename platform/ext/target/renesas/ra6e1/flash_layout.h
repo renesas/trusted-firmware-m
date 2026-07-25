@@ -126,14 +126,14 @@
 
 /* Use Driver_FLASH1 for data flash (OTP/ITS storage) */
 #define TFM_HAL_ITS_FLASH_DRIVER            Driver_FLASH1
-#define TFM_HAL_ITS_PROGRAM_UNIT            0x1
+#define TFM_HAL_ITS_PROGRAM_UNIT            0x4  /* data-flash min write = BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE */
 
 #define TFM_HAL_ITS_FLASH_AREA_ADDR         FLASH_ITS_AREA_OFFSET
 #define TFM_HAL_ITS_FLASH_AREA_SIZE         FLASH_ITS_AREA_SIZE
 #define TFM_HAL_ITS_SECTORS_PER_BLOCK       (0x800 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 32 sectors per block */
 
 #define TFM_HAL_PS_FLASH_DRIVER             Driver_FLASH1
-#define TFM_HAL_PS_PROGRAM_UNIT             0x1
+#define TFM_HAL_PS_PROGRAM_UNIT             0x4  /* data-flash min write = BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE */
 #define TFM_HAL_PS_FLASH_AREA_ADDR          FLASH_PS_AREA_OFFSET
 #define TFM_HAL_PS_FLASH_AREA_SIZE          FLASH_PS_AREA_SIZE
 #define TFM_HAL_PS_SECTORS_PER_BLOCK        (0xC00 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 48 sectors per block */
@@ -148,6 +148,10 @@
 #define TFM_OTP_NV_COUNTERS_SECTOR_SIZE     FLASH_DATA_FLASH_SECTOR_SIZE
 #define TFM_OTP_NV_COUNTERS_BACKUP_AREA_ADDR (TFM_OTP_NV_COUNTERS_AREA_ADDR + \
                                               TFM_OTP_NV_COUNTERS_AREA_SIZE)
-#define OTP_NV_COUNTERS_WRITE_BLOCK_SIZE    1  /* 1 byte write unit for data flash */
+/* Backend write-chunk size. Constraints (checked at compile time in the backend):
+ *   TFM_OTP_NV_COUNTERS_SECTOR_SIZE (64) % this == 0   AND   this % TFM_HAL_ITS_PROGRAM_UNIT (4) == 0
+ * The backend's default formula yields 128, which fails the 64-byte-sector check,
+ * so it must be overridden. 64 = one data-flash block, and a multiple of the 4B write unit. */
+#define OTP_NV_COUNTERS_WRITE_BLOCK_SIZE    64
 
 #endif /* __FLASH_LAYOUT_H__ */
