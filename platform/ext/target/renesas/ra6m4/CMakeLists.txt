@@ -158,14 +158,22 @@ if(BL2)
         )
     else()
         # Use default TF-M BL2 with platform FSP BSP.
-        # NO OFS / option-setting source here - deliberately removed. Flashing an
-        # image that contains RA6M4 option-memory sections via J-Link/Ozone
-        # PERMANENTLY BRICKS the part (clears the FSPR permanence bit); it cost two
-        # boards. Option memory is programmed ONLY by RFP, never linked into an
-        # image. See DESIGN.md 8.4. Do NOT add bl2_option_setting.c back.
+        # bl2_option_setting.c (OFS) is compiled straight into the bl2 executable,
+        # NOT a static lib: nothing references the OFS symbols, so from an archive
+        # the linker would never pull the object in (KEEP only helps once linked).
+        #
+        # SAFETY: this is only sound because ra6m4_bl2.ld gives each option-setting
+        # group its OWN MEMORY region, so ld emits one PT_LOAD per group and cannot
+        # zero-fill the FCU config bytes (incl. FSPR) in the gaps. Emitting these
+        # sections without per-group regions permanently bricks the part - it cost
+        # two EK-RA6M4 boards on 2026-07-21. If you touch the OFS placement, verify
+        # with `arm-none-eabi-readelf -l bin/bl2.axf` (13 small LOAD segments, never
+        # one 0x1CC-byte span); an srec diff will NOT show the fill. Rationale in
+        # region_defs.h, OPTION_SETTING_* block.
         target_sources(bl2
             PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m4.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/bl2_option_setting.c
         )
 
         # DEBUG (brick investigation, DESIGN.md 8.4): spin at the very start of BL2
@@ -178,11 +186,12 @@ if(BL2)
         endif()
 
         # BL2 uses a platform-owned linker script = a copy of TF-M's tfm_common_bl2.ld
-        # with the .ram_noinit fix (FCLK/SystemCoreClock, DESIGN.md 8.1). GNU ld INSERT
-        # cannot augment a -T main script from a second -T fragment, so this is a
-        # documented copy - keep in sync with TF-M on version bumps (the ONLY forked
+        # PLUS the .ram_noinit fix (FCLK/SystemCoreClock, DESIGN.md 8.1) and the RA6M4
+        # OFS option-setting regions (BL2-only; see bl2_option_setting.c). GNU ld
+        # INSERT cannot augment a -T main script from a second -T fragment, so this is
+        # a documented copy - keep in sync with TF-M on version bumps (the ONLY forked
         # linker; the secure/NS side stays on TF-M's generated linker via region_defs.h
-        # macros). NO image (BL2/secure/NS) carries OFS.
+        # macros). Secure/NS images are MCUboot-signed/contiguous and carry NO OFS.
         target_add_scatter_file(bl2
             $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
             $<$<C_COMPILER_ID:GNU>:${CMAKE_CURRENT_SOURCE_DIR}/ra6m4_bl2.ld>

@@ -147,6 +147,59 @@
 #define BL2_DATA_SIZE                   TOTAL_RAM_SIZE
 #define BL2_DATA_LIMIT                  (BL2_DATA_START + BL2_DATA_SIZE - 1)
 
+/* RA6M4 option-setting memory (OFS) - DISCRETE regions, one per register group.
+ *
+ * ⚠ These MUST stay thirteen separate regions, and each .option_setting_* output
+ * section in ra6m4_bl2.ld MUST be assigned to its own region with '> REGION'.
+ * They are NOT a contiguous block and must never be described as one.
+ *
+ * The option-setting map is sparse: the thirteen groups below hold 92 bytes of
+ * real data spread across a 460-byte span (0x0100A100..0x0100A2CC). The 368
+ * bytes in between are OTHER FCU configuration - including the Flash Access
+ * Window / FSPR permanence word - and are NOT ours to write.
+ *
+ * If these sections are emitted with plain addressed section statements and no
+ * '> REGION' assignment, GNU ld coalesces them into ONE PT_LOAD segment spanning
+ * the whole 460 bytes and zero-fills the gaps. A debugger (J-Link/Ozone) loading
+ * the ELF writes that entire span, clearing FSPR -> the part is PERMANENTLY
+ * bricked. This destroyed two EK-RA6M4 boards on 2026-07-21. Note the fill lives
+ * in the program header, not in any section, so `objcopy -O srec` does NOT show
+ * it - an srec diff will not catch a regression here. Verify with:
+ *     arm-none-eabi-readelf -l bin/bl2.axf   # expect 13 separate LOAD segments,
+ *                                            # FileSiz 4 or 12, no 0x1CC span
+ *
+ * Values are the RA6M4 option-setting map, identical to the RASC-generated
+ * memory_regions.ld (FSP_Project_ra6m4_bl2/memory_regions.ld:14-39). A port to
+ * another RA device (e.g. RA6E1) must re-derive this list from that device's
+ * generated memory_regions.ld - the groups present and their addresses vary.
+ */
+#define OPTION_SETTING_OFS0_START           0x0100A100
+#define OPTION_SETTING_OFS0_LENGTH          0x4
+#define OPTION_SETTING_DUALSEL_START        0x0100A110
+#define OPTION_SETTING_DUALSEL_LENGTH       0x4
+#define OPTION_SETTING_OFS1_START           0x0100A180
+#define OPTION_SETTING_OFS1_LENGTH          0x4
+#define OPTION_SETTING_BANKSEL_START        0x0100A190
+#define OPTION_SETTING_BANKSEL_LENGTH       0x4
+#define OPTION_SETTING_BPS_START            0x0100A1C0
+#define OPTION_SETTING_BPS_LENGTH           0xC
+#define OPTION_SETTING_PBPS_START           0x0100A1E0
+#define OPTION_SETTING_PBPS_LENGTH          0xC
+#define OPTION_SETTING_OFS1_SEC_START       0x0100A200
+#define OPTION_SETTING_OFS1_SEC_LENGTH      0x4
+#define OPTION_SETTING_BANKSEL_SEC_START    0x0100A210
+#define OPTION_SETTING_BANKSEL_SEC_LENGTH   0x4
+#define OPTION_SETTING_BPS_SEC_START        0x0100A240
+#define OPTION_SETTING_BPS_SEC_LENGTH       0xC
+#define OPTION_SETTING_PBPS_SEC_START       0x0100A260
+#define OPTION_SETTING_PBPS_SEC_LENGTH      0xC
+#define OPTION_SETTING_OFS1_SEL_START       0x0100A280
+#define OPTION_SETTING_OFS1_SEL_LENGTH      0x4
+#define OPTION_SETTING_BANKSEL_SEL_START    0x0100A290
+#define OPTION_SETTING_BANKSEL_SEL_LENGTH   0x4
+#define OPTION_SETTING_BPS_SEL_START        0x0100A2C0
+#define OPTION_SETTING_BPS_SEL_LENGTH       0xC
+
 /* MPU region alignment requirements for ARMv8-M */
 #define MPU_REGION_ALIGNMENT            0x20        /* 32 bytes minimum */
 
