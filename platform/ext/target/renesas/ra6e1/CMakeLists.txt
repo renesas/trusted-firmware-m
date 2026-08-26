@@ -60,9 +60,16 @@ function(fsp_validate_project dir role)
 endfunction()
 
 # Glob the FSP sources of a generated project.
+#
+# NON-SECURE ONLY. The S and BL2 images are built from the per-module libraries declared
+# in the registry below; this whole-tree glob remains because the NS image is a different
+# animal - a complete FSP application that keeps FSP's own main, startup.c, bsp_linker.c
+# and linker script, and links no TF-M platform library. Do not reach for this when adding
+# a driver to the secure image or BL2; add a module instead.
+#
 #   out_var : list of .c files
 #   dir     : project root
-#   role    : BL2 | S | NS  - controls what TF-M supplies itself and must exclude
+#   role    : NS (the S and BL2 branches are kept only so the exclusions stay documented)
 function(fsp_collect_sources out_var dir role)
     file(GLOB_RECURSE _src
         "${dir}/ra/fsp/src/bsp/*.c"
@@ -150,28 +157,83 @@ function(fsp_collect_includes out_var dir)
     set(${out_var} "${_inc}" PARENT_SCOPE)
 endfunction()
 
-# Include paths for the modules whose SOURCES fsp_collect_sources drops. The generated
-# ra_gen/common_data.h and hal_data.h include those modules' headers unconditionally, so
-# the paths are still needed to parse them - but nothing links against them.
-#
-# Keep these PRIVATE on the platform target. FSP ships its own mbedTLS, and its
-# psa/crypto.h would shadow TF-M's mbedcrypto for every consumer if it propagated.
-function(fsp_collect_excluded_includes out_var dir)
-    set(${out_var}
-        "${dir}/ra/fsp/src/rm_psa_crypto/inc"
-        "${dir}/ra/arm/mbedtls/include"
-        PARENT_SCOPE)
-endfunction()
-
 # FSP is built with warnings TF-M does not use; keep them off the TF-M targets.
 set(FSP_COMPILE_OPTIONS -Wno-conversion -Wno-sign-conversion -Wno-unused-parameter)
 set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 
 #-------------------------------------------------------------------------------
+# FSP module registry
+#
+# The S and BL2 images are built from per-module libraries, not from one glob of the
+# project tree. A module is OPT-IN: it enters the build only by appearing below and having
+# a cmake/modules/fsp_<name>.cmake. That is the point - the e2 projects enable modules the
+# STANDALONE bootloader needs (SCE, PSA crypto, the MCUboot port) that must not be dragged
+# into a signed TF-M image just because they are present.
+#
+# The NS image is not built this way: it is a whole FSP application, keeps FSP's own
+# startup and linker script, and is still collected by fsp_collect_sources() below.
+#-------------------------------------------------------------------------------
+set(FSP_MODULES_S    bsp flash sce)   # sce: SCE9 TRNG backs the PSA external RNG
+set(FSP_MODULES_BL2  bsp flash)       # BL2 needs no randomness - see fsp_sce.cmake
+
+# Which ra/fsp/src/<dir> each module accounts for, so an unclaimed module in the project
+# can be reported rather than silently dropped.
+set(FSP_MODULE_DIRS_bsp    bsp r_ioport)
+set(FSP_MODULE_DIRS_flash  r_flash_hp)
+set(FSP_MODULE_DIRS_sce    r_sce)
+
+# Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
+# HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
+# them unconditionally.
+#   r_sce, rm_psa_crypto, ra/arm/mbedtls - FSP's SCE9 cipher stack and its mbedTLS.
+#       TF-M uses its own mbedcrypto; FSP's config wires PSA ITS to littlefs and fights
+#       TFM_PARTITION_INTERNAL_TRUSTED_STORAGE (DESIGN.md 6). Only the TRNG is taken, via
+#       the sce module.
+#   rm_mcuboot_port - FSP's flash_map/MCUboot glue, carrying FSP's own FLASH_AREA_*_ID and
+#       single-image assumptions out of bsp_linker_info.h. Conflicts with TF-M's dual-image
+#       flash_map; grafting it is what failed on ra6m4 (DESIGN.md 4, 5).
+set(FSP_MODULES_NEVER_BUILT r_sce rm_psa_crypto rm_mcuboot_port)
+
+# Declare this role's module libraries. Returns their target names in out_targets.
+function(fsp_add_modules role dir includes out_targets)
+    string(TOUPPER "${role}" _role_uc)
+    set(_modules ${FSP_MODULES_${_role_uc}})
+
+    set(FSP_MODULE_ROLE     "${role}")
+    set(FSP_MODULE_BASE_DIR "${dir}")
+    set(FSP_MODULE_INCLUDES "${includes}")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_module_common.cmake)
+
+    set(_targets "")
+    set(_claimed "")
+    foreach(m ${_modules})
+        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_${m}.cmake)
+        list(APPEND _targets "fsp_${m}_${role}")
+        list(APPEND _claimed ${FSP_MODULE_DIRS_${m}})
+    endforeach()
+
+    # Anything in the project that no module accounts for is NOT in the image. Say so -
+    # a silently missing driver surfaces much later as a confusing link error.
+    file(GLOB _present RELATIVE "${dir}/ra/fsp/src" "${dir}/ra/fsp/src/*")
+    foreach(d ${_present})
+        if(IS_DIRECTORY "${dir}/ra/fsp/src/${d}")
+            if((NOT d IN_LIST _claimed) AND (NOT d IN_LIST FSP_MODULES_NEVER_BUILT))
+                message(WARNING
+                    "RA6E1 [${role}]: FSP module '${d}' is in the project but no module "
+                    "declares it, so it is NOT in the image. Add a "
+                    "cmake/modules/fsp_<name>.cmake and list it in FSP_MODULES_${_role_uc} "
+                    "- see TFM_INTEGRATION_COMPLETE.md, \"Adding New FSP Modules\".")
+            endif()
+        endif()
+    endforeach()
+
+    set(${out_targets} "${_targets}" PARENT_SCOPE)
+endfunction()
+
+#-------------------------------------------------------------------------------
 # Secure side
 #-------------------------------------------------------------------------------
 fsp_validate_project("${FSP_S_APP_DIR}" "secure")
-fsp_collect_sources(FSP_S_SOURCES "${FSP_S_APP_DIR}" "S")
 fsp_collect_includes(FSP_S_INCLUDES "${FSP_S_APP_DIR}")
 
 #-------------------------------------------------------------------------------
@@ -231,22 +293,9 @@ target_include_directories(platform_region_defs
         "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-#-------------------------------------------------------------------------------
-# FSP modules built as their own libraries
-#
-# r_sce is taken this way rather than through the glob above: it stays in
-# FSP_EXCLUDED_MODULES so it enters the build exactly once, as a module with its own
-# include paths and flags. This is the structure fsp_cmake/TFM_INTEGRATION_COMPLETE.md
-# "Adding New FSP Modules" describes; new drivers should follow it rather than being
-# added to the glob.
-#-------------------------------------------------------------------------------
-set(FSP_MODULE_BASE_DIR "${FSP_S_APP_DIR}")
-set(FSP_MODULE_INCLUDES "${FSP_S_INCLUDES}")
-set(FSP_MODULE_SOURCES  "${FSP_S_SOURCES}")
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_bsp.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_sce.cmake)
-
-target_link_libraries(platform_s PUBLIC fsp_bsp fsp_sce)
+# FSP module libraries for the secure image.
+fsp_add_modules(s "${FSP_S_APP_DIR}" "${FSP_S_INCLUDES}" FSP_S_MODULES)
+target_link_libraries(platform_s PUBLIC ${FSP_S_MODULES})
 
 target_sources(platform_s PRIVATE
     # PSA external RNG over the SCE9 TRNG - the entropy source for the whole secure image
@@ -310,17 +359,19 @@ endif()
 #-------------------------------------------------------------------------------
 if(BL2)
     fsp_validate_project("${FSP_BL2_APP_DIR}" "bootloader")
-    fsp_collect_sources(FSP_BL2_SOURCES "${FSP_BL2_APP_DIR}" "BL2")
     fsp_collect_includes(FSP_BL2_INCLUDES "${FSP_BL2_APP_DIR}")
 
-    # bsp_init_stub.c is needed here, not just on the secure side: BL2 excludes FSP's
-    # bsp_linker.c (it emits option memory), and that is what defines g_init_info and
-    # g_main_stack for FSP's system.c. The stub supplies weak versions.
+    # FSP module libraries for the bootloader. Its e2 project also contains r_sce,
+    # rm_psa_crypto and rm_mcuboot_port for the standalone build; none of them are
+    # declared here, so none reach the image.
+    fsp_add_modules(bl2 "${FSP_BL2_APP_DIR}" "${FSP_BL2_INCLUDES}" FSP_BL2_MODULES)
+    target_link_libraries(platform_bl2 PUBLIC ${FSP_BL2_MODULES})
+
+    # bsp_init_stub.c is NOT here - it lives in the fsp_bsp_bl2 module, beside the FSP
+    # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
     target_sources(platform_bl2 PRIVATE
-        ${FSP_BL2_SOURCES}
         ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
         ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/bsp_init_stub.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
     )
     target_include_directories(platform_bl2 PUBLIC
@@ -328,8 +379,6 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
         ${FSP_BL2_INCLUDES}
     )
-    fsp_collect_excluded_includes(FSP_BL2_EXCL_INCLUDES "${FSP_BL2_APP_DIR}")
-    target_include_directories(platform_bl2 PRIVATE ${FSP_BL2_EXCL_INCLUDES})
     target_compile_definitions(platform_bl2 PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
     target_compile_options(platform_bl2 PRIVATE ${FSP_COMPILE_OPTIONS})
     target_compile_options(platform_bl2 PUBLIC ${COMPILER_CMSE_FLAG})

@@ -4,58 +4,38 @@
 # later project - it needs FSP's mbedTLS and rm_psa_crypto, whose generated config pulls
 # bsp_api.h and wires PSA ITS to littlefs, which collides with TF-M's ITS. See DESIGN.md 6.
 #
+# Secure image only. BL2 verifies signatures but never needs randomness - it builds with
+# MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider - so the bootloader role does
+# not declare this module even though its e2 project contains r_sce.
+#
 # Adding a module: fsp_cmake/TFM_INTEGRATION_COMPLETE.md, "Adding New FSP Modules".
 
-if(NOT DEFINED FSP_MODULE_BASE_DIR)
-    message(FATAL_ERROR "fsp_sce: FSP_MODULE_BASE_DIR not defined. Set it to the generated "
-                        "FSP project root before including this module.")
-endif()
-if(NOT DEFINED FSP_MODULE_INCLUDES)
-    message(FATAL_ERROR "fsp_sce: FSP_MODULE_INCLUDES not defined. It carries the BSP include "
-                        "paths every FSP module needs.")
-endif()
+fsp_module_library(FSP_SCE_TARGET sce)
 
-set(FSP_SCE_DIR "${FSP_MODULE_BASE_DIR}/ra/fsp/src/r_sce")
-if(NOT EXISTS "${FSP_SCE_DIR}")
+set(_sce_dir "${FSP_MODULE_BASE_DIR}/ra/fsp/src/r_sce")
+if(NOT EXISTS "${_sce_dir}")
     message(FATAL_ERROR
         "RA6E1: the SCE module is not in ${FSP_MODULE_BASE_DIR}.\n"
         "TF-M takes its entropy from the SCE9 TRNG, so this module is required. Add the "
         "Crypto (rm_psa_crypto) stack in e2 studio - it pulls r_sce in - regenerate, and "
-        "rebuild the project once.")
+        "build the project once.")
 endif()
 
-# Guard: the S and BL2 sides may both include this file in one configure.
-if(NOT TARGET fsp_sce)
-    add_library(fsp_sce STATIC)
-endif()
+# ~180 generated primitive files. Only the TRNG path is reachable from
+# mbedtls_psa_external_get_random(); -ffunction-sections + --gc-sections drop the rest at
+# link, which measured at about 8 KB of secure image for the whole module.
+fsp_module_glob(_src "ra/fsp/src/r_sce")
+target_sources(${FSP_SCE_TARGET} PRIVATE ${_src})
 
-# Globbed WITHIN the module, which is the granularity the module convention allows. r_sce
-# is ~180 generated primitive files whose individual names are an FSP implementation
-# detail; naming them here would drift on every FSP bump. Only the TRNG path is reachable,
-# and -ffunction-sections + --gc-sections drops the rest at link.
-file(GLOB_RECURSE FSP_SCE_SOURCES "${FSP_SCE_DIR}/*.c")
-if(NOT FSP_SCE_SOURCES)
-    message(FATAL_ERROR "RA6E1: no sources under ${FSP_SCE_DIR} - is the project generated?")
-endif()
-target_sources(fsp_sce PRIVATE ${FSP_SCE_SOURCES})
-
-# SCE keeps its private headers beside the sources rather than in ra/fsp/inc, so these are
-# not covered by the BSP include paths.
-target_include_directories(fsp_sce
+# SCE keeps its private headers beside the sources rather than in ra/fsp/inc.
+# fsp_bsp.cmake mirrors this list for the generated ra_gen files - keep them in step.
+target_include_directories(${FSP_SCE_TARGET}
     PUBLIC
-        ${FSP_MODULE_INCLUDES}
-        "${FSP_SCE_DIR}"
-        "${FSP_SCE_DIR}/common"
-        "${FSP_SCE_DIR}/crypto_procedures/src/sce9/plainkey/private/inc"
-        "${FSP_SCE_DIR}/crypto_procedures/src/sce9/plainkey/public/inc"
-        "${FSP_SCE_DIR}/crypto_procedures/src/sce9/plainkey/primitive"
+        "${_sce_dir}"
+        "${_sce_dir}/common"
+        "${_sce_dir}/crypto_procedures/src/sce9/plainkey/private/inc"
+        "${_sce_dir}/crypto_procedures/src/sce9/plainkey/public/inc"
+        "${_sce_dir}/crypto_procedures/src/sce9/plainkey/primitive"
 )
 
-target_compile_definitions(fsp_sce PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
-
-# -mcmse: this library is linked into the secure image.
-target_compile_options(fsp_sce
-    PRIVATE
-        ${COMPILER_CMSE_FLAG}
-        ${FSP_COMPILE_OPTIONS}
-)
+target_link_libraries(${FSP_SCE_TARGET} PUBLIC fsp_bsp_${FSP_MODULE_ROLE})
