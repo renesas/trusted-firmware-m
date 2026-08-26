@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------------
+﻿#-------------------------------------------------------------------------------
 # Copyright (c) 2026 Renesas Electronics Corporation. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -161,6 +161,32 @@ endfunction()
 set(FSP_COMPILE_OPTIONS -Wno-conversion -Wno-sign-conversion -Wno-unused-parameter)
 set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 
+# Marks these images as the secure-side build for FSP.
+#
+# ⚠ OFS1_SEL depends on this, and the value is currently WRONG - see below. Generated
+# bsp_mcu_ofs_cfg.h:
+#
+#   #ifndef BSP_CFG_OPTION_SETTING_OFS1_SEL
+#   #if defined(_RA_TZ_SECURE) || defined(_RA_TZ_NONSECURE)
+#     #define BSP_CFG_OPTION_SETTING_OFS1_SEL \
+#         (0xFFFFF8F8 | ... | ((BSP_CFG_CLOCKS_SECURE == 0) ? 0xF00 : 0U))
+#   #else
+#     #define BSP_CFG_OPTION_SETTING_OFS1_SEL (0xFFFFF8F8)
+#   #endif
+#   #endif
+#
+# The e2 bootloader is a FLAT project - it defines neither _RA_TZ_ macro - so it takes the
+# #else branch and emits 0xFFFFF8F8 regardless. Defining _RA_TZ_SECURE here takes the
+# TrustZone branch instead, which consults BSP_CFG_CLOCKS_SECURE. That is set to (0) by the
+# generated ra_gen/bsp_clock_cfg.h, so 0xF00 is ORed in and BL2 emits 0xFFFFFFF8, marking
+# the clock-related OFS1 fields NON-SECURE. On a part with the TZ boundaries programmed
+# that attribution mismatch can lock out the debug interface (DESIGN.md 8.4).
+#
+# Do NOT try to fix this with -DBSP_CFG_CLOCKS_SECURE=1: bsp_clock_cfg.h defines it
+# unguarded, so the header wins and you get only a redefinition warning. It is a RASC
+# clock-configuration setting and has to change in the e2 projects.
+set(FSP_SECURE_COMPILE_DEFS _RA_TZ_SECURE=1)
+
 #-------------------------------------------------------------------------------
 # FSP module registry
 #
@@ -322,7 +348,7 @@ target_include_directories(platform_s PUBLIC
 target_include_directories(platform_s PRIVATE
     ${CMAKE_SOURCE_DIR}/secure_fw/partitions/lib/runtime/include
 )
-target_compile_definitions(platform_s PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
+target_compile_definitions(platform_s PUBLIC ${FSP_COMPILE_DEFS} ${FSP_SECURE_COMPILE_DEFS})
 target_compile_options(platform_s PRIVATE ${FSP_COMPILE_OPTIONS})
 
 # -mcmse, PUBLIC. It must reach every target that links platform_s, not just the FSP
@@ -379,7 +405,7 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
         ${FSP_BL2_INCLUDES}
     )
-    target_compile_definitions(platform_bl2 PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
+    target_compile_definitions(platform_bl2 PUBLIC ${FSP_COMPILE_DEFS} ${FSP_SECURE_COMPILE_DEFS})
     target_compile_options(platform_bl2 PRIVATE ${FSP_COMPILE_OPTIONS})
     target_compile_options(platform_bl2 PUBLIC ${COMPILER_CMSE_FLAG})
 

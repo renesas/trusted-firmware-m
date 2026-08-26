@@ -1,4 +1,4 @@
-# Shared scaffolding for the FSP module libraries.
+﻿# Shared scaffolding for the FSP module libraries.
 #
 # Modules are per ROLE. The secure image and the bootloader are generated from DIFFERENT
 # e2 projects (ra6e1_secure, ra6e1_mcuboot) and CMake target names are global, so each
@@ -35,7 +35,7 @@ macro(fsp_module_library _out _base)
 
     # PUBLIC: consumers compile FSP headers too (Driver_Flash.c, target_cfg.c).
     target_include_directories(${${_out}} PUBLIC ${FSP_MODULE_INCLUDES})
-    target_compile_definitions(${${_out}} PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
+    target_compile_definitions(${${_out}} PUBLIC ${FSP_COMPILE_DEFS} ${FSP_SECURE_COMPILE_DEFS})
 
     # -mcmse: every module here is linked into a secure-side image (S or BL2).
     target_compile_options(${${_out}}
