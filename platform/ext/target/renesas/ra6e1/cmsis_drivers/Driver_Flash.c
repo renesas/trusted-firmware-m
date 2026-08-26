@@ -40,10 +40,28 @@ static const ARM_DRIVER_VERSION DriverVersion = {
     ARM_FLASH_DRV_VERSION
 };
 
-/* Driver capabilities */
+/* Driver capabilities.
+ *
+ * data_width MUST stay 0 (8-bit). In CMSIS the `cnt` argument of ReadData/ProgramData is a
+ * count of DATA ITEMS of data_width bytes, not a byte count, and every TF-M consumer divides
+ * a byte length by data_width before calling - bl2/src/flash_map.c, its_flash_nor.c,
+ * its_flash_nand.c and flash_otp_nv_counters_backend.c all do. The functions below are
+ * implemented in BYTES throughout (memcpy(.., cnt), R_FLASH_HP_Write(.., cnt), and the
+ * addr + cnt range checks), so 8-bit items make items == bytes and the two agree.
+ *
+ * This was 2 (32-bit), which made every transfer move a quarter of the requested data. It
+ * showed up as init_otp_nv_counters_flash() failing on every boot: it reads the 4-byte
+ * init_value, the backend asked for 4/4 = 1 item, the driver copied 1 byte, and the
+ * remaining three bytes were uninitialised stack - so the area never looked initialised and
+ * the repair path then wrote at quarter size too.
+ *
+ * Honest as well as convenient: RA flash is memory-mapped and byte-readable. Write
+ * granularity is a separate concern and is carried by the *_PROGRAM_UNIT macros in
+ * flash_layout.h (4 for data flash, 128 for code flash), not by data_width.
+ */
 static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0, /* event_ready */
-    2, /* data_width = 0:8-bit, 1:16-bit, 2:32-bit */
+    0, /* data_width = 0:8-bit, 1:16-bit, 2:32-bit - see above, must be 0 */
     1, /* erase_chip */
     0  /* reserved */
 };
