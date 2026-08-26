@@ -6,10 +6,19 @@
 #
 # RA6E1 platform configuration.
 #
-# These values MUST match the e2 solution's MCUboot module configuration - the
-# bootloader that validates the images is generated from it, not from here. Current
-# solution settings (ra6e1_mcuboot/configuration.xml):
-#     signature      ECDSA P-256
+# MCUboot settings. TF-M builds its OWN BL2 from its own vendored MCUboot (bl2/ext/mcuboot)
+# and signs with its own keys - the e2 ra6e1_mcuboot project contributes only FSP driver
+# modules (FSP_MODULES_BL2 = bsp flash) and never its MCUboot. So these values, not the e2
+# ones, decide what TF-M's bootloader verifies. The two bootloaders are separate binaries
+# with different keys; images signed for one will not boot under the other.
+#
+# What DOES have to agree is anything the shared flash layout implies: the image count and
+# the upgrade mode, because the solution partitioned the slots for them (two images, no
+# scratch region). The header/trailer sizes are read straight from the solution below.
+#
+# ra6e1_mcuboot's own settings, for the standalone bootloader (2026-08-26):
+#     signature      ECDSA P-256    - was "None" until 2026-08-26, so the standalone
+#                                     bootloader had only ever hash-checked images
 #     upgrade_mode   overwrite-only  (hence no scratch area)
 #     validate_primary  enabled      - re-verifies the secure image every boot
 #     MCUBOOT_IMAGE_NUMBER 2         - dual image
