@@ -186,6 +186,11 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         SOURCES tfm_s_signed.bin
     )
     add_custom_command(OUTPUT tfm_s_signed.bin
+        # The FILE, not just the target. A target named in DEPENDS becomes an order-only
+        # edge in the generated build - "build this first", not "re-run me when it changes"
+        # - so the signed image was produced once and never regenerated. Every incremental
+        # build then shipped a signed image of an earlier tfm_s.bin.
+        DEPENDS $<TARGET_FILE_DIR:tfm_s>/tfm_s.bin
         DEPENDS tfm_s_bin signing_layout_s
         DEPENDS $<IF:$<BOOL:${MCUBOOT_GENERATE_SIGNING_KEYPAIR}>,generated_private_key,>
         WORKING_DIRECTORY ${MCUBOOT_PATH}/scripts
@@ -240,6 +245,8 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         SOURCES tfm_ns_signed.bin
     )
     add_custom_command(OUTPUT tfm_ns_signed.bin
+        # File-level dependency - see the note on tfm_s_signed.bin above.
+        DEPENDS $<TARGET_FILE_DIR:tfm_ns>/tfm_ns.bin
         DEPENDS tfm_ns signing_layout_ns
         DEPENDS $<IF:$<BOOL:${MCUBOOT_GENERATE_SIGNING_KEYPAIR}>,generated_private_key,>
         WORKING_DIRECTORY ${MCUBOOT_PATH}/scripts
