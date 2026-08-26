@@ -7,6 +7,10 @@
  * TF-M handles its own startup, so we provide minimal stubs here
  */
 
+/* stdint.h first: bsp_linker_info.h declares uint32_t-typed tables and does not include
+ * it itself. This file used to rely on platform_s pulling stdint in through some other
+ * path; it is compiled into fsp_bsp now, so make it self-sufficient. */
+#include <stdint.h>
 #include "bsp_linker_info.h"
 
 /* Empty initialization tables - TF-M handles startup */

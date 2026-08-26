@@ -10,10 +10,17 @@
 
 #include "Driver_Flash.h"
 #include "flash_layout.h"
-#include "hal_data.h"
 #include "r_flash_hp.h"
 #include "bsp_feature.h"
 #include <string.h>
+
+/* The two generated instance objects this driver drives, declared directly rather than by
+ * including ra_gen/hal_data.h. That header pulls ra_gen/common_data.h, which - once the
+ * Crypto stack is present in the e2 project - includes FSP's own psa/crypto.h and would
+ * shadow TF-M's for every file in platform_s. Their types come from r_flash_hp.h above.
+ * The definitions live in ra_gen/hal_data.c, built as part of the fsp_bsp module. */
+extern flash_hp_instance_ctrl_t g_flash0_ctrl;
+extern const flash_cfg_t        g_flash0_cfg;
 
 #ifndef ARG_UNUSED
 #define ARG_UNUSED(arg)  (void)(arg)

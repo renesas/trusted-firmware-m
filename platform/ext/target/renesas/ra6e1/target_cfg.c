@@ -11,7 +11,9 @@
 #include "tfm_plat_defs.h"
 #include "cmsis.h"
 #include "bsp_api.h"
-#include "hal_data.h"
+/* Deliberately NOT hal_data.h: nothing here uses it, and once the Crypto stack is in the
+ * e2 project the generated ra_gen/common_data.h it pulls in includes FSP's own
+ * psa/crypto.h, which would shadow TF-M's for everything in platform_s. */
 
 /* To write into AIRCR register, 0x5FA value must be write to the VECTKEY field,
  * otherwise the processor ignores the write.

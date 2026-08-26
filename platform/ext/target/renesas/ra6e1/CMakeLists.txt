@@ -231,14 +231,33 @@ target_include_directories(platform_region_defs
         "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
+#-------------------------------------------------------------------------------
+# FSP modules built as their own libraries
+#
+# r_sce is taken this way rather than through the glob above: it stays in
+# FSP_EXCLUDED_MODULES so it enters the build exactly once, as a module with its own
+# include paths and flags. This is the structure fsp_cmake/TFM_INTEGRATION_COMPLETE.md
+# "Adding New FSP Modules" describes; new drivers should follow it rather than being
+# added to the glob.
+#-------------------------------------------------------------------------------
+set(FSP_MODULE_BASE_DIR "${FSP_S_APP_DIR}")
+set(FSP_MODULE_INCLUDES "${FSP_S_INCLUDES}")
+set(FSP_MODULE_SOURCES  "${FSP_S_SOURCES}")
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_bsp.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_sce.cmake)
+
+target_link_libraries(platform_s PUBLIC fsp_bsp fsp_sce)
+
 target_sources(platform_s PRIVATE
-    ${FSP_S_SOURCES}
+    # PSA external RNG over the SCE9 TRNG - the entropy source for the whole secure image
+    ${CMAKE_CURRENT_SOURCE_DIR}/sce_trng.c
     ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tfm_peripherals_def.c
     ${CMAKE_CURRENT_SOURCE_DIR}/attest_hal.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bsp_init_stub.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
+    # bsp_init_stub.c is NOT here - it lives in the fsp_bsp module, beside the FSP
+    # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
     # Common ARMv8-M isolation HAL: tfm_hal_set_up_static_boundaries,
     # tfm_hal_bind_boundary, tfm_hal_memory_check. Nothing else provides them, and the
     # port has no reason to fork it - attribution here is IDAU/SAU, which this handles.

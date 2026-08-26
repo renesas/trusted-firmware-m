@@ -14,8 +14,9 @@
 #     validate_primary  enabled      - re-verifies the secure image every boot
 #     MCUBOOT_IMAGE_NUMBER 2         - dual image
 #
-# NOTE: RA6E1 has NO crypto accelerator (unlike RA6M4's SCE9), so software crypto is
-# not a temporary stage here - it is the only option.
+# NOTE: RA6E1 DOES have SCE9 (bsp_feature.h: BSP_FEATURE_RSIP_SCE9_SUPPORTED == 1), same
+# as RA6M4. Ciphers still run in software here - only the TRNG is taken from hardware, see
+# the crypto block below - so hardware acceleration remains a deliberate later project.
 #-------------------------------------------------------------------------------
 
 set(BL2                                 ON          CACHE BOOL      "Build BL2")
@@ -29,9 +30,19 @@ set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
 set(MCUBOOT_MEASURED_BOOT               OFF         CACHE BOOL      "Disabled in the solution")
 set(MCUBOOT_DATA_SHARING                OFF         CACHE BOOL      "Disabled in the solution")
 
-# No hardware crypto on RA6E1 - software mbedcrypto only.
-set(CRYPTO_HW_ACCELERATOR               OFF         CACHE BOOL      "No SCE on RA6E1")
+# Ciphers in software (TF-M's own mbedcrypto). CRYPTO_HW_ACCELERATOR stays OFF: turning it
+# on means FSP's mbedTLS + rm_psa_crypto *_ALT stack, which is a separate project.
+set(CRYPTO_HW_ACCELERATOR               OFF         CACHE BOOL      "SCE ciphers not wired yet")
 set(TFM_CRYPTO_TEST_ALG_CFB             OFF         CACHE BOOL      "")
+
+# Entropy from the SCE9 TRNG via PSA's external-RNG hook (sce_trng.c), NOT from a stored
+# NV seed. The NV-seed path seeds from PLAT_OTP_ID_ENTROPY_SEED, whose default provisioning
+# value is a hard-coded constant shared by every device - unusable for attestation or PS.
+# CRYPTO_EXT_RNG / CRYPTO_NV_SEED are set in config_tfm_target.h; these are the CMake half.
+set(PLATFORM_DEFAULT_NV_SEED            OFF         CACHE BOOL      "SCE9 TRNG instead")
+set(TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH
+    ${CMAKE_CURRENT_LIST_DIR}/mbedtls_extra_config.h CACHE PATH
+    "Appended to TF-M's mbedcrypto config; enables MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG")
 
 set(TFM_ISOLATION_LEVEL                 1           CACHE STRING    "Isolation level")
 set(CONFIG_TFM_SPM_BACKEND              "SFN"       CACHE STRING    "SFN - no IPC overhead")
