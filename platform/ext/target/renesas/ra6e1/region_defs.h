@@ -25,9 +25,29 @@
 #define NS_ROM_ALIAS_BASE               (BSP_PARTITION___BL_1_P_H_START)
 #define NS_RAM_ALIAS_BASE               (BSP_PARTITION_RAM_CPU0_N_START)
 
-/* MCUboot header/trailer, straight from the solution's partitioning. */
+/*
+ * MCUboot header/trailer, straight from the solution's partitioning.
+ *
+ * These also reach the build as -D from CMake, and THAT copy is what imgtool signs with.
+ * They must agree: TF-M defaults both to 0x400, and with a 0x400 header imgtool places the
+ * payload 0x400 into the slot while the image is linked for slot+0x200 - a signed image
+ * offset by 0x200, which does not boot and produces no other symptom. config.cmake reads
+ * the real values out of bsp_linker_info.h, but only on a CLEAN CMake cache, so check
+ * rather than silently redefine.
+ */
+#if defined(BL2_HEADER_SIZE) && (BL2_HEADER_SIZE != BSP_PARTITION___BL_0_P_H_SIZE)
+#error "BL2_HEADER_SIZE from CMake disagrees with the solution. Configure with a clean CMake cache."
+#endif
+#if defined(BL2_TRAILER_SIZE) && (BL2_TRAILER_SIZE != BSP_PARTITION___BL_0_P_T_SIZE)
+#error "BL2_TRAILER_SIZE from CMake disagrees with the solution. Configure with a clean CMake cache."
+#endif
+
+#ifndef BL2_HEADER_SIZE
 #define BL2_HEADER_SIZE                 (BSP_PARTITION___BL_0_P_H_SIZE)
+#endif
+#ifndef BL2_TRAILER_SIZE
 #define BL2_TRAILER_SIZE                (BSP_PARTITION___BL_0_P_T_SIZE)
+#endif
 
 /*
  * Secure image. FLASH_CPU0_S is the code, FLASH_CPU0_C the non-secure-callable

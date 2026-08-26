@@ -20,6 +20,39 @@
 #-------------------------------------------------------------------------------
 
 set(BL2                                 ON          CACHE BOOL      "Build BL2")
+
+#-------------------------------------------------------------------------------
+# MCUboot header/trailer size - MUST come from the solution, not TF-M's defaults.
+#
+# These are what imgtool is invoked with (-H, and the trailer reservation). TF-M defaults
+# both to 0x400; this solution uses a 0x200 header and 0x100 trailer. Left at the default,
+# imgtool pads the payload to start 0x400 into the slot while the image is LINKED for
+# slot+0x200 - the signed image is then offset by 0x200 and does not boot. region_defs.h
+# derives the right values for the C side, which is why this only shows up as a
+# "BL2_HEADER_SIZE redefined" warning and a silently broken image.
+#
+# Read from the same generated file the layout comes from, so a repartition carries
+# through. Cache values, so this needs a clean CMake cache to take effect.
+#-------------------------------------------------------------------------------
+set(_ra6e1_linker_info "${FSP_S_APP_DIR}/Debug/bsp_linker_info.h")
+if(EXISTS "${_ra6e1_linker_info}")
+    foreach(_pair "BL2_HEADER_SIZE;___BL_0_P_H_SIZE" "BL2_TRAILER_SIZE;___BL_0_P_T_SIZE")
+        list(GET _pair 0 _tfm_var)
+        list(GET _pair 1 _bsp_sym)
+        file(STRINGS "${_ra6e1_linker_info}" _hit
+             REGEX "^[ \t]*#define[ \t]+BSP_PARTITION${_bsp_sym}[ \t]")
+        if(_hit)
+            string(REGEX REPLACE ".*\\(([^)]+)\\).*" "\\1" _val "${_hit}")
+            set(${_tfm_var} "${_val}" CACHE STRING "From the e2 solution partitioning")
+        endif()
+    endforeach()
+else()
+    message(WARNING
+        "RA6E1: ${_ra6e1_linker_info} not found while reading the MCUboot header/trailer "
+        "sizes. Falling back to TF-M's 0x400 defaults, which do NOT match this solution - "
+        "the signed images will be offset in their slots. Build the secure project in e2 "
+        "first, then configure with a clean CMake cache.")
+endif()
 set(MCUBOOT_IMAGE_NUMBER                2           CACHE STRING    "Dual image: S + NS")
 set(MCUBOOT_SIGNATURE_TYPE              "EC-P256"   CACHE STRING    "Match the solution")
 # TF-M requires PSA crypto for EC signatures (config/check_config.cmake:33). This also

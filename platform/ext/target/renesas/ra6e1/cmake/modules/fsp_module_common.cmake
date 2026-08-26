@@ -35,7 +35,9 @@ macro(fsp_module_library _out _base)
 
     # PUBLIC: consumers compile FSP headers too (Driver_Flash.c, target_cfg.c).
     target_include_directories(${${_out}} PUBLIC ${FSP_MODULE_INCLUDES})
-    target_compile_definitions(${${_out}} PUBLIC ${FSP_COMPILE_DEFS} ${FSP_SECURE_COMPILE_DEFS})
+    # FSP_MODULE_TZ_DEFS is per role: _RA_TZ_SECURE=1 for the secure image, empty for BL2,
+    # which is flat like the e2 bootloader. See the note in the platform CMakeLists.
+    target_compile_definitions(${${_out}} PUBLIC ${FSP_COMPILE_DEFS} ${FSP_MODULE_TZ_DEFS})
 
     # -mcmse: every module here is linked into a secure-side image (S or BL2).
     target_compile_options(${${_out}}

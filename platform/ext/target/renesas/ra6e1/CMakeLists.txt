@@ -161,10 +161,10 @@ endfunction()
 set(FSP_COMPILE_OPTIONS -Wno-conversion -Wno-sign-conversion -Wno-unused-parameter)
 set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 
-# Marks these images as the secure-side build for FSP.
+# TrustZone build flavour, PER ROLE. The secure image declares itself secure to FSP; BL2
+# is deliberately FLAT, matching how the e2 solution template defines the bootloader.
 #
-# ⚠ OFS1_SEL depends on this, and the value is currently WRONG - see below. Generated
-# bsp_mcu_ofs_cfg.h:
+# This is not cosmetic - it selects the OFS1_SEL formula. Generated bsp_mcu_ofs_cfg.h:
 #
 #   #ifndef BSP_CFG_OPTION_SETTING_OFS1_SEL
 #   #if defined(_RA_TZ_SECURE) || defined(_RA_TZ_NONSECURE)
@@ -175,17 +175,28 @@ set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 #   #endif
 #   #endif
 #
-# The e2 bootloader is a FLAT project - it defines neither _RA_TZ_ macro - so it takes the
-# #else branch and emits 0xFFFFF8F8 regardless. Defining _RA_TZ_SECURE here takes the
-# TrustZone branch instead, which consults BSP_CFG_CLOCKS_SECURE. That is set to (0) by the
-# generated ra_gen/bsp_clock_cfg.h, so 0xF00 is ORed in and BL2 emits 0xFFFFFFF8, marking
-# the clock-related OFS1 fields NON-SECURE. On a part with the TZ boundaries programmed
-# that attribution mismatch can lock out the debug interface (DESIGN.md 8.4).
+# BL2 is the only image that emits OFS (DESIGN.md 8.4). Declaring it _RA_TZ_SECURE took
+# the TrustZone branch, which reads BSP_CFG_CLOCKS_SECURE - set to (0) by the generated
+# ra_gen/bsp_clock_cfg.h - and ORed in 0xF00, giving 0xFFFFFFF8: the clock-related OFS1
+# fields marked NON-SECURE. On a part with the TZ boundaries programmed that attribution
+# mismatch can lock out the debug interface. Flat takes the #else branch and emits
+# 0xFFFFF8F8, byte-identical to the e2 bootloader.
 #
-# Do NOT try to fix this with -DBSP_CFG_CLOCKS_SECURE=1: bsp_clock_cfg.h defines it
-# unguarded, so the header wins and you get only a redefinition warning. It is a RASC
-# clock-configuration setting and has to change in the e2 projects.
-set(FSP_SECURE_COMPILE_DEFS _RA_TZ_SECURE=1)
+# Do NOT reach for -DBSP_CFG_CLOCKS_SECURE=1 instead: bsp_clock_cfg.h defines it unguarded,
+# so the header wins and all you get is a redefinition warning.
+#
+# What BL2 gives up by being flat (BSP_TZ_SECURE_BUILD 1 -> 0; BSP_TZ_NONSECURE_BUILD is 0
+# either way, so the OFS sections still emit):
+#   R_BSP_NonSecureEnter()  - not compiled. BL2 never calls it; MCUboot chainloads the
+#                             secure image and TF-M performs the S->NS jump itself.
+#   r_flash_hp callbacks    - no cmse_nsfptr_create wrapping. BL2's flash callback is
+#                             never a non-secure function pointer.
+#   r_ioport.c:857          - inactive either way, BSP_FEATURE_TZ_NS_OFFSET is 0 here.
+#   bsp_sdram NSC entries   - already off, they need BSP_CFG_CLOCKS_SECURE == 1.
+#
+# Verify: arm-none-eabi-objdump -s -j .option_setting_ofs1_sel bin/bl2.axf -> f8f8ffff
+set(FSP_TZ_DEFS_S   _RA_TZ_SECURE=1)
+set(FSP_TZ_DEFS_BL2 )
 
 #-------------------------------------------------------------------------------
 # FSP module registry
@@ -228,6 +239,7 @@ function(fsp_add_modules role dir includes out_targets)
     set(FSP_MODULE_ROLE     "${role}")
     set(FSP_MODULE_BASE_DIR "${dir}")
     set(FSP_MODULE_INCLUDES "${includes}")
+    set(FSP_MODULE_TZ_DEFS  ${FSP_TZ_DEFS_${_role_uc}})
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/fsp_module_common.cmake)
 
     set(_targets "")
@@ -348,7 +360,7 @@ target_include_directories(platform_s PUBLIC
 target_include_directories(platform_s PRIVATE
     ${CMAKE_SOURCE_DIR}/secure_fw/partitions/lib/runtime/include
 )
-target_compile_definitions(platform_s PUBLIC ${FSP_COMPILE_DEFS} ${FSP_SECURE_COMPILE_DEFS})
+target_compile_definitions(platform_s PUBLIC ${FSP_COMPILE_DEFS} ${FSP_TZ_DEFS_S})
 target_compile_options(platform_s PRIVATE ${FSP_COMPILE_OPTIONS})
 
 # -mcmse, PUBLIC. It must reach every target that links platform_s, not just the FSP
@@ -405,7 +417,8 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
         ${FSP_BL2_INCLUDES}
     )
-    target_compile_definitions(platform_bl2 PUBLIC ${FSP_COMPILE_DEFS} ${FSP_SECURE_COMPILE_DEFS})
+    # No _RA_TZ_ macro: BL2 is a flat build, like the e2 solution's bootloader.
+    target_compile_definitions(platform_bl2 PUBLIC ${FSP_COMPILE_DEFS} ${FSP_TZ_DEFS_BL2})
     target_compile_options(platform_bl2 PRIVATE ${FSP_COMPILE_OPTIONS})
     target_compile_options(platform_bl2 PUBLIC ${COMPILER_CMSE_FLAG})
 
