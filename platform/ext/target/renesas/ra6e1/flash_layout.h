@@ -117,7 +117,23 @@
 #define FLASH_DATA_FLASH_SECTOR_SIZE    (64)
 
 #define TFM_NV_COUNTERS_AREA_OFFSET     (BSP_PARTITION_DATA_FLASH_CPU0_S_START)
-#define TFM_NV_COUNTERS_AREA_SIZE       (FLASH_DATA_FLASH_SECTOR_SIZE * 8)     /* 512 B */
+
+/* 2048 B = 32 sectors, split into a 1024 B area and a 1024 B backup mirror.
+ *
+ * The floor is sizeof(struct flash_otp_nv_counters_region_t), which the backend requires
+ * to fit in EACH half. That is 784 B for this configuration:
+ *
+ *     init_value 4 | OTP items 284 | BL2 ROTPKs x4 + BL2 NV counters x4 384
+ *     | entropy_seed + secure_debug_pk 96 | flash_nv_counters[3] 12 | swap_count 4
+ *
+ * It grows with MCUBOOT_BUILTIN_KEY (ROTPKs become 68/100 B each, not a 32 B hash),
+ * PLATFORM_NS_NV_COUNTERS (64 B each, currently 0) and FLASH_NV_COUNTER_AM. This was
+ * 512 B total, i.e. 256 B per half - far under the floor - and the effect was invisible:
+ * init_otp_nv_counters_flash() opens with a compile-time-constant size check, so the
+ * whole function folded to "return TFM_PLAT_ERR_SYSTEM_ERR" and never touched flash.
+ * ra6e1_otp_size_check.c now makes that a build error instead.
+ */
+#define TFM_NV_COUNTERS_AREA_SIZE       (FLASH_DATA_FLASH_SECTOR_SIZE * 32)   /* 2048 B */
 
 /* platform/ext/common/template/flash_otp_nv_counters_backend.c is the backend, and it
  * mirrors the area so a power loss mid-write is recoverable - hence the backup, which

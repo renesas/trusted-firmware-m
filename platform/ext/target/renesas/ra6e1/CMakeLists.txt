@@ -343,6 +343,10 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tfm_peripherals_def.c
     ${CMAKE_CURRENT_SOURCE_DIR}/attest_hal.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
+    # Static assertions only, no code. Catches an OTP area too small for the backend's
+    # region struct, which otherwise folds init_otp_nv_counters_flash() into an
+    # unconditional error return with no diagnostic. See the file for the detail.
+    ${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_otp_size_check.c
     # bsp_init_stub.c is NOT here - it lives in the fsp_bsp module, beside the FSP
     # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
     # Common ARMv8-M isolation HAL: tfm_hal_set_up_static_boundaries,
@@ -355,6 +359,18 @@ target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
     ${FSP_S_INCLUDES}
 )
+# Scoped to the one file rather than added to platform_s: the template directory holds
+# TF-M's default platform implementations, and putting it on the whole target's include
+# path invites a header there shadowing one of ours.
+#
+# TARGET_DIRECTORY is required. Source file properties are directory scoped, and
+# platform_s is defined in platform/CMakeLists.txt, not here - without it the property is
+# set in this directory's scope, where nothing consumes it, and the include is silently
+# never applied.
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_otp_size_check.c
+    TARGET_DIRECTORY platform_s
+    PROPERTIES INCLUDE_DIRECTORIES "${PLATFORM_DIR}/ext/common/template")
+
 # attest_hal.c needs tfm_strnlen.h. The port sets PLATFORM_DEFAULT_ATTEST_HAL OFF, so
 # platform_s does not inherit tfm_sprt's include paths the way the default HAL does.
 target_include_directories(platform_s PRIVATE
