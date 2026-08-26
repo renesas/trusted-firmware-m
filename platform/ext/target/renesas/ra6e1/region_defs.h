@@ -59,6 +59,15 @@
 #define NS_PARTITION_SIZE               (FLASH_AREA_1_SIZE)
 
 /*
+ * Secure secondary (staging) slot. TF-M's generated secure linker emits the
+ * LR_SECONDARY_PARTITION load-region symbol from these, and target_cfg.c publishes them
+ * in memory_regions. ra6m4 had to stub these to 0 - the solution gives us the real slot,
+ * so derive it (FLASH_AREA_2 = image 0 secondary = secure).
+ */
+#define SECONDARY_PARTITION_START       (FLASH_AREA_2_OFFSET)
+#define SECONDARY_PARTITION_SIZE        (FLASH_AREA_2_SIZE)
+
+/*
  * Non-secure callable / CMSE veneers.
  *
  * The solution owns this window (FLASH_CPU0_C), and the hardware NSC region runs from
@@ -107,6 +116,17 @@
 #define BOOT_TFM_SHARED_DATA_BASE       (S_DATA_START)
 #define BOOT_TFM_SHARED_DATA_LIMIT      (BOOT_TFM_SHARED_DATA_BASE + \
                                          BOOT_TFM_SHARED_DATA_SIZE - 1)
+
+/*
+ * BL2 writes the measurement TLVs through MCUBOOT_SHARED_DATA_BASE (aliased to these
+ * in bl2/ext/mcuboot/include/flash_map/flash_map.h) and the SPM reads them back at
+ * SHARED_BOOT_MEASUREMENT_BASE in tfm_boot_data.c. Both must name the SAME region, so
+ * alias them onto the shared data area - the upstream convention (rp2350, psoc64,
+ * the stm32 family). ra6m4 instead carved a separate 0x100 block ahead of the shared
+ * data, which left BOOT_TFM_SHARED_DATA_* feeding only the overlap check.
+ */
+#define SHARED_BOOT_MEASUREMENT_BASE    (BOOT_TFM_SHARED_DATA_BASE)
+#define SHARED_BOOT_MEASUREMENT_SIZE    (BOOT_TFM_SHARED_DATA_SIZE)
 
 #define S_HEAP_SIZE                     (0x800)
 #define S_MSP_STACK_SIZE                (0x800)

@@ -78,20 +78,40 @@ function(fsp_collect_sources out_var dir role)
         list(APPEND _src ${_rtos})
     endif()
 
-    # TF-M provides these itself; taking FSP's would collide at link time.
-    #   ra_gen/main.c    - TF-M has its own main for every image
-    #   .../Source/startup.c, system.c handled below
-    #   bsp_linker.c     - emits the OFS option-setting sections. TF-M emits them
-    #                      from bl2_option_setting.c, BL2 only, with discrete
-    #                      MEMORY regions. Linking FSP's version into the secure or
-    #                      NS image would put option memory in a signed image.
-    set(_excl "${dir}/ra_gen/main.c")
+    # Whole FSP modules TF-M replaces with its own implementation. These are enabled
+    # in the e2 projects because the STANDALONE bootloader needs them, and that project
+    # set must keep working standalone - so drop them here rather than reconfiguring it.
+    #   r_sce, rm_psa_crypto, ra/arm/mbedtls - FSP's SCE9 hardware crypto and its
+    #       mbedTLS. TF-M uses its own mbedcrypto with CRYPTO_HW_ACCELERATOR OFF; FSP's
+    #       mbedTLS is entangled with the FSP MCUboot config and was never grafted
+    #       (DESIGN.md 6). Re-enabling the hardware path is the future HW-crypto switch.
+    #   rm_mcuboot_port - FSP's flash_map/MCUboot glue. It carries FSP's whole flash
+    #       identity (its own FLASH_AREA_*_ID, single-image assumptions) out of
+    #       bsp_linker_info.h and conflicts with TF-M's dual-image flash_map. Grafting
+    #       it is what failed on ra6m4 (DESIGN.md 4, 5); TF-M's own Driver_Flash.c
+    #       carries the RA 32 KB region-1 geometry instead.
+    # Their HEADERS stay on the include path - the generated ra_gen/common_data.h and
+    # hal_data.h include them unconditionally. Nothing is linked from them.
+    set(FSP_EXCLUDED_MODULES r_sce rm_psa_crypto rm_mcuboot_port)
+    foreach(m ${FSP_EXCLUDED_MODULES})
+        list(FILTER _src EXCLUDE REGEX "/ra/fsp/src/${m}/")
+    endforeach()
+    list(FILTER _src EXCLUDE REGEX "/ra/arm/mbedtls/")
+
+    # Individual files TF-M provides itself for S and BL2; taking FSP's would collide at
+    # link time. The NS image is a whole FSP application built here, with no TF-M
+    # equivalent to take their place, so it keeps all three:
+    #   ra_gen/main.c    - TF-M has its own main for the S and BL2 images
+    #   .../Source/startup.c - FSP's Reset_Handler, which FSP's linker script expects
+    #   bsp_linker.c     - emits the OFS option-setting sections, and provides the real
+    #                      g_init_info for C-runtime init. TF-M emits OFS from
+    #                      bl2_option_setting.c, BL2 only, with discrete MEMORY regions.
+    #                      Linking FSP's version into the secure image would put option
+    #                      memory in a signed image; it is safe in the NS image because
+    #                      BSP_TZ_NONSECURE_BUILD compiles those sections out.
+    set(_excl "")
     if(NOT role STREQUAL "NS")
-        # S and BL2 use TF-M's startup and TF-M's own OFS emitter. The NS image keeps
-        # FSP's: startup.c gives the Reset_Handler its linker script expects, and
-        # bsp_linker.c provides the real g_init_info for C-runtime init. bsp_linker.c
-        # is safe there because its option-setting sections are compiled out by
-        # BSP_TZ_NONSECURE_BUILD - the NS image must never carry option memory.
+        list(APPEND _excl "${dir}/ra_gen/main.c")
         list(APPEND _excl "${dir}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c")
         file(GLOB_RECURSE _linker_c "${dir}/ra/fsp/src/bsp/mcu/*/bsp_linker.c")
         list(APPEND _excl ${_linker_c})
@@ -130,6 +150,19 @@ function(fsp_collect_includes out_var dir)
     set(${out_var} "${_inc}" PARENT_SCOPE)
 endfunction()
 
+# Include paths for the modules whose SOURCES fsp_collect_sources drops. The generated
+# ra_gen/common_data.h and hal_data.h include those modules' headers unconditionally, so
+# the paths are still needed to parse them - but nothing links against them.
+#
+# Keep these PRIVATE on the platform target. FSP ships its own mbedTLS, and its
+# psa/crypto.h would shadow TF-M's mbedcrypto for every consumer if it propagated.
+function(fsp_collect_excluded_includes out_var dir)
+    set(${out_var}
+        "${dir}/ra/fsp/src/rm_psa_crypto/inc"
+        "${dir}/ra/arm/mbedtls/include"
+        PARENT_SCOPE)
+endfunction()
+
 # FSP is built with warnings TF-M does not use; keep them off the TF-M targets.
 set(FSP_COMPILE_OPTIONS -Wno-conversion -Wno-sign-conversion -Wno-unused-parameter)
 set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
@@ -140,6 +173,54 @@ set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 fsp_validate_project("${FSP_S_APP_DIR}" "secure")
 fsp_collect_sources(FSP_S_SOURCES "${FSP_S_APP_DIR}" "S")
 fsp_collect_includes(FSP_S_INCLUDES "${FSP_S_APP_DIR}")
+
+#-------------------------------------------------------------------------------
+# bsp_partitions.h - the partition macros, extracted from the solution
+#
+# flash_layout.h and region_defs.h need the BSP_PARTITION_* values, and they are
+# consumed by C code AND by ra6e1_bl2.ld, which the toolchain preprocesses with -xc.
+# bsp_linker_info.h cannot serve the second: alongside the macros it declares C types
+# and externs (typedef enum e_bsp_init_mem, gp_ddsc_*), which land verbatim in the
+# preprocessed linker script and fail to parse. It also carries FSP's own MCUboot flash
+# identity, which conflicts with TF-M's dual-image flash_map (DESIGN.md 4).
+#
+# So filter the file down to its #define BSP_PARTITION_* lines at configure time. Still
+# fully derived - CMAKE_CONFIGURE_DEPENDS re-runs cmake when the solution regenerates it,
+# so repartitioning in e2 and rebuilding is all it takes.
+#
+# The secure project's copy is the source: the three agree on the shared partitions, and
+# it is a strict superset - it also carries the RAM_BL / DATA_FLASH_BL / QSPI_FLASH_BL
+# entries the bootloader's own copy omits.
+#-------------------------------------------------------------------------------
+set(FSP_PARTITION_HEADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(FSP_PARTITION_HEADER "${FSP_PARTITION_HEADER_DIR}/bsp_partitions.h")
+set(FSP_LINKER_INFO_SRC "${FSP_S_APP_DIR}/Debug/bsp_linker_info.h")
+
+file(STRINGS "${FSP_LINKER_INFO_SRC}" _partition_defs
+     REGEX "^[ \t]*#define[ \t]+BSP_PARTITION_[A-Za-z0-9_]+[ \t]")
+if(NOT _partition_defs)
+    message(FATAL_ERROR
+        "RA6E1: no BSP_PARTITION_* defines in ${FSP_LINKER_INFO_SRC}. "
+        "The solution emits them during the e2 build - rebuild the secure project there.")
+endif()
+list(JOIN _partition_defs "\n" _partition_body)
+file(CONFIGURE OUTPUT "${FSP_PARTITION_HEADER}" CONTENT
+"/* GENERATED - do not edit. Extracted by the ra6e1 platform CMakeLists from
+ * ${FSP_LINKER_INFO_SRC}
+ * Macros only: this header is preprocessed into ra6e1_bl2.ld as well as compiled.
+ */
+#ifndef __BSP_PARTITIONS_H__
+#define __BSP_PARTITIONS_H__
+
+${_partition_body}
+
+#endif /* __BSP_PARTITIONS_H__ */
+")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FSP_LINKER_INFO_SRC}")
+
+# platform_region_defs is what the BL2 scatter target links, so this is the path that
+# makes region_defs.h resolvable when the linker script is preprocessed.
+target_include_directories(platform_region_defs INTERFACE "${FSP_PARTITION_HEADER_DIR}")
 
 target_sources(platform_s PRIVATE
     ${FSP_S_SOURCES}
@@ -155,8 +236,19 @@ target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
     ${FSP_S_INCLUDES}
 )
+# attest_hal.c needs tfm_strnlen.h. The port sets PLATFORM_DEFAULT_ATTEST_HAL OFF, so
+# platform_s does not inherit tfm_sprt's include paths the way the default HAL does.
+target_include_directories(platform_s PRIVATE
+    ${CMAKE_SOURCE_DIR}/secure_fw/partitions/lib/runtime/include
+)
 target_compile_definitions(platform_s PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
 target_compile_options(platform_s PRIVATE ${FSP_COMPILE_OPTIONS})
+
+# -mcmse, PUBLIC. It must reach every target that links platform_s, not just the FSP
+# sources: tfm_s compiles secure_fw/partitions/ns_agent_tz/psa_api_veneers_v80m.c, and
+# without -mcmse the compiler does not define __ARM_FEATURE_CMSE, so security_defs.h
+# compiles out __tz_naked_veneer and the veneers fail to parse.
+target_compile_options(platform_s PUBLIC ${COMPILER_CMSE_FLAG})
 
 target_sources(tfm_s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6e1.c)
 
@@ -177,10 +269,14 @@ if(BL2)
     fsp_collect_sources(FSP_BL2_SOURCES "${FSP_BL2_APP_DIR}" "BL2")
     fsp_collect_includes(FSP_BL2_INCLUDES "${FSP_BL2_APP_DIR}")
 
+    # bsp_init_stub.c is needed here, not just on the secure side: BL2 excludes FSP's
+    # bsp_linker.c (it emits option memory), and that is what defines g_init_info and
+    # g_main_stack for FSP's system.c. The stub supplies weak versions.
     target_sources(platform_bl2 PRIVATE
         ${FSP_BL2_SOURCES}
         ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
         ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/bsp_init_stub.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
     )
     target_include_directories(platform_bl2 PUBLIC
@@ -188,8 +284,11 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
         ${FSP_BL2_INCLUDES}
     )
+    fsp_collect_excluded_includes(FSP_BL2_EXCL_INCLUDES "${FSP_BL2_APP_DIR}")
+    target_include_directories(platform_bl2 PRIVATE ${FSP_BL2_EXCL_INCLUDES})
     target_compile_definitions(platform_bl2 PUBLIC ${FSP_COMPILE_DEFS} _RA_TZ_SECURE=1)
     target_compile_options(platform_bl2 PRIVATE ${FSP_COMPILE_OPTIONS})
+    target_compile_options(platform_bl2 PUBLIC ${COMPILER_CMSE_FLAG})
 
     # OFS goes in BL2 only, and ONLY with the discrete per-group MEMORY regions in
     # ra6e1_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the FCU config
@@ -199,6 +298,19 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6e1.c
         ${CMAKE_CURRENT_SOURCE_DIR}/bl2_option_setting.c
     )
+
+    # MCUboot's bl2_main.c calls stdio_init/stdio_uninit, so BL2 needs a stdout backend
+    # of its own - it is a separate binary from the secure image, with its own RTT
+    # control block. config.cmake forces PLATFORM_DEFAULT_UART_STDOUT off when RTT is on,
+    # so nothing else provides them.
+    if(RA6E1_STDOUT_RTT)
+        target_sources(platform_bl2 PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c)
+        target_include_directories(platform_bl2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/rtt)
+    else()
+        target_sources(platform_bl2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c)
+    endif()
 
     if(RA6E1_BL2_HALT_AT_MAIN)
         message(WARNING "RA6E1_BL2_HALT_AT_MAIN=ON - BL2 spins at main(); not bootable")
@@ -235,7 +347,13 @@ if(FSP_NS_APP_DIR)
     fsp_collect_sources(FSP_NS_SOURCES "${FSP_NS_APP_DIR}" "NS")
     fsp_collect_includes(FSP_NS_INCLUDES "${FSP_NS_APP_DIR}")
 
-    add_executable(tfm_ns ${FSP_NS_SOURCES})
+    # ns/syscalls_ns.c supplies the newlib _close/_lseek/_read/_write stubs. Without it
+    # nosys.specs' versions warn at link, and TF-M links NS with -Wl,-fatal-warnings.
+    # It is also installed for the NSPE build, which needs it for the same reason.
+    add_executable(tfm_ns
+        ${FSP_NS_SOURCES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/ns/syscalls_ns.c
+    )
 
     target_include_directories(tfm_ns PRIVATE
         ${FSP_NS_INCLUDES}
@@ -249,12 +367,27 @@ if(FSP_NS_APP_DIR)
         BSP_TZ_NONSECURE_BUILD=1
     )
     target_compile_options(tfm_ns PRIVATE ${FSP_COMPILE_OPTIONS})
-    target_link_libraries(tfm_ns PRIVATE tfm_api_ns)
+
+    # No tfm_api_ns here. That target is created by the NSPE build from the installed
+    # api_ns/ tree and does not exist in an SPE build, so linking it just yields
+    # "cannot find -ltfm_api_ns". The solution's NS app is a plain FSP application that
+    # makes no PSA calls - it exists to prove the S->NS jump - so it needs nothing from
+    # the secure interface. The moment NS code calls a PSA API, this has to become a
+    # real split SPE/NSPE build; see the note above.
 
     if(RA6E1_STDOUT_RTT)
         target_sources(tfm_ns PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c)
         target_include_directories(tfm_ns PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/rtt)
     endif()
+
+    # Match tfm_s and bl2: .axf in bin/. Not cosmetic - add_convert_to_bin_target() reads
+    # RUNTIME_OUTPUT_DIRECTORY, and with it unset the objcopy rule writes to a literal
+    # "bin_dir-NOTFOUND" directory while BL2's signing step looks for tfm_ns.bin next to
+    # the executable, so signing failed with "Input file not found".
+    set_target_properties(tfm_ns PROPERTIES
+        SUFFIX ".axf"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
 
     # FSP's own linker script - it INCLUDEs Debug/memory_regions.ld, so the NS image
     # follows a repartitioned solution with no edit here.

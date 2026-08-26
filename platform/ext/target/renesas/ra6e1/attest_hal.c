@@ -139,23 +139,16 @@ enum tfm_plat_err_t tfm_attest_hal_get_profile_definition(uint32_t *size,
  */
 enum tfm_plat_err_t tfm_plat_get_boot_seed(uint32_t size, uint8_t *buf)
 {
-    uint32_t i;
-    uint8_t *p_dst = buf;
-    const uint8_t *p_src;
-
-    if (size != BOOT_TFM_SHARED_SEED_SIZE) {
-        return TFM_PLAT_ERR_SYSTEM_ERR;
-    }
-
-    p_src = (const uint8_t *)BOOT_TFM_SHARED_SEED_BASE;
-
-    for (i = size; i > 0; i--) {
-        *p_dst = *p_src;
-        p_src++;
-        p_dst++;
-    }
-
-    return TFM_PLAT_ERR_SUCCESS;
+    /*
+     * Read from OTP, as the upstream template HAL and the rest of this file do.
+     *
+     * ra6m4 instead copied from a fixed BOOT_TFM_SHARED_SEED_BASE in secure RAM, just
+     * past the BL2 shared-data block. That address is not reserved by anything: TF-M's
+     * generated secure linker allocates .tfm_bl2_shared_data by flow and sizes it
+     * BOOT_TFM_SHARED_DATA_SIZE, so the bytes after it belong to whatever section the
+     * linker places next, and nothing in BL2 writes a seed there anyway.
+     */
+    return tfm_plat_otp_read(PLAT_OTP_ID_BOOT_SEED, size, buf);
 }
 
 /**

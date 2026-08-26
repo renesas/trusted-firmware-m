@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026 Renesas Electronics Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -18,8 +18,13 @@
  * values were vestigial (DESIGN.md 3). Here RASC/e2 is the source of truth.
  *
  * bsp_linker_info.h lives in <project>/Debug/, so the solution must have been built
- * in e2 at least once before TF-M can configure. The platform CMakeLists adds that
- * directory to the include path and fails with a clear message if it is absent.
+ * in e2 at least once before TF-M can configure. The platform CMakeLists fails with a
+ * clear message if it is absent.
+ *
+ * We include bsp_partitions.h, not bsp_linker_info.h directly: the platform CMakeLists
+ * filters the generated file down to its #define BSP_PARTITION_* lines. This header is
+ * preprocessed into ra6e1_bl2.ld as well as compiled, and bsp_linker_info.h also
+ * declares C types and externs that a linker script cannot parse.
  *
  * Partition -> TF-M mapping:
  *   FLASH_BL_CPU0_S   -> BL2 (MCUboot)
@@ -29,7 +34,7 @@
  *   __BL_1_S_*        -> image 1 secondary = non-secure (FLASH_AREA_3)
  */
 
-#include "bsp_linker_info.h"
+#include "bsp_partitions.h"
 
 /* Device geometry. Region 1 (0x10000+) erases in 32 KB blocks; every MCUboot slot
  * lives there, so that is the sector size MCUboot must use. Region 0 is 8 KB but no
@@ -83,6 +88,13 @@
 #define FLASH_MAX_PARTITION_SIZE        ((FLASH_AREA_0_SIZE > FLASH_AREA_1_SIZE) ? \
                                           FLASH_AREA_0_SIZE : FLASH_AREA_1_SIZE)
 
+/* Sectors bootutil must be able to track for one image. ra6m4 sized this from the
+ * scratch area; overwrite-only has no scratch, so size it from the largest slot,
+ * rounded up. */
+#define MCUBOOT_MAX_IMG_SECTORS         ((FLASH_MAX_PARTITION_SIZE + \
+                                          FLASH_AREA_IMAGE_SECTOR_SIZE - 1) / \
+                                         FLASH_AREA_IMAGE_SECTOR_SIZE)
+
 /* Image sizes seen by imgtool/bootutil (slot minus header and trailer). */
 #define IMAGE_S_CODE_SIZE               (BSP_PARTITION_FLASH_CPU0_S_SIZE + \
                                          BSP_PARTITION_FLASH_CPU0_C_SIZE)
@@ -96,23 +108,47 @@
  */
 #define FLASH_DEV_NAME_DATA             Driver_FLASH1
 #define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (4)
-#define DATA_FLASH_SECTOR_SIZE          (64)
+
+/* Data flash geometry, as cmsis_drivers/Driver_Flash.c names it. The secure partition
+ * starts at the device base, and the two partitions cover the whole device. */
+#define FLASH_DATA_FLASH_BASE           (BSP_PARTITION_DATA_FLASH_CPU0_S_START)
+#define FLASH_DATA_FLASH_SIZE           (BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE + \
+                                         BSP_PARTITION_DATA_FLASH_CPU0_N_SIZE)
+#define FLASH_DATA_FLASH_SECTOR_SIZE    (64)
 
 #define TFM_NV_COUNTERS_AREA_OFFSET     (BSP_PARTITION_DATA_FLASH_CPU0_S_START)
-#define TFM_NV_COUNTERS_AREA_SIZE       (DATA_FLASH_SECTOR_SIZE * 8)     /* 512 B */
+#define TFM_NV_COUNTERS_AREA_SIZE       (FLASH_DATA_FLASH_SECTOR_SIZE * 8)     /* 512 B */
+
+/* platform/ext/common/template/flash_otp_nv_counters_backend.c is the backend, and it
+ * mirrors the area so a power loss mid-write is recoverable - hence the backup, which
+ * must be a separate erase sector. The two halves split TFM_NV_COUNTERS_AREA_SIZE. */
+#define TFM_OTP_NV_COUNTERS_SECTOR_SIZE      (FLASH_DATA_FLASH_SECTOR_SIZE)
+#define TFM_OTP_NV_COUNTERS_AREA_SIZE        (TFM_NV_COUNTERS_AREA_SIZE / 2)
+#define TFM_OTP_NV_COUNTERS_AREA_ADDR        (TFM_NV_COUNTERS_AREA_OFFSET)
+#define TFM_OTP_NV_COUNTERS_BACKUP_AREA_ADDR (TFM_OTP_NV_COUNTERS_AREA_ADDR + \
+                                              TFM_OTP_NV_COUNTERS_AREA_SIZE)
+#define OTP_NV_COUNTERS_WRITE_BLOCK_SIZE     (TFM_HAL_DATA_FLASH_PROGRAM_UNIT)
 
 #define TFM_HAL_PS_FLASH_AREA_ADDR      (TFM_NV_COUNTERS_AREA_OFFSET + \
                                          TFM_NV_COUNTERS_AREA_SIZE)
 #define TFM_HAL_PS_FLASH_AREA_SIZE      ((BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE - \
                                           TFM_NV_COUNTERS_AREA_SIZE) / 2)
-#define TFM_HAL_PS_SECTOR_SIZE          (DATA_FLASH_SECTOR_SIZE)
+#define TFM_HAL_PS_SECTOR_SIZE          (FLASH_DATA_FLASH_SECTOR_SIZE)
 #define PS_RAM_FS_SIZE                  TFM_HAL_PS_FLASH_AREA_SIZE
+
+/* Half the area per logical block, i.e. two blocks, which is the minimum the flash FS
+ * needs to rotate between on a write. Derived rather than fixed so it still holds if
+ * the secure data flash partition is resized in the solution. */
+#define TFM_HAL_PS_SECTORS_PER_BLOCK    ((TFM_HAL_PS_FLASH_AREA_SIZE / \
+                                          TFM_HAL_PS_SECTOR_SIZE) / 2)
 
 #define TFM_HAL_ITS_FLASH_AREA_ADDR     (TFM_HAL_PS_FLASH_AREA_ADDR + \
                                          TFM_HAL_PS_FLASH_AREA_SIZE)
 #define TFM_HAL_ITS_FLASH_AREA_SIZE     (TFM_HAL_PS_FLASH_AREA_SIZE)
-#define TFM_HAL_ITS_SECTOR_SIZE         (DATA_FLASH_SECTOR_SIZE)
+#define TFM_HAL_ITS_SECTOR_SIZE         (FLASH_DATA_FLASH_SECTOR_SIZE)
 #define ITS_RAM_FS_SIZE                 TFM_HAL_ITS_FLASH_AREA_SIZE
+#define TFM_HAL_ITS_SECTORS_PER_BLOCK   ((TFM_HAL_ITS_FLASH_AREA_SIZE / \
+                                          TFM_HAL_ITS_SECTOR_SIZE) / 2)
 
 #define TFM_HAL_PS_FLASH_DRIVER         Driver_FLASH1
 #define TFM_HAL_ITS_FLASH_DRIVER        Driver_FLASH1
@@ -127,10 +163,14 @@
 #error "RA6E1: secure data flash partition too small for NV counters + PS + ITS"
 #endif
 
-/* Flash device IDs used by the CMSIS flash driver shim. */
+/* Flash device IDs used by the CMSIS flash driver shim.
+ *
+ * Deliberately NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1. Those are per-flash-area driver
+ * overrides for a target whose images live on different devices; both our images are on
+ * code flash, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
+ * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips
+ * the paired-definition check in bl2/ext/mcuboot/include/target.h. */
 #define FLASH_DEVICE_ID                 (100)
 #define FLASH_DEVICE_ID_DATA            (101)
-#define FLASH_DEV_NAME_0                Driver_FLASH0
-#define FLASH_DEV_NAME_1                Driver_FLASH1
 
 #endif /* __FLASH_LAYOUT_H__ */
