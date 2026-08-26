@@ -67,28 +67,19 @@ void DebugMon_Handler(void)                 __attribute__((weak, alias("Default_
 void PendSV_Handler(void)                   __attribute__((weak, alias("Default_Handler")));
 void SysTick_Handler(void)                  __attribute__((weak, alias("Default_Handler")));
 
-/* External interrupts for RA6M4 - using default handler */
-/* Total 480 external interrupts supported by RA6M4 */
-void PORT_IRQ0_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ1_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ2_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ3_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ4_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ5_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ6_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ7_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ8_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ9_Handler(void)                __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ10_Handler(void)               __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ11_Handler(void)               __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ12_Handler(void)               __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ13_Handler(void)               __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ14_Handler(void)               __attribute__((weak, alias("Default_Handler")));
-void PORT_IRQ15_Handler(void)               __attribute__((weak, alias("Default_Handler")));
-
-/* Add more external interrupt handlers as needed */
-/* For now, we'll provide a minimal set - the weak aliases ensure any undefined handlers
- * will use Default_Handler */
+/*
+ * No named external-interrupt handlers.
+ *
+ * On RA the ICU slots are EVENT-LINKED: which peripheral event reaches NVIC slot N is
+ * whatever the RASC/e2 configuration maps there, not a fixed function of N. So a static
+ * table naming slot 0 "PORT_IRQ0" only holds for the one project it was written against
+ * - it came from ra6m4 and means nothing here. The secure project currently links no
+ * events at all (ra_gen/vector_data.h: VECTOR_DATA_IRQ_COUNT 0).
+ *
+ * Every ICU slot therefore points at Default_Handler. To service an interrupt, configure
+ * the event in e2 and define the handler that ra_gen/vector_data.c names for it; the
+ * weak Default_Handler binding is overridden at link time.
+ */
 
 /*----------------------------------------------------------------------------
   Exception / Interrupt Vector table
@@ -99,8 +90,22 @@ void PORT_IRQ15_Handler(void)               __attribute__((weak, alias("Default_
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
 
-extern const VECTOR_TABLE_Type __VECTOR_TABLE[496];
-       const VECTOR_TABLE_Type __VECTOR_TABLE[496] __VECTOR_TABLE_ATTRIBUTE = {
+/*
+ * RA6E1: 112 entries = 16 Cortex exceptions + 96 ICU slots.
+ *
+ * Source of truth is the generated BSP config, ra_cfg/fsp_cfg/bsp/bsp_mcu_family_cfg.h:
+ *     BSP_CORTEX_VECTOR_TABLE_ENTRIES  (16U)
+ *     BSP_VECTOR_TABLE_MAX_ENTRIES    (112U)
+ * Not included directly - this file deliberately keeps to CMSIS headers - so re-check
+ * these two macros if the device ever changes.
+ *
+ * 112 * 4 = 0x1C0, which must fit S_CODE_VECTOR_TABLE_SIZE (0x200) in region_defs.h.
+ * This was 496 (RA6M4's table, 0x7C0) and overflowed .TFM_VECTORS into .ER_UNPRIV_CODE.
+ */
+#define RA6E1_VECTOR_TABLE_ENTRIES  (112)
+
+extern const VECTOR_TABLE_Type __VECTOR_TABLE[RA6E1_VECTOR_TABLE_ENTRIES];
+       const VECTOR_TABLE_Type __VECTOR_TABLE[RA6E1_VECTOR_TABLE_ENTRIES] __VECTOR_TABLE_ATTRIBUTE = {
     (VECTOR_TABLE_Type)(&__INITIAL_SP),       /*     Initial Stack Pointer */
     Reset_Handler,                            /*     Reset Handler */
     NMI_Handler,                              /* -14 NMI Handler */
@@ -118,25 +123,8 @@ extern const VECTOR_TABLE_Type __VECTOR_TABLE[496];
     PendSV_Handler,                           /*  -2 PendSV Handler */
     SysTick_Handler,                          /*  -1 SysTick Handler */
 
-    /* External interrupts for RA6M4 (480 total) */
-    PORT_IRQ0_Handler,                        /*   0 */
-    PORT_IRQ1_Handler,                        /*   1 */
-    PORT_IRQ2_Handler,                        /*   2 */
-    PORT_IRQ3_Handler,                        /*   3 */
-    PORT_IRQ4_Handler,                        /*   4 */
-    PORT_IRQ5_Handler,                        /*   5 */
-    PORT_IRQ6_Handler,                        /*   6 */
-    PORT_IRQ7_Handler,                        /*   7 */
-    PORT_IRQ8_Handler,                        /*   8 */
-    PORT_IRQ9_Handler,                        /*   9 */
-    PORT_IRQ10_Handler,                       /*  10 */
-    PORT_IRQ11_Handler,                       /*  11 */
-    PORT_IRQ12_Handler,                       /*  12 */
-    PORT_IRQ13_Handler,                       /*  13 */
-    PORT_IRQ14_Handler,                       /*  14 */
-    PORT_IRQ15_Handler,                       /*  15 */
-    /* IRQs 16-479: Initialize remaining with Default_Handler */
-    [16 ... 479] = Default_Handler,
+    /* ICU slots 0..95 - event-linked, see the note above the declarations */
+    [16 ... (RA6E1_VECTOR_TABLE_ENTRIES - 1)] = Default_Handler,
 };
 
 #if defined ( __GNUC__ )

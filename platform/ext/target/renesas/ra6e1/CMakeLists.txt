@@ -218,9 +218,18 @@ ${_partition_body}
 ")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FSP_LINKER_INFO_SRC}")
 
-# platform_region_defs is what the BL2 scatter target links, so this is the path that
-# makes region_defs.h resolvable when the linker script is preprocessed.
-target_include_directories(platform_region_defs INTERFACE "${FSP_PARTITION_HEADER_DIR}")
+# platform_region_defs is what the scatter targets link, so these are the paths that make
+# region_defs.h and its includes resolvable when a linker script is preprocessed.
+#
+# The platform's own directory is needed for the SECURE script specifically: TF-M generates
+# tfm_isolation_s.ld into ${CMAKE_BINARY_DIR}/generated/, so its #include "region_defs.h"
+# has no relative path to find. ra6e1_bl2.ld happens to work without it, being in this
+# directory itself. Same approach as the rse/tc and stm32wba65i-dk platforms.
+target_include_directories(platform_region_defs
+    INTERFACE
+        "${FSP_PARTITION_HEADER_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 target_sources(platform_s PRIVATE
     ${FSP_S_SOURCES}
@@ -230,6 +239,10 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/attest_hal.c
     ${CMAKE_CURRENT_SOURCE_DIR}/bsp_init_stub.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
+    # Common ARMv8-M isolation HAL: tfm_hal_set_up_static_boundaries,
+    # tfm_hal_bind_boundary, tfm_hal_memory_check. Nothing else provides them, and the
+    # port has no reason to fork it - attribution here is IDAU/SAU, which this handles.
+    ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
 )
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -251,6 +264,18 @@ target_compile_options(platform_s PRIVATE ${FSP_COMPILE_OPTIONS})
 target_compile_options(platform_s PUBLIC ${COMPILER_CMSE_FLAG})
 
 target_sources(tfm_s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6e1.c)
+
+# TF-M generates the secure linker script from its template using our region_defs.h
+# (that is how TFM_LINKER_VENEERS_START pins the NSC window - DESIGN.md 7). It does not
+# attach it to tfm_s for us: without this the link has no -T at all and every script
+# symbol is undefined (Image$$ARM_LIB_STACK$$ZI$$Limit, __copy_table_start__,
+# Image$$TFM_SP_LOAD_LIST$$RO$$Base, ...). No custom secure linker - only the generated one.
+target_add_scatter_file(tfm_s
+    $<$<C_COMPILER_ID:GNU>:${CMAKE_BINARY_DIR}/generated/platform/ext/common/gcc/tfm_isolation_s.ld>
+    $<$<C_COMPILER_ID:ARMClang>:${CMAKE_BINARY_DIR}/generated/platform/ext/common/armclang/tfm_isolation_s.sct>
+    $<$<C_COMPILER_ID:IAR>:${CMAKE_BINARY_DIR}/generated/platform/ext/common/iar/tfm_isolation_s.icf>
+    $<$<C_COMPILER_ID:Clang>:${CMAKE_BINARY_DIR}/generated/platform/ext/common/llvm/tfm_isolation_s.ld>
+)
 
 if(RA6E1_STDOUT_RTT)
     target_sources(platform_s PRIVATE

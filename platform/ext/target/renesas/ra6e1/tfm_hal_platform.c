@@ -38,7 +38,11 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * >> divider) would then see 0 - e.g. R_FLASH_HP_Open() rejects it with
      * FSP_ERR_FCLK (FCLK below the 4 MHz minimum). g_clock_freq[] lives in
      * .ram_noinit and survives, so SystemCoreClockUpdate() restores the real
-     * value. Idempotent; also done defensively in Driver_Flash.c.
+     * value. Idempotent.
+     *
+     * NOTE: this is the SECURE path only - tfm_hal_platform_init() is an SPM hook and
+     * BL2 never calls it. BL2 runs TF-M's startup too and is the image that actually
+     * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
      */
     SystemCoreClockUpdate();
 
