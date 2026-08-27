@@ -66,7 +66,16 @@ static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0  /* reserved */
 };
 
-/* Code flash info structure */
+/* Code flash info structure.
+ *
+ * program_unit is deliberately still 1, NOT the 128-byte RA6E1 code flash write size
+ * (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE). bl2/src/flash_map.c:422 returns this value as
+ * flash_area_align(), which MCUboot uses to lay out the image trailer - and imgtool is
+ * invoked with --align MCUBOOT_ALIGN_VAL, currently 1. The two have to agree, so raising
+ * this means raising MCUBOOT_ALIGN_VAL with it and re-signing.
+ *
+ * It only matters once BL2 WRITES to code flash, i.e. on an upgrade; validate-and-boot
+ * reads only. Fix both together before exercising the secondary slots. */
 static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_TOTAL_SIZE / FLASH_AREA_IMAGE_SECTOR_SIZE,
@@ -76,13 +85,23 @@ static ARM_FLASH_INFO FlashInfo = {
     .erased_value = 0xFF
 };
 
-/* Data flash info structure */
+/* Data flash info structure.
+ *
+ * program_unit and page_size are DERIVED, not literals. ITS and PS both compare the
+ * advertised program_unit against their compile-time TFM_HAL_*_PROGRAM_UNIT and refuse to
+ * start on a mismatch - tfm_internal_trusted_storage.c:210 and :246, returning
+ * PSA_ERROR_PROGRAMMER_ERROR (-129) out of init_its_fs_cfg(). This said 1 while
+ * flash_layout.h said 4, so ITS failed at spm_init_function() and PS would have followed.
+ *
+ * 4 is the RA6E1 data flash write size (BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE); the 64-byte
+ * figure is the ERASE block, which is sector_size. page_size is the programming page, so
+ * it is the write size too - not the erase size it used to hold. */
 static ARM_FLASH_INFO DataFlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_DATA_FLASH_SIZE / FLASH_DATA_FLASH_SECTOR_SIZE,
     .sector_size  = FLASH_DATA_FLASH_SECTOR_SIZE,
-    .page_size    = FLASH_DATA_FLASH_SECTOR_SIZE,
-    .program_unit = 1,  /* 1 byte programming */
+    .page_size    = TFM_HAL_DATA_FLASH_PROGRAM_UNIT,
+    .program_unit = TFM_HAL_DATA_FLASH_PROGRAM_UNIT,
     .erased_value = 0xFF
 };
 
