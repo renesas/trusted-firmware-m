@@ -50,11 +50,22 @@
 #define FLASH_AREA_BL2_OFFSET           (BSP_PARTITION_FLASH_BL_CPU0_S_START)
 #define FLASH_AREA_BL2_SIZE             (BSP_PARTITION_FLASH_BL_CPU0_S_SIZE)
 
-/* A slot spans its header through the end of its trailer. Deriving the size this way
- * rather than assuming header+image+trailer matters: the primary secure slot carries
- * alignment padding between the NSC region and the trailer, because the trailer is the
- * first non-secure partition and that boundary must be 32 KB aligned (DESIGN.md 7.1).
- * So FLASH_AREA_0_SIZE is legitimately 0x100 larger than FLASH_AREA_2_SIZE. */
+/* A slot spans its header through the end of its trailer.
+ *
+ * The solution's components MUST be contiguous, so that this span equals the sum of the
+ * component sizes. Everything downstream assumes that: the FSP generator emits
+ * .fa_size as a plain sum of the parts (linker_macros_bsp_h.j2), imgtool pads to
+ * FLASH_AREA_0_SIZE via RE_SIGN_BIN_SIZE, and bootutil reads the trailer magic at
+ * fa_off + fa_size - 16. A gap between components makes the span exceed the sum, and
+ * the two views of the slot silently diverge.
+ *
+ * The slot must also be a whole number of FLASH_AREA_IMAGE_SECTOR_SIZE erase sectors:
+ * flash_area_get_sectors() walks the area sector by sector and fails outright on a
+ * remainder, which surfaces only on hardware as boot_read_sectors() returning
+ * BOOT_EFLASH. An earlier layout left 0x100 between the NSC region and the trailer and
+ * hit exactly that.
+ *
+ * ra6e1_layout_checks.c asserts both properties at build time. */
 #define TFM_SLOT_SPAN(h, t)             (((t##_START) + (t##_SIZE)) - (h##_START))
 
 /* Image 0 = secure */
