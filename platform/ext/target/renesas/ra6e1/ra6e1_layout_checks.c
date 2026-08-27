@@ -12,6 +12,34 @@
 
 #include "flash_otp_nv_counters_backend.h"
 #include "flash_layout.h"
+#include "region_defs.h"
+/* bsp_api.h, not bsp_cfg.h directly: bsp_cfg.h pulls the board headers, which use
+ * FSP_HEADER before it is defined. Entering through bsp_api.h gets the ordering right. */
+#include "bsp_api.h"
+
+/* ---------------------------------------------------------------------------------
+ * Main stack
+ *
+ * bsp_init_stub.c aliases FSP's g_main_stack onto Image$$ARM_LIB_STACK$$ZI$$Base, so
+ * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is really running on.
+ * The other thing it does with that symbol is write its stack seal at
+ * &g_main_stack[BSP_CFG_STACK_MAIN_BYTES]. The generated scatter file sizes .msp_stack
+ * as S_MSP_STACK_SIZE - STACKSEAL_SIZE and reserves STACKSEAL_SIZE above it, so the two
+ * agree only when S_MSP_STACK_SIZE is BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE. If the
+ * solution is regenerated with a different FSP main stack size, that write moves off the
+ * reserved seal and into whatever the linker put above the stack.
+ * --------------------------------------------------------------------------------- */
+#ifndef STACKSEAL_SIZE
+#define STACKSEAL_SIZE (8)
+#endif
+
+_Static_assert(S_MSP_STACK_SIZE == (BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE),
+               "RA6E1: S_MSP_STACK_SIZE must be BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE. "
+               "FSP's SystemInit() writes its stack seal at "
+               "&g_main_stack[BSP_CFG_STACK_MAIN_BYTES], which bsp_init_stub.c aliases to "
+               "the TF-M stack base - so it must land on the reserved __StackSeal, not "
+               "past the top of the stack. Update S_MSP_STACK_SIZE in region_defs.h to "
+               "match the regenerated bsp_cfg.h.");
 
 /* ---------------------------------------------------------------------------------
  * MCUboot slot geometry

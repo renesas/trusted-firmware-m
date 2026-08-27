@@ -149,7 +149,18 @@
 #define SHARED_BOOT_MEASUREMENT_SIZE    (BOOT_TFM_SHARED_DATA_SIZE)
 
 #define S_HEAP_SIZE                     (0x800)
-#define S_MSP_STACK_SIZE                (0x800)
+
+/* Must be BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE (0x1000 + 8 for this solution).
+ *
+ * The generated scatter file lays .msp_stack out as S_MSP_STACK_SIZE - STACKSEAL_SIZE
+ * and reserves the eight bytes above it for __StackSeal. bsp_init_stub.c aliases FSP's
+ * g_main_stack onto that stack, and FSP's SystemInit() writes its stack seal at
+ * &g_main_stack[BSP_CFG_STACK_MAIN_BYTES] - which therefore has to land exactly on
+ * __StackSeal rather than in live data above it.
+ *
+ * ra6e1_layout_checks.c asserts the relationship, so a regenerated project that changes
+ * the FSP main stack size fails the build instead of scribbling past the stack. */
+#define S_MSP_STACK_SIZE                (0x1008)
 #define S_PSP_STACK_SIZE                (0x800)
 #define NS_HEAP_SIZE                    (0x1000)
 #define NS_STACK_SIZE                   (0x1000)

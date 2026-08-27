@@ -399,6 +399,26 @@ target_add_scatter_file(tfm_s
     $<$<C_COMPILER_ID:Clang>:${CMAKE_BINARY_DIR}/generated/platform/ext/common/llvm/tfm_isolation_s.ld>
 )
 
+# Point FSP's g_main_stack at the image's real stack. FSP's SystemInit() sets MSPLIM from
+# &g_main_stack[0] and writes its stack seal at &g_main_stack[BSP_CFG_STACK_MAIN_BYTES],
+# both of which describe the stack the CPU is actually running on - and that stack belongs
+# to TF-M, not to FSP. See the long note in bsp_init_stub.c: a private array there put
+# MSPLIM 44 KB above the live SP and hard-faulted the first push inside SystemInit().
+#
+# Done with --defsym rather than in C: the target symbol is defined by the linker script,
+# so __attribute__((alias)) is rejected and an assembler .set leaves it undefined.
+# NOTE the SINGLE '$' in each separator. The real symbol is Image$$ARM_LIB_STACK$$ZI$$Base
+# with doubled dollars, but CMake escapes '$' twice on the way into build.ninja, so one
+# here arrives as two on the link line. Verify after any change with:
+#   grep -o 'defsym=g_main_stack=[^ "]*' build_ra6e1/build.ninja
+# which should show four '$' per separator (ninja halves them), and then confirm with
+#   arm-none-eabi-nm bin/tfm_s.axf | grep g_main_stack
+# that the symbol resolved to Image$$ARM_LIB_STACK$$ZI$$Base rather than being absent.
+set(RA6E1_MAIN_STACK_DEFSYM "-Wl,--defsym=g_main_stack=Image$ARM_LIB_STACK$ZI$Base")
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_link_options(tfm_s PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
+endif()
+
 if(RA6E1_STDOUT_RTT)
     target_sources(platform_s PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c
@@ -470,6 +490,13 @@ if(BL2)
         $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
         $<$<C_COMPILER_ID:IAR>:${PLATFORM_DIR}/ext/common/iar/tfm_common_bl2.icf>
     )
+
+    # Same g_main_stack aliasing as the secure image - see the note above. BL2 is flat, so
+    # BSP_TZ_SECURE_BUILD is 0 and it skips the seal write; only MSPLIM applies. It did not
+    # fault before only because the private array happened to land below BL2's stack.
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        target_link_options(bl2 PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
+    endif()
 endif()
 
 #-------------------------------------------------------------------------------

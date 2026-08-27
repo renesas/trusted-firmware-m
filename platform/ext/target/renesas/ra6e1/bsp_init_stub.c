@@ -37,16 +37,46 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
     .p_nocache_list = nocache_list
 };
 
-/* Stub main stack - only for secure side (NS uses FSP startup.c) */
 #include <stdint.h>
-#ifndef BSP_CFG_STACK_MAIN_BYTES
-#define BSP_CFG_STACK_MAIN_BYTES 0x400  /* 1KB dummy stack */
-#endif
 
-/* Weak g_main_stack - allows NS startup.c to override */
-#if !defined(DOMAIN_NS) && !defined(__DOMAIN_NS)
-__attribute__((weak)) uint8_t g_main_stack[BSP_CFG_STACK_MAIN_BYTES] __attribute__((section(".noinit")));
-#endif
+/* g_main_stack - aliased onto the image's REAL stack, not a private array.
+ *
+ * FSP's system.c uses this symbol for two things during SystemInit():
+ *
+ *   system.c:221  *(uint32_t *)&g_main_stack[BSP_CFG_STACK_MAIN_BYTES] = seal
+ *   system.c:349  __set_MSPLIM((uint32_t)&g_main_stack[0])
+ *
+ * both of which describe whatever stack the CPU is actually running on. TF-M owns that
+ * stack - the linker script places it and the vector table's initial SP points at its
+ * limit - so a separate array here is not merely redundant, it is wrong in both
+ * directions. It used to be a 0x400 array wherever the linker happened to drop it:
+ *
+ *   tfm_s: array at 0x2000C578, real stack 0x20000E00..0x200015F8. MSPLIM landed 44 KB
+ *          ABOVE the live SP, so the first push inside SystemRuntimeInit() raised a
+ *          stack-overflow UsageFault -> HardFault. The seal write also went 0xC00 past
+ *          the end of the array, silently corrupting .bss just before that.
+ *   bl2:   array at 0x200032E0, real stack 0x200036E0..0x20004EE0. MSPLIM landed just
+ *          BELOW the stack, so it happened not to fault - luck, not correctness. BL2 is
+ *          a flat build so BSP_TZ_SECURE_BUILD is 0 and it skips the seal write.
+ *
+ * Aliasing the symbol to Image$$ARM_LIB_STACK$$ZI$$Base makes both operations correct:
+ * MSPLIM protects the stack it is supposed to, and the seal lands exactly on the eight
+ * bytes the generated script already reserves at __StackSeal. That needs the stack size
+ * FSP believes in to match the one TF-M lays out, which ra6e1_layout_checks.c asserts
+ * (S_MSP_STACK_SIZE == BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE).
+ *
+ * The alias is made at LINK time, in the platform CMakeLists:
+ *
+ *     -Wl,--defsym=g_main_stack=Image$$ARM_LIB_STACK$$ZI$$Base
+ *
+ * and deliberately not here. __attribute__((alias)) needs the target defined in the same
+ * translation unit, and an assembler .set against a linker-defined symbol leaves
+ * g_main_stack undefined at link time. So there is no definition in this file - the
+ * symbol arrives from the link line for both the secure image and BL2.
+ *
+ * The NS image never sees this file; it keeps FSP's own startup.c and bsp_linker.c,
+ * which define g_main_stack the ordinary way.
+ */
 
 /* Forward declarations for weak stubs */
 void g_hal_init(void);
