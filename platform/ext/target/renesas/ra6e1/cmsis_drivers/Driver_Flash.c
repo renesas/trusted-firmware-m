@@ -68,20 +68,39 @@ static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
 
 /* Code flash info structure.
  *
- * program_unit is deliberately still 1, NOT the 128-byte RA6E1 code flash write size
- * (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE). bl2/src/flash_map.c:422 returns this value as
- * flash_area_align(), which MCUboot uses to lay out the image trailer - and imgtool is
- * invoked with --align MCUBOOT_ALIGN_VAL, currently 1. The two have to agree, so raising
- * this means raising MCUBOOT_ALIGN_VAL with it and re-signing.
+ * program_unit is the real 128-byte RA6E1 code flash write size
+ * (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE, bsp_feature.h:300). It was 1 until 2026-08-29.
  *
- * It only matters once BL2 WRITES to code flash, i.e. on an upgrade; validate-and-boot
- * reads only. Fix both together before exercising the secondary slots. */
+ * This value is load-bearing in two places that must agree:
+ *   - bl2/src/flash_map.c:422 returns it as flash_area_align(), which MCUboot uses to size
+ *     and place the image trailer, and to pad every write it makes to a slot.
+ *   - bl2/ext/mcuboot/CMakeLists.txt:204 signs with --align ${MCUBOOT_ALIGN_VAL} --pad, so
+ *     imgtool computes the same trailer geometry ahead of time.
+ * config.cmake therefore sets MCUBOOT_ALIGN_VAL to 128 alongside this. Change the two
+ * together or BL2 looks for the trailer magic where imgtool did not put it.
+ *
+ * Raising it needed three list edits, because 128 was outside the range TF-M's signing
+ * path would accept - see scripts/wrapper/wrapper.py and mcuboot_default_config.cmake for
+ * the reasoning. Note the constraint is NOT imgtool's own --align choice list: wrapper.py
+ * builds imgtool.image.Image() directly and never invokes imgtool's CLI, and Image() only
+ * requires a power of two. For OVERWRITE_ONLY the trailer is
+ * max_align*2 + align_up(16, max_align) = 384 bytes, and _trailer_size()'s
+ * "write_size not in [1,2,4,8,16,32]" rejection sits on the swap path, which this port
+ * does not use.
+ *
+ * On the runtime side mcuboot already handles a write unit larger than the 16-byte magic:
+ * boot_write_trailer() pads from ALIGN_DOWN(off, BOOT_MAX_ALIGN), and the >=8 && <=32
+ * _Static_assert in bootutil_public.c is guarded on the SWAP modes only.
+ *
+ * NOT YET EXERCISED ON HARDWARE. It only takes effect once BL2 WRITES code flash, on an
+ * upgrade; validate-and-boot reads only, which is why the port booted fine while this was
+ * still 1. Proving it needs a real two-version upgrade with a populated secondary slot. */
 static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_TOTAL_SIZE / FLASH_AREA_IMAGE_SECTOR_SIZE,
     .sector_size  = FLASH_AREA_IMAGE_SECTOR_SIZE,
     .page_size    = 4,
-    .program_unit = 1,
+    .program_unit = TFM_HAL_CODE_FLASH_PROGRAM_UNIT,
     .erased_value = 0xFF
 };
 

@@ -11,6 +11,7 @@
 #include "cmsis.h"
 #include "tfm_platform_system.h"
 #include "fih.h"
+#include "uart_stdout.h"
 
 /* Linker script provides __StackSeal. TF-M SPM code expects __STACK_SEAL.
  * We provide __STACK_SEAL as a weak symbol in the same section. */
@@ -41,6 +42,38 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * value. Idempotent; also done defensively in Driver_Flash.c.
      */
     SystemCoreClockUpdate();
+
+    /* Clear PRIMASK. Reset_Handler in startup_ra6m4.c does __disable_irq() - standard,
+     * every TF-M port's startup does - and tfm_hal_platform_init() is where the canonical
+     * ports undo it. Both Renesas ports omitted it, and under the SFN backend nothing else
+     * ever does: the only cpsie i sites in the SPM are backend_abi_leaving_spm() and the
+     * PendSV exit path, and both are IPC-backend only.
+     *
+     * With PRIMASK still set, SVCall - priority 0, but a configurable priority - is masked,
+     * so the first SVC executed escalates to HardFault. Diagnosed on RA6E1 2026-08-29,
+     * where it took out the ITS partition init via LOG_INFFMT -> printf ->
+     * tfm_hal_output_sp_log -> "svc 2". Fixed here at the same time as the two ports share
+     * the defect. Must precede stdio_init(), matching the reference ports.
+     */
+    __enable_irq();
+
+    /* Bring up the stdout backend. Every other TF-M port calls this from its
+     * tfm_hal_platform_init(); the two Renesas ports did not, and the omission is not
+     * benign:
+     *
+     *   - RTT backend: stdio_init() is the ONLY caller of SEGGER_RTT_Init(), so
+     *     --gc-sections drops both symbols from tfm_s entirely. _SEGGER_RTT lives in
+     *     .bss, so the control block stays all zeros and J-Link RTT Viewer - which finds
+     *     the block by searching for the "SEGGER RTT" ID string - cannot locate it at any
+     *     address or search range. BL2 is unaffected because bl2_main.c calls stdio_init()
+     *     itself, which is why the bootloader printed and the secure image did not.
+     *   - UART backend: Driver_USART is never opened, so output goes nowhere.
+     *
+     * Diagnosed on RA6E1 2026-08-29; fixed here at the same time as the two ports share
+     * the defect. Deliberately after SystemCoreClockUpdate(): the UART backend derives its
+     * baud divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
+     */
+    stdio_init();
 
     /* Note: target_cfg.h functions are called by TF-M framework */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));

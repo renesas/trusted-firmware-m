@@ -11,6 +11,7 @@
 #include "cmsis.h"
 #include "tfm_platform_system.h"
 #include "fih.h"
+#include "uart_stdout.h"
 
 /* Linker script provides __StackSeal. TF-M SPM code expects __STACK_SEAL.
  * We provide __STACK_SEAL as a weak symbol in the same section. */
@@ -45,6 +46,55 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
      */
     SystemCoreClockUpdate();
+
+    /* Clear PRIMASK. Reset_Handler in startup_ra6e1.c does __disable_irq() - standard,
+     * every TF-M port's startup does - and tfm_hal_platform_init() is where the canonical
+     * ports undo it. Both Renesas ports omitted it, and under the SFN backend nothing else
+     * ever does: the only cpsie i sites in the SPM are backend_abi_leaving_spm() and the
+     * PendSV exit path, and both are IPC-backend only. arch_clean_stack_and_launch(), which
+     * is how SFN reaches the partition init loop, does not touch PRIMASK.
+     *
+     * With PRIMASK still set, SVCall - priority 0, but a configurable priority - is masked,
+     * so the first SVC executed escalates to HardFault. That is what killed the ITS
+     * partition init on 2026-08-29: LOG_INFFMT -> printf -> tfm_hal_output_sp_log ->
+     * "svc 2" in tfm_output_unpriv_string(), faulting with HFSR.FORCED set and every
+     * CFSR/BFSR/MMFSR/UFSR/SFSR bit clear - the textbook signature of a masked SVCall,
+     * and easily misread as a fault in the code being logged from.
+     *
+     * Ordering: must precede stdio_init() to match the reference ports, and must follow
+     * the boundary/peripheral setup already done by the SPM before this hook is called.
+     */
+    __enable_irq();
+
+    /* Bring up the stdout backend. Every other TF-M port calls this from its
+     * tfm_hal_platform_init(); this one did not, and the omission is not benign:
+     *
+     *   - RTT backend: stdio_init() is the ONLY caller of SEGGER_RTT_Init(), so
+     *     --gc-sections dropped both symbols from tfm_s entirely. _SEGGER_RTT lives
+     *     in .bss, so the control block stayed 64 bytes of zeros and J-Link RTT
+     *     Viewer - which finds the block by searching for the "SEGGER RTT" ID string -
+     *     could not locate it at any address or search range. BL2 was unaffected
+     *     because bl2_main.c calls stdio_init() itself.
+     *   - UART backend: Driver_USART is never opened, so output goes nowhere.
+     *
+     * Deliberately after SystemCoreClockUpdate(): the UART backend derives its baud
+     * divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
+     */
+    stdio_init();
+
+    /* TEMPORARY bring-up probe - remove once the ITS init failure is resolved.
+     *
+     * Calls the backend directly, which is the point: a partition's LOG_INFFMT goes
+     * printf -> tfm_hal_output_sp_log -> SVC -> handle_spm_svc_requests(), and that
+     * handler runs tfm_hal_memory_check() and calls tfm_core_panic() if it fails. This
+     * write skips printf, the SVC and the memory check, so if it appears in the viewer
+     * and the partition logs do not, the fault is in the SVC log path rather than in
+     * RTT, the control block address, or the partition being logged from.
+     */
+    {
+        static const char probe[] = "tfm_s: platform init\r\n";
+        (void)stdio_output_string(probe, (uint32_t)(sizeof(probe) - 1U));
+    }
 
     /* Note: target_cfg.h functions are called by TF-M framework */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));

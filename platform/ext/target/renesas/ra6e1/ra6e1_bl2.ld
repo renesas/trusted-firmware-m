@@ -95,6 +95,9 @@ SECTIONS
         LONG (LOADADDR(.data))
         LONG (ADDR(.data))
         LONG (SIZEOF(.data) / 4)
+        LONG (LOADADDR(.ram_from_flash))
+        LONG (ADDR(.ram_from_flash))
+        LONG (SIZEOF(.ram_from_flash) / 4)
         __copy_table_end__ = .;
 
         /* .zero.table */
@@ -161,6 +164,38 @@ SECTIONS
     } > RAM
     Image$$SHARED_DATA$$RW$$Base = ADDR(.tfm_bl2_shared_data);
     Image$$SHARED_DATA$$RW$$Limit = ADDR(.tfm_bl2_shared_data) + SIZEOF(.tfm_bl2_shared_data);
+
+    /* FSP flash driver routines that MUST execute from RAM.
+     *
+     * r_flash_hp.c marks flash_hp_erase, flash_hp_cf_write, flash_hp_pe_mode_exit,
+     * flash_hp_status_clear and the delay loop PLACE_IN_RAM_SECTION, which resolves to
+     * BSP_PLACE_IN_SECTION(".ram_from_flash"). The reason is hardware: while the FCU is in
+     * program/erase mode for CODE flash, code flash is not readable. Any instruction fetched
+     * from it in that window returns garbage, so the routines driving the operation cannot
+     * live there.
+     *
+     * Without this section the linker gave .ram_from_flash a plain flash VMA next to .text
+     * (0x0000D160), because this file never named it and FSP's own bsp_linker.c - which would
+     * have relocated it - is excluded from the build. Data flash was unaffected, since
+     * data-flash P/E leaves code flash readable; that is why NV counters, ITS and PS all
+     * worked. Code flash P/E is undefined behaviour in that state: on 2026-08-30 BL2 erased
+     * image 1's slot, then died partway through image 0's erase, leaving 0x58000 blank and
+     * the CPU executing erased flash. Surviving one erase and not the next is the expected
+     * signature - it depends on what is in the prefetch buffer and flash cache at the time.
+     *
+     * Kept out of .data because it is executable (the RAM region is declared rwx above), and
+     * copied by the CMSIS copy-table entry added beside .data's, which TF-M's startup already
+     * runs. That deliberately avoids adding a MEMORY region or PT_LOAD - see the
+     * OPTION_SETTING note below for why segment layout in this file is handled with care.
+     */
+    .ram_from_flash : ALIGN(4)
+    {
+        __ram_from_flash_start__ = .;
+        *(.ram_from_flash)
+        *(.ram_from_flash.*)
+        . = ALIGN(4);
+        __ram_from_flash_end__ = .;
+    } > RAM AT > FLASH
 
     .data : ALIGN(4)
     {

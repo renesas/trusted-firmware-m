@@ -373,8 +373,13 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_layout_checks.c
 
 # attest_hal.c needs tfm_strnlen.h. The port sets PLATFORM_DEFAULT_ATTEST_HAL OFF, so
 # platform_s does not inherit tfm_sprt's include paths the way the default HAL does.
+#
+# ext/common: tfm_hal_platform.c needs uart_stdout.h for the stdio_* backend API. PRIVATE,
+# and NOT ext/common/template - that directory holds TF-M's default platform
+# implementations and would shadow ours. Matches what the ra6m4 port does.
 target_include_directories(platform_s PRIVATE
     ${CMAKE_SOURCE_DIR}/secure_fw/partitions/lib/runtime/include
+    ${PLATFORM_DIR}/ext/common
 )
 target_compile_definitions(platform_s PUBLIC ${FSP_COMPILE_DEFS} ${FSP_TZ_DEFS_S})
 target_compile_options(platform_s PRIVATE ${FSP_COMPILE_OPTIONS})
@@ -496,6 +501,14 @@ if(BL2)
     # fault before only because the private array happened to land below BL2's stack.
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_options(bl2 PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
+        # ra6e1_bl2.ld relocates FSP's .ram_from_flash (the code-flash program/erase
+        # routines) into the RAM region, which is executable code inside an otherwise
+        # read/write segment - so ld reports "LOAD segment with RWX permissions". That is
+        # exactly what code-in-RAM is, and TF-M links with -Wl,-fatal-warnings, so without
+        # this the link fails. Scoped to bl2: it is the only image that programs code flash,
+        # and the only one with a relocated text section. FSP's own linker scripts produce
+        # the same RWX segment for the same reason.
+        target_link_options(bl2 PRIVATE -Wl,--no-warn-rwx-segments)
     endif()
 endif()
 
@@ -551,8 +564,26 @@ if(FSP_NS_APP_DIR)
     # real split SPE/NSPE build; see the note above.
 
     if(RA6E1_STDOUT_RTT)
-        target_sources(tfm_ns PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c)
+        # rtt_ns_init.c is what makes the NS image visible at all - see the file. Without a
+        # reference into SEGGER_RTT.c, --gc-sections drops the control block and the NS side
+        # is silent whether it ran or hung.
+        #
+        # NOT rtt_stdout.c. That file defines _write(), and so does ns/syscalls_ns.c, which
+        # tfm_ns always links - adding it here fails with a duplicate symbol. The NS side
+        # gets its printf() redirection from syscalls_ns.c's own _write() instead, guarded on
+        # the RA6E1_STDOUT_RTT definition below. The secure side keeps rtt_stdout.c because
+        # it also needs the stdio_* backend API that TF-M's SPM logging calls.
+        target_sources(tfm_ns PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_ns_init.c)
         target_include_directories(tfm_ns PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/rtt)
+        target_compile_definitions(tfm_ns PRIVATE RA6E1_STDOUT_RTT)
+        # Redirects main()'s call to hal_entry() into __wrap_hal_entry() in rtt_ns_init.c,
+        # which emits the NS banner and then calls __real_hal_entry(). This pairs with that
+        # file and the two must move together: the flag without the definition is an
+        # undefined-symbol error, the definition without the flag is dead code. A
+        # constructor cannot be used instead - this image has no .init_array. See the file.
+        target_link_options(tfm_ns PRIVATE -Wl,--wrap=hal_entry)
     endif()
 
     # Match tfm_s and bl2: .axf in bin/. Not cosmetic - add_convert_to_bin_target() reads

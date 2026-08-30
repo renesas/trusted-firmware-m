@@ -10,6 +10,10 @@
 #include <errno.h>
 #include <stdint.h>
 
+#ifdef RA6E1_STDOUT_RTT
+#include "SEGGER_RTT.h"
+#endif
+
 /* Weak stub for HAL init - FSP applications provide their own implementation */
 __attribute__((weak)) void g_hal_init(void) {
     /* Empty - FSP applications provide their own implementation */
@@ -62,9 +66,19 @@ int _read(int file, char *ptr, int len) {
 }
 
 int _write(int file, char *ptr, int len) {
-    /* Minimal implementation - could be enhanced to use UART */
     (void)file;
+#ifdef RA6E1_STDOUT_RTT
+    /* Route the NS application's printf() to RTT. This is deliberately here rather than in
+     * rtt/rtt_stdout.c: that file defines _write() too, and adding it to tfm_ns collides
+     * with this one at link. The secure side uses rtt_stdout.c because it also needs the
+     * stdio_* backend API that TF-M's SPM logging calls; NS needs only the newlib hook.
+     *
+     * _isatty() above returns 1, so newlib line-buffers stdout and a printf ending in \n
+     * reaches RTT immediately - no fflush() needed in the application.
+     */
+    return (int)SEGGER_RTT_Write(0U, ptr, (unsigned)len);
+#else
     (void)ptr;
-    (void)len;
-    return len;  /* Pretend we wrote everything to avoid errors */
+    return len;  /* No backend - pretend we wrote everything to avoid errors */
+#endif
 }

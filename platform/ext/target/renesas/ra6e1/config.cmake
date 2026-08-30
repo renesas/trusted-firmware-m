@@ -68,6 +68,31 @@ set(MCUBOOT_SIGNATURE_TYPE              "EC-P256"   CACHE STRING    "Match the s
 # matches the solution, which stacks psa_crypto under rm_mcuboot_port.
 set(MCUBOOT_USE_PSA_CRYPTO              ON          CACHE BOOL      "Required for EC-P256")
 set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the solution")
+# SHOULD be 128 - the RA6E1 code flash minimum write (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE),
+# and it must equal the code-flash program_unit in Driver_Flash.c, which flash_map.c:422
+# returns as flash_area_align(). Images are signed --align ${MCUBOOT_ALIGN_VAL} --pad, so
+# signing and runtime derive the trailer from the same number; disagreement means BL2 hunts
+# for the magic where imgtool did not put it.
+#
+# At 128 the OVERWRITE_ONLY trailer is max_align*2 + align_up(16,128) = 0x180, so the signed
+# image must end by 0x98000-0x180 = 0x97E80. That did NOT fit until the solution was
+# repartitioned on 2026-08-29: the NSC was 0x400 at 0x97C00, the veneers were pinned at its
+# start, and the signed image ended at 0x97E91 - 17 bytes past where the trailer begins.
+# imgtool failed the build loudly ("Image size (0x3fe91) + trailer (0x180) exceeds requested
+# size 0x40000") rather than producing a silently unbootable image.
+#
+# The NSC is now 0x800 at 0x97800, so the veneers sit 0x800 from the slot end and the trailer
+# fits with room to spare. This value therefore REQUIRES that layout - it is not independent
+# of the solution. If the NSC ever shrinks back to 0x400, or the secure image grows into the
+# space the trailer needs, imgtool fails the build again. That is the intended behaviour.
+#
+# Corresponding Partition Manager values: Code Secure 606 KB, NSC 2 KB, NS at 0x98000
+# (608 KB). See RA6E1_SOLUTION.md.
+#
+# FLAG DAY: imgtool encodes max_align into the boot magic whenever it is not 8
+# (image.py:189-202), so images signed at align 1 are NOT accepted by a BL2 built at 128.
+# Reflash every slot rather than mixing.
+set(MCUBOOT_ALIGN_VAL                   128         CACHE STRING    "RA6E1 code flash write unit; needs the 2 KB NSC layout")
 set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
 set(MCUBOOT_MEASURED_BOOT               OFF         CACHE BOOL      "Disabled in the solution")
 set(MCUBOOT_DATA_SHARING                OFF         CACHE BOOL      "Disabled in the solution")

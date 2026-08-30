@@ -120,6 +120,13 @@
 #define FLASH_DEV_NAME_DATA             Driver_FLASH1
 #define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (4)
 
+/* Code flash minimum write, BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE. Advertised by
+ * Driver_Flash.c as the code-flash program_unit and returned to MCUboot as
+ * flash_area_align(); config.cmake must keep MCUBOOT_ALIGN_VAL equal to it, since the
+ * images are signed with --align and the trailer geometry has to match at runtime.
+ * Named rather than written as a literal so the coupling is greppable. */
+#define TFM_HAL_CODE_FLASH_PROGRAM_UNIT (128)
+
 /* Data flash geometry, as cmsis_drivers/Driver_Flash.c names it. The secure partition
  * starts at the device base, and the two partitions cover the whole device. */
 #define FLASH_DATA_FLASH_BASE           (BSP_PARTITION_DATA_FLASH_CPU0_S_START)
