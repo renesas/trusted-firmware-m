@@ -111,6 +111,26 @@
  * future FSP release split it; today GCC emits exactly one section. */
 #define S_RAM_CODE_EXTRA_SECTION_NAME   .ram_from_flash*
 
+/*
+ * FSP's "do not initialise" sections, collected into .TFM_NOINIT - NOLOAD, and placed
+ * outside __bss_start__..__bss_end__ so the C runtime does not zero them.
+ *
+ * Both properties are load-bearing. FSP's own fsp_gen.ld puts these in a NOLOAD output
+ * section for a reason: Reset_Handler calls SystemInit() BEFORE __PROGRAM_START(), and
+ * SystemInit() is what sets SystemCoreClock and the bsp_clocks state that live here.
+ * Folding them into .TFM_BSS instead would zero clock state that had already been
+ * initialised - a real defect, not a tidy-up.
+ *
+ * Unhandled, ld orphaned .ram_noinit: it invented an output section and, the input being
+ * PROGBITS, gave it a load address - 110 bytes of flash inside the 2 KB NSC window holding
+ * initialisers that no copy-table entry copies. It escaped being zeroed only because the
+ * orphan happened to land below __bss_start__.
+ *
+ * .noinit is included too. Nothing emits it today; it is the generic GCC spelling of the
+ * same intent, and catching it costs nothing.
+ */
+#define S_DATA_EXTRA_NOINIT_SECTION_NAME   .ram_noinit* .noinit*
+
 /* RA6E1 has 96 IRQs; the vector table comes from ra_gen/vector_data.c. */
 #define S_CODE_VECTOR_TABLE_SIZE        (0x200)
 

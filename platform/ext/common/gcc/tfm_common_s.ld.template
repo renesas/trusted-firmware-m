@@ -576,6 +576,29 @@ SECTIONS
     Image$$ER_TFM_DATA$$RW$$Base = ADDR(.TFM_DATA);
     Image$$ER_TFM_DATA$$RW$$Limit = ADDR(.TFM_DATA) + SIZEOF(.TFM_DATA);
 
+/*
+ * Vendor sections that must be neither loaded nor zeroed.
+ *
+ * Placed BEFORE .TFM_BSS on purpose: __bss_start__ opens that section, and the C runtime
+ * zeroes __bss_start__..__bss_end__ after Reset_Handler has already called SystemInit().
+ * A vendor BSP that initialises state in SystemInit - Renesas FSP sets SystemCoreClock and
+ * its clock state there - would have that state wiped if these sections landed inside the
+ * zeroed range. Outside it, they behave as their name promises.
+ *
+ * Without this hook such a section is not diagnosed, it is ORPHANED: ld invents an output
+ * section and, because the input section is PROGBITS, gives it a load address. The result
+ * is flash spent on initialisers that no copy-table entry ever copies. On renesas/ra6e1
+ * that was 110 bytes of .ram_noinit landing inside the 2 KB NSC window.
+ *
+ * Takes an ld pattern, so a platform can name several: ".ram_noinit* .noinit*".
+ */
+#ifdef S_DATA_EXTRA_NOINIT_SECTION_NAME
+    .TFM_NOINIT ALIGN(4) (NOLOAD) :
+    {
+        KEEP(*(S_DATA_EXTRA_NOINIT_SECTION_NAME))
+    } > RAM
+#endif
+
     .TFM_BSS ALIGN(4) (NOLOAD) :
     {
         __bss_start__ = .;

@@ -528,13 +528,9 @@ endif()
 # Known-benign orphans are listed per image rather than silenced globally, so a NEW one is
 # still reported. Each entry needs a reason.
 #
-#   tfm_s .ram_noinit  - FSP BSP noinit data (SystemCoreClock, g_bsp_group_irq_sources,
-#       g_protect_counters, g_protect_pfswe_counter). FSP places it NOLOAD; orphaned it
-#       becomes a loaded section, so ~110 bytes of flash are spent on initialisers that
-#       nothing copies - the section is not in the copy table. The variables end up
-#       uninitialised either way, which is what .ram_noinit means, so behaviour matches.
-#       Wasteful, not wrong. Worth handling properly if the secure script ever gains a
-#       vendor NOLOAD hook; it would also relieve the LMA pressure inside the NSC window.
+#   tfm_s had .ram_noinit here until 2026-08-30. It is now handled properly, via
+#       S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h -> .TFM_NOINIT. Deliberately NOT
+#       allowlisted any more: if that placement ever regresses, this check should say so.
 #
 #   bl2 .msp_stack_seal_res - bl2 is a flat build, so __ARM_FEATURE_CMSE != 3 and
 #       ra6e1_bl2.ld deliberately takes the non-CMSE arm, which has no seal section.
@@ -567,7 +563,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         add_dependencies(ra6e1_orphan_check_${target} ${target})
     endfunction()
 
-    ra6e1_add_orphan_check(tfm_s ".ram_noinit")
+    ra6e1_add_orphan_check(tfm_s "")
     if(BL2)
         ra6e1_add_orphan_check(bl2 ".msp_stack_seal_res")
     endif()
