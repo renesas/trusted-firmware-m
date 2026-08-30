@@ -27,6 +27,10 @@
  * Reading the output: every line starts "[NS] ". A step prints "N. <name> ... " and then
  * either "ok" or "FAIL <status>". If a line has no "ok" or "FAIL" after it, that call is
  * where the port died.
+ *
+ * RTT is not the only channel. Every result is also written to g_ns_test_results, which a
+ * debugger can read with no host tooling - see the block below. That matters here because
+ * the three images have three separate RTT control blocks and they overwrite each other.
  */
 
 #include <stdint.h>
@@ -42,6 +46,70 @@
 #include "SEGGER_RTT.h"
 
 #include "tfm_service_tests.h"
+
+/* ------------------------------------------------------------------------- */
+/* Debugger-readable results                                                  */
+/*                                                                            */
+/* RTT is not dependable on this port yet: BL2, tfm_s and tfm_ns each have    */
+/* their OWN control block, each in its own .bss, and tfm_s's crypto BSS      */
+/* (0x200022D8 + 0x7E14) covers BL2's block at 0x20003480 - so starting the   */
+/* secure image zeroes the block the viewer was attached to. Combined with    */
+/* SEGGER_RTT_MODE_NO_BLOCK_SKIP, which silently drops writes when no viewer  */
+/* is draining, a run can complete with nothing to show for it.               */
+/*                                                                            */
+/* So the results are also recorded here, where a debugger can read them with */
+/* no host tooling at all. After a run the CPU parks in Reset_Handler's       */
+/* one-instruction spin (FSP's normal end of main, NOT a fault) - break       */
+/* there and inspect:                                                         */
+/*                                                                            */
+/*   g_ns_test_results.magic       0x52545354 ('RTST') once the run finished  */
+/*   g_ns_test_results.failures    0 = everything passed                      */
+/*   g_ns_test_results.last_step   the step that was RUNNING - if magic is    */
+/*                                 unset, this names what did not come back   */
+/*   g_ns_test_results.status[n]   0 = ok, otherwise the PSA status           */
+/*                                                                            */
+/* volatile and __attribute__((used)) so neither the optimiser nor            */
+/* --gc-sections can discard a record nothing in the firmware reads.          */
+/* ------------------------------------------------------------------------- */
+
+#define NS_TEST_MAGIC       0x52545354U     /* 'RTST' */
+#define NS_TEST_MAX_STEPS   16
+
+typedef struct {
+    volatile uint32_t magic;
+    volatile uint32_t steps_run;
+    volatile uint32_t failures;
+    volatile int32_t  status[NS_TEST_MAX_STEPS];
+    volatile char     last_step[40];
+} ns_test_results_t;
+
+__attribute__((used)) volatile ns_test_results_t g_ns_test_results;
+
+static void record_step(const char *name)
+{
+    size_t i;
+
+    for (i = 0U; (i < (sizeof(g_ns_test_results.last_step) - 1U)) && (name[i] != '\0'); i++) {
+        g_ns_test_results.last_step[i] = name[i];
+    }
+    g_ns_test_results.last_step[i] = '\0';
+}
+
+/* PSA_SUCCESS is 0, so a step that never completed keeps its sentinel rather than
+ * reading as a pass. */
+#define NS_TEST_NOT_RUN     ((int32_t)0x7FFFFFFF)
+
+static void record_result(int32_t status)
+{
+    uint32_t idx = g_ns_test_results.steps_run;
+
+    if (idx > 0U && idx <= NS_TEST_MAX_STEPS) {
+        g_ns_test_results.status[idx - 1U] = status;
+    }
+    if (status != 0) {
+        g_ns_test_results.failures++;
+    }
+}
 
 /* ------------------------------------------------------------------------- */
 /* Minimal output helpers                                                     */
@@ -95,6 +163,9 @@ static void step(const char *name)
     char n[4];
 
     step_no++;
+    g_ns_test_results.steps_run = step_no;
+    record_step(name);
+
     n[0] = digits[(step_no / 10U) % 10U];
     n[1] = digits[step_no % 10U];
     n[2] = '.';
@@ -109,11 +180,13 @@ static void step(const char *name)
 
 static void ok(void)
 {
+    record_result(0);
     ns_puts("ok\r\n");
 }
 
 static void ok_val(const char *label, int32_t v)
 {
+    record_result(0);
     ns_puts("ok  ");
     ns_puts(label);
     ns_put_status(v);
@@ -123,6 +196,7 @@ static void ok_val(const char *label, int32_t v)
 static void fail(int32_t status)
 {
     failures++;
+    record_result((status != 0) ? status : (int32_t)0x0BADF00D);
     ns_puts("FAIL status=");
     ns_put_status(status);
     ns_puts("\r\n");
@@ -131,6 +205,9 @@ static void fail(int32_t status)
 static void fail_msg(const char *why)
 {
     failures++;
+    /* No PSA status to report - the call returned success but with wrong data. A
+     * distinct marker so the debugger view cannot confuse it with a real status. */
+    record_result((int32_t)0x0BADDA7A);
     ns_puts("FAIL ");
     ns_puts(why);
     ns_puts("\r\n");
@@ -378,8 +455,18 @@ static void test_platform(void)
 
 void tfm_service_tests_run(void)
 {
+    uint32_t i;
+
     step_no = 0U;
     failures = 0U;
+
+    g_ns_test_results.magic = 0U;
+    g_ns_test_results.steps_run = 0U;
+    g_ns_test_results.failures = 0U;
+    for (i = 0U; i < NS_TEST_MAX_STEPS; i++) {
+        g_ns_test_results.status[i] = NS_TEST_NOT_RUN;
+    }
+    record_step("(not started)");
 
     ns_puts("\r\n[NS] ==== RA6E1 secure service smoke test ====\r\n");
 
@@ -398,4 +485,7 @@ void tfm_service_tests_run(void)
         ns_puts(" FAILED");
     }
     ns_puts(" ====\r\n");
+
+    /* Last, so the magic is only present on a run that reached the end. */
+    g_ns_test_results.magic = NS_TEST_MAGIC;
 }
