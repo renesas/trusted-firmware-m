@@ -46,6 +46,10 @@
 
 #include "SEGGER_RTT.h"
 
+#ifdef RA6E1_NS_SERVICE_TESTS
+#include "tfm_service_tests.h"
+#endif
+
 /* Provided by the NS application; renamed by -Wl,--wrap=hal_entry. */
 extern void __real_hal_entry(void);
 
@@ -58,6 +62,13 @@ void __wrap_hal_entry(void)
      * removed - RTT Viewer cannot find a zeroed block. */
     SEGGER_RTT_Init();
     SEGGER_RTT_WriteString(0U, "tfm_ns: non-secure image running\r\n");
+
+#ifdef RA6E1_NS_SERVICE_TESTS
+    /* Before __real_hal_entry(), not after: the FSP application entry point is the
+     * project's own code and may never return. Running the smoke test first also keeps
+     * its output from interleaving with anything the application prints. */
+    tfm_service_tests_run();
+#endif
 
     __real_hal_entry();
 }
