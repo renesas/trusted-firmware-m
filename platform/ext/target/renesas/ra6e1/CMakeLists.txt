@@ -513,6 +513,67 @@ if(BL2)
 endif()
 
 #-------------------------------------------------------------------------------
+# Orphan-section check (post-link, GNU only)
+#
+# The images built here do not use FSP's linker script, so nothing carries FSP's memory
+# section contract across - see cmake/ra6e1_check_orphans.cmake for the full reasoning and
+# for why this is a post-link ELF check rather than a diff against fsp_gen.ld.
+#
+# $<TARGET_OBJECTS:<target>_scatter> is the PREPROCESSED script. target_add_scatter_file()
+# in toolchain_GNUARM.cmake compiles the .ld with -E -P -xc into that object library and
+# passes it to the linker as -T, so this is the same text ld saw - macros expanded, and
+# with the #if branches that actually applied. Reading the source .ld instead would give
+# the wrong answer for bl2, whose script has both a CMSE and a non-CMSE arm.
+#
+# Known-benign orphans are listed per image rather than silenced globally, so a NEW one is
+# still reported. Each entry needs a reason.
+#
+#   tfm_s .ram_noinit  - FSP BSP noinit data (SystemCoreClock, g_bsp_group_irq_sources,
+#       g_protect_counters, g_protect_pfswe_counter). FSP places it NOLOAD; orphaned it
+#       becomes a loaded section, so ~110 bytes of flash are spent on initialisers that
+#       nothing copies - the section is not in the copy table. The variables end up
+#       uninitialised either way, which is what .ram_noinit means, so behaviour matches.
+#       Wasteful, not wrong. Worth handling properly if the secure script ever gains a
+#       vendor NOLOAD hook; it would also relieve the LMA pressure inside the NSC window.
+#
+#   bl2 .msp_stack_seal_res - bl2 is a flat build, so __ARM_FEATURE_CMSE != 3 and
+#       ra6e1_bl2.ld deliberately takes the non-CMSE arm, which has no seal section.
+#       startup_ra6e1.c still emits the 8-byte __StackSeal, which then orphans away from
+#       the stack top. Inert: FSP writes the seal only when BSP_TZ_SECURE_BUILD, and TF-M's
+#       startup only under CMSE. Both are false here.
+#
+# Warning, not error, by default: a TF-M or FSP update can introduce a new section that is
+# perfectly benign, and that should not block a build. Set RA6E1_ORPHAN_CHECK_STRICT for CI.
+#-------------------------------------------------------------------------------
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(RA6E1_ORPHAN_CHECK_STRICT OFF CACHE BOOL
+        "Fail the build on an unexpected orphan section instead of warning")
+
+    # A custom TARGET, not add_custom_command(TARGET ... POST_BUILD): that form is
+    # directory-scoped, and tfm_s and bl2 are created in secure_fw/ and bl2/, not here.
+    function(ra6e1_add_orphan_check target allow)
+        add_custom_target(ra6e1_orphan_check_${target} ALL
+            COMMAND ${CMAKE_COMMAND}
+                    -DIMAGE=${target}
+                    -DAXF=$<TARGET_FILE:${target}>
+                    -DSCATTER=$<TARGET_OBJECTS:${target}_scatter>
+                    -DOBJDUMP=${CMAKE_OBJDUMP}
+                    -DALLOW=${allow}
+                    -DSTRICT=${RA6E1_ORPHAN_CHECK_STRICT}
+                    -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/cmake/ra6e1_check_orphans.cmake
+            DEPENDS $<TARGET_FILE:${target}>
+            VERBATIM COMMAND_EXPAND_LISTS
+            COMMENT "RA6E1 [${target}]: checking for orphan sections")
+        add_dependencies(ra6e1_orphan_check_${target} ${target})
+    endfunction()
+
+    ra6e1_add_orphan_check(tfm_s ".ram_noinit")
+    if(BL2)
+        ra6e1_add_orphan_check(bl2 ".msp_stack_seal_res")
+    endif()
+endif()
+
+#-------------------------------------------------------------------------------
 # Non-secure application - built in-tree
 #
 # TF-M v2.2's canonical model is a split SPE/NSPE build: the SPE installs api_ns/ and
