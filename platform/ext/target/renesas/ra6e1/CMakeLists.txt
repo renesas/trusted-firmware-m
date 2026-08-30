@@ -584,10 +584,29 @@ endif()
 # RAM land in the non-secure partitions the solution defined. Nothing here hardcodes
 # an address.
 #-------------------------------------------------------------------------------
-# Keyed off FSP_NS_APP_DIR, not NS: in the v2.2 SPE build NS is not set, but BL2 still
-# references $<TARGET_FILE_DIR:tfm_ns> for signing. The ra6m4 port used the same
-# condition.
-if(FSP_NS_APP_DIR)
+# RA6E1_NS_IN_SPE_BUILD - build the NS image HERE, in the secure build.
+#
+# OFF by default since 2026-08-30, when the split SPE/NSPE build started working. The NS
+# image is now built by ns_app/ against the installed api_ns/ tree, which is the only
+# arrangement in which it can call PSA APIs: tfm_api_ns is created by the NSPE build from
+# that tree and does not exist here, so linking it in this build yields
+# "cannot find -ltfm_api_ns".
+#
+# Kept, rather than deleted, for the one thing it is still good for: producing a complete
+# bootable image set from a single configure, with an NS image that makes no secure calls.
+# That is useful for bisecting a boot problem down to "does the S->NS jump still work",
+# without the install step in between. It cannot run the service tests.
+#
+# Turning it ON alongside the NSPE build gives two tfm_ns images from two build trees that
+# can silently disagree; the SPE one is not signed into anything the NSPE build produces.
+# Pick one.
+#-------------------------------------------------------------------------------
+set(RA6E1_NS_IN_SPE_BUILD OFF CACHE BOOL
+    "Build the NS image in the secure build instead of the NSPE build (no PSA calls)")
+
+# Keyed off FSP_NS_APP_DIR, not NS: in the v2.2 SPE build NS is not set. BL2's NS signing
+# step is guarded on the tfm_ns target existing, so it follows this switch.
+if(FSP_NS_APP_DIR AND RA6E1_NS_IN_SPE_BUILD)
     fsp_validate_project("${FSP_NS_APP_DIR}" "non-secure")
     fsp_collect_sources(FSP_NS_SOURCES "${FSP_NS_APP_DIR}" "NS")
     fsp_collect_includes(FSP_NS_INCLUDES "${FSP_NS_APP_DIR}")
@@ -725,9 +744,47 @@ endif()
 #-------------------------------------------------------------------------------
 install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/ns/cpuarch_ns.cmake
                     ${CMAKE_CURRENT_SOURCE_DIR}/ns/CMakeLists.txt
+                    ${CMAKE_CURRENT_SOURCE_DIR}/cpuarch.cmake
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR})
+
+# Port-specific config the NSPE build must not re-decide. TF-M's own spe_config.cmake is
+# generated from an upstream template and has no room for a platform's settings.
+# CMAKE_C_COMPILER is a full path here; the NS toolchain file wants the prefix without the
+# tool name, the same shape as a CROSS_COMPILE setting.
+string(REGEX REPLACE "-gcc(\.exe)?$" "" RA6E1_SPE_CROSS_COMPILE "${CMAKE_C_COMPILER}")
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ns/ra6e1_ns_config.cmake.in
+               ${CMAKE_CURRENT_BINARY_DIR}/ra6e1_ns_config.cmake @ONLY)
+install(FILES       ${CMAKE_CURRENT_BINARY_DIR}/ra6e1_ns_config.cmake
         DESTINATION ${INSTALL_PLATFORM_NS_DIR})
 install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/flash_layout.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/region_defs.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/device_cfg.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis.h
         DESTINATION ${INSTALL_PLATFORM_NS_DIR})
+
+# flash_layout.h's first act is #include "bsp_partitions.h", which is GENERATED from the
+# solution during this build. Without it the NS side cannot compile either layout header.
+install(FILES       ${CMAKE_BINARY_DIR}/platform/target/generated/bsp_partitions.h
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR})
+
+# ns/syscalls_ns.c is compiled into platform_ns by the installed platform/CMakeLists.txt -
+# it supplies the newlib _close/_lseek/_read/_write stubs, and NS links with
+# -Wl,-fatal-warnings so nosys.specs' versions are not an option. Its _write() is also the
+# NS printf backend when RA6E1_STDOUT_RTT is on, hence the RTT sources beside it.
+install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/ns/syscalls_ns.c
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ns/tfm_service_tests.c
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ns/tfm_service_tests.h
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR}/ns)
+
+install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c
+                    ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.h
+                    ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT_Conf.h
+                    ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_ns_init.c
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR}/rtt)
+
+# The NS application project itself. Not part of platform_ns - it is the app, not the
+# platform - but shipped so the NSPE build has something to point CONFIG_SPE_PATH at.
+install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/ns_app/CMakeLists.txt
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ns_app/README.md
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR}/ns_app)

@@ -240,7 +240,13 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
             platform_bl2
     )
 
-    # Sign NS image (tfm_ns from FSP_Project_ra6m4_ns_rtos or default NS app)
+    # Sign NS image - ONLY when the NS image is built here.
+    #
+    # In the split SPE/NSPE build it is not: tfm_ns is an NSPE target and the NS image is
+    # signed on that side, by the rules in cmake/spe-CMakeLists.cmake, using the keys and
+    # layout files this build exports into <api_ns>/image_signing. Guarded on the target
+    # rather than on a flag so it follows whichever model is in use.
+    if(TARGET tfm_ns)
     add_custom_target(tfm_ns_signed_bin
         SOURCES tfm_ns_signed.bin
     )
@@ -273,9 +279,12 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin $<TARGET_FILE_DIR:bl2>
     )
 
+    endif()
+
     add_custom_target(signed_images
         ALL
-        DEPENDS tfm_s_signed_bin tfm_ns_signed_bin
+        DEPENDS tfm_s_signed_bin
+                $<$<BOOL:$<TARGET_EXISTS:tfm_ns>>:tfm_ns_signed_bin>
     )
 
 endif()

@@ -99,6 +99,28 @@
 #define FLASH_MAX_PARTITION_SIZE        ((FLASH_AREA_0_SIZE > FLASH_AREA_1_SIZE) ? \
                                           FLASH_AREA_0_SIZE : FLASH_AREA_1_SIZE)
 
+/*
+ * Combined S+NS image, for assemble.py.
+ *
+ * Only the NSPE build uses these, to concatenate the two independently signed images into
+ * one tfm_s_ns_signed.bin - a convenience for flashing, not something BL2 consumes: with
+ * MCUBOOT_IMAGE_NUMBER 2 it still verifies two separate images in two separate slots.
+ * bl2/ext/mcuboot/signing_layout.c.in emits them as RE_* entries and assemble.py eval()s
+ * whatever it finds there, so a missing macro surfaces as
+ * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined" rather than as a build error.
+ *
+ * Offsets are RELATIVE to the start of the combined image, i.e. to the secure primary
+ * slot. This is only coherent because the two primary slots are ADJACENT - the secure slot
+ * ends exactly where the non-secure slot begins - so the concatenation is contiguous with
+ * no padding. ra6e1_layout_checks.c asserts that, because it is a property of the current
+ * partitioning rather than something guaranteed: a repartition that leaves a gap must
+ * either restore adjacency or stop building the combined image.
+ */
+#define SECURE_IMAGE_OFFSET             (0x0)
+#define SECURE_IMAGE_MAX_SIZE           FLASH_AREA_0_SIZE
+#define NON_SECURE_IMAGE_OFFSET         (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
+#define NON_SECURE_IMAGE_MAX_SIZE       FLASH_AREA_1_SIZE
+
 /* Sectors bootutil must be able to track for one image. ra6m4 sized this from the
  * scratch area; overwrite-only has no scratch, so size it from the largest slot,
  * rounded up. */
