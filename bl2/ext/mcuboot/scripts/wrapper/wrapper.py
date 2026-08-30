@@ -81,7 +81,17 @@ os.environ['LANG'] = 'C.UTF-8'
               help='Specify the value of encrypt key length. Default 128.')
 @click.option('-v', '--version', callback=imgtool.main.validate_version,
               required=True)
-@click.option('--align', type=click.Choice(['1', '2', '4', '8', '16', '32']),
+# 64 and up added for parts whose flash write unit exceeds 32 bytes - RA6E1/RA6M4 code
+# flash is 128 (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE). This list is the real constraint on
+# TF-M's signing path: imgtool's own --align choice list is never consulted here, because
+# wrap() below constructs imgtool.image.Image() directly rather than shelling out to
+# imgtool's CLI. Image() itself only requires a power of two (image.py:100), and for
+# OVERWRITE_ONLY the trailer is max_align*2 + align_up(16, max_align) with no further
+# restriction - the "write_size not in [1,2,4,8,16,32]" rejection in _trailer_size() is on
+# the swap path only. Matches the list Renesas ships in the FSP MCUboot module.
+@click.option('--align', type=click.Choice(['1', '2', '4', '8', '16', '32',
+                                            '64', '128', '256', '512',
+                                            '1024', '2048', '4096']),
               required=True)
 @click.option('--public-key-format', type=click.Choice(['hash', 'full']),
               default='hash', help='In what format to add the public key to '

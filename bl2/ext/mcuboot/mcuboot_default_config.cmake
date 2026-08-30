@@ -23,7 +23,7 @@ set(MCUBOOT_BUILTIN_KEY                 OFF         CACHE BOOL      "Use builtin
 set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Upgrade strategy for images")
 set(BL2_HEADER_SIZE                     0x400       CACHE STRING    "Header size")
 set(BL2_TRAILER_SIZE                    0x400       CACHE STRING    "Trailer size")
-set(MCUBOOT_ALIGN_VAL                   1           CACHE STRING    "align option for mcuboot and build image with imgtool [1, 2, 4, 8, 16, 32]")
+set(MCUBOOT_ALIGN_VAL                   1           CACHE STRING    "align option for mcuboot and build image with imgtool [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]")
 set(MCUBOOT_CONFIRM_IMAGE               OFF         CACHE BOOL      "Whether to confirm the image if REVERT is supported in MCUboot")
 
 # Specifying a scope of the accepted values of MCUBOOT_UPGRADE_STRATEGY for
@@ -32,8 +32,15 @@ set(MCUBOOT_CONFIRM_IMAGE               OFF         CACHE BOOL      "Whether to 
 set_property(CACHE MCUBOOT_UPGRADE_STRATEGY PROPERTY STRINGS "OVERWRITE_ONLY;SWAP_USING_SCRATCH;SWAP_USING_MOVE;DIRECT_XIP;RAM_LOAD")
 
 # Specifying a scope of the accepted values of MCUBOOT_ALIGN_VAL for
-# platforms requiring specific flash alignmnent
-set_property(CACHE MCUBOOT_ALIGN_VAL PROPERTY STRINGS "1;2;4;8;16;32")
+# platforms requiring specific flash alignmnent.
+#
+# 64 and up are for parts whose flash write unit exceeds 32 bytes - RA6E1/RA6M4 code flash
+# is 128. This list is what config/check_config.cmake:42 validates against. The runtime
+# supports it for OVERWRITE_ONLY: the >=8 && <=32 _Static_assert in bootutil_public.c is
+# guarded on the SWAP modes, and boot_write_trailer() already pads magic writes out to
+# ALIGN_DOWN(off, BOOT_MAX_ALIGN) for write units larger than the 16-byte magic. Keep in
+# step with the --align choice list in scripts/wrapper/wrapper.py.
+set_property(CACHE MCUBOOT_ALIGN_VAL PROPERTY STRINGS "1;2;4;8;16;32;64;128;256;512;1024;2048;4096")
 
 set(MCUBOOT_HW_ROLLBACK_PROT            ON          CACHE BOOL      "Enable security counter validation against non-volatile HW counters")
 set(MCUBOOT_ENC_IMAGES                  OFF         CACHE BOOL      "Enable encrypted image upgrade support")

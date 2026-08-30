@@ -306,14 +306,22 @@ SECTIONS
     . = ALIGN(TFM_LINKER_PT_RO_DATA_ALIGNMENT);
     Image$$PT_RO_DATA_END$$Base = .;
 
-#if defined(CONFIG_TFM_USE_TRUSTZONE) && defined(TFM_LINKER_VENEERS_LOCATION_END)
-    VENEERS()
-#endif
-
-    /* Position tag: End of code + RO-data */
-    . = ALIGN(TFM_LINKER_PT_RO_ALIGNMENT);
-    Image$$PT_RO_END$$Base = .;
-
+/*
+ * .ER_CODE_SRAM is emitted BEFORE the end-located veneers on purpose - and this is where
+ * tfm_common_s.ld.template already has it.
+ *
+ * It is a `> CODE_RAM AT > FLASH` section, so its LMA comes out of the FLASH region's
+ * allocation pointer. When a platform pins the veneers at an absolute address at the very
+ * end of the secure code region - which is exactly what TFM_LINKER_VENEERS_LOCATION_END
+ * plus an absolute TFM_LINKER_VENEERS_START means - .gnu.sgstubs drags that pointer to the
+ * end of flash, and every AT > FLASH section after it is allocated past the region end. On
+ * renesas/ra6e1 that put LOADADDR(.ER_CODE_SRAM) at 0x97840, inside the 2 KB NSC window,
+ * and overflowed FLASH by 382 bytes while 82 KB sat unused below the veneers.
+ *
+ * Order is otherwise immaterial: the section's VMA is absolute (S_RAM_CODE_START) and the
+ * position tags describe VMAs, not load addresses. With the default veneer location this
+ * move changes nothing.
+ */
 #ifdef S_RAM_CODE_START
     /* Flash drivers code that gets copied from Flash */
     .ER_CODE_SRAM ALIGN(S_RAM_CODE_START, 4) :
@@ -328,12 +336,19 @@ SECTIONS
     } > CODE_RAM AT > FLASH
 
     ASSERT(S_RAM_CODE_START % 4 == 0, "S_RAM_CODE_START must be divisible by 4")
-
     Image$$ER_CODE_SRAM$$RO$$Base = ADDR(.ER_CODE_SRAM);
     Image$$ER_CODE_SRAM$$RO$$Limit = ADDR(.ER_CODE_SRAM) + SIZEOF(.ER_CODE_SRAM);
     Image$$ER_CODE_SRAM$$Base = ADDR(.ER_CODE_SRAM);
     Image$$ER_CODE_SRAM$$Limit = ADDR(.ER_CODE_SRAM) + SIZEOF(.ER_CODE_SRAM);
 #endif
+
+#if defined(CONFIG_TFM_USE_TRUSTZONE) && defined(TFM_LINKER_VENEERS_LOCATION_END)
+    VENEERS()
+#endif
+
+    /* Position tag: End of code + RO-data */
+    . = ALIGN(TFM_LINKER_PT_RO_ALIGNMENT);
+    Image$$PT_RO_END$$Base = .;
 
     /**** Base address of secure data area */
     .tfm_secure_data_start :
