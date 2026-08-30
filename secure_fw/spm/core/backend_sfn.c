@@ -24,6 +24,8 @@
 #include "spm.h"
 #include "memory_symbols.h"
 #include "private/assert.h"
+/* TEMPORARY - for the bring-up instrumentation in spm_init_function(). Remove with it. */
+#include "tfm_spm_log.h"
 
 /* SFN Partition state */
 #define SFN_PARTITION_STATE_NOT_INITED        0
@@ -107,8 +109,22 @@ static uint32_t spm_init_function(uint32_t param)
         SET_CURRENT_COMPONENT(p_part);
 
         if (p_part->p_ldinf->entry != 0) {
+            /* TEMPORARY bring-up instrumentation - remove with the rest (see
+             * fsp_cmake/RA6E1_SOLUTION.md, "strip the bring-up instrumentation").
+             *
+             * The bare tfm_core_panic() below says only that SOME partition's init
+             * returned negative. Name the partition and the status: SPMLOG_ goes
+             * straight to the backend with no printf and no SVC, so it reports even when
+             * the partition's own LOG_INFFMT cannot. Logged before the call as well as
+             * after, so a partition that faults or hangs inside its init is still
+             * identified rather than leaving the last line ambiguous.
+             */
+            SPMLOG_ERRMSGVAL("[INIT] entering partition pid=", (uint32_t)p_part->p_ldinf->pid);
+
             status = ((sfn_init_fn_t)p_part->p_ldinf->entry)(NULL);
             if (status < PSA_SUCCESS) {
+                SPMLOG_ERRMSGVAL("[INIT FAIL] pid=", (uint32_t)p_part->p_ldinf->pid);
+                SPMLOG_ERRMSGVAL("[INIT FAIL] status=", (uint32_t)status);
                 tfm_core_panic();
             }
         }
