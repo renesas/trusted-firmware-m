@@ -82,6 +82,47 @@ list(APPEND CMAKE_MODULE_PATH ${CONFIG_SPE_PATH}/cmake)
 add_subdirectory(${CONFIG_SPE_PATH} ${CMAKE_BINARY_DIR}/spe)
 
 #-------------------------------------------------------------------------------
+# The combined S+NS image is NOT built.
+#
+# spe-CMakeLists.cmake creates tfm_s_ns_signed_bin as an ALL target: assemble.py
+# concatenates the two already-signed images into one tfm_s_ns_signed.bin, a convenience
+# for flashing one file instead of two. Nothing consumes it at runtime - BL2 has
+# MCUBOOT_IMAGE_NUMBER 2 and verifies two separate images in two separate slots - and it
+# is byte-for-byte the two signed images end to end.
+#
+# Dropped because the convenience is negative here. It is another artifact in the debug
+# session's program list that carries no address of its own, and getting that address
+# wrong is silent and destructive: entered at its SIZE (0x70000) rather than its start
+# (0x58000) it overwrites the secure slot, the NSC veneers at 0x97800, all of the
+# non-secure slot and part of the non-secure secondary slot - and, being last in the list,
+# it does so AFTER the correct images have been written.
+#
+# To bring it back: remove this, and restore SECURE_IMAGE_OFFSET / SECURE_IMAGE_MAX_SIZE /
+# NON_SECURE_IMAGE_OFFSET / NON_SECURE_IMAGE_MAX_SIZE in flash_layout.h with the adjacency
+# assert in ra6e1_layout_checks.c. Without those, building this target explicitly fails in
+# assemble.py with "NameError: name 'SECURE_IMAGE_OFFSET' is not defined".
+#-------------------------------------------------------------------------------
+if(TARGET tfm_s_ns_signed_bin)
+    set_target_properties(tfm_s_ns_signed_bin PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+# ...but the NS image must still be SIGNED by default.
+#
+# Upstream, tfm_ns_signed_bin is NOT an ALL target - only tfm_s_ns_signed_bin is, and the
+# NS image gets signed purely as a side effect of the combined image depending on it.
+# Excluding the combined target therefore silently stops producing tfm_ns_signed.bin, which
+# is the one file BL2 actually verifies. Put the signing target into ALL on its own.
+#
+# add_dependencies() on the TARGET, not DEPENDS on the output file: the custom command that
+# writes tfm_ns_signed.bin is declared in the SPE subdirectory (${CMAKE_BINARY_DIR}/spe),
+# and a file-level dependency does not cross directory scopes - it resolves to nothing here
+# and the build quietly produces no signed image.
+if(TARGET tfm_ns_signed_bin)
+    add_custom_target(ra6e1_ns_signed ALL)
+    add_dependencies(ra6e1_ns_signed tfm_ns_signed_bin)
+endif()
+
+#-------------------------------------------------------------------------------
 # FSP non-secure project
 #-------------------------------------------------------------------------------
 if(NOT DEFINED FSP_NS_APP_DIR)

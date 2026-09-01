@@ -46,7 +46,12 @@ mismatched project produces an image that links cleanly and boots nowhere.
 |---|---|
 | `tfm_ns.axf` / `.bin` | `build_ra6e1_ns/bin/` |
 | `tfm_ns_signed.bin` | `build_ra6e1_ns/bin/` |
-| `tfm_s_ns_signed.bin` | `build_ra6e1_ns/` — the two images concatenated |
+
+The combined `tfm_s_ns_signed.bin` that TF-M's NSPE rules would otherwise build is
+deliberately excluded — see the comment in `CMakeLists.txt`. It is byte-for-byte the two
+signed images end to end, nothing consumes it at runtime, and as an extra row in the debug
+session's program list it invites an address mistake that silently overwrites the secure
+slot and the NSC veneers.
 
 Signing moves to this side of the split. The keys, `imgtool` and the layout files come from
 `api_ns/image_signing/`, exported by the SPE, so both halves are signed with the same keys

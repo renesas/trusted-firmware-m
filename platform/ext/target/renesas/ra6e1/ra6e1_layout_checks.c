@@ -131,19 +131,3 @@ _Static_assert(TFM_OTP_NV_COUNTERS_AREA_SIZE >=
 _Static_assert((TFM_OTP_NV_COUNTERS_AREA_SIZE % TFM_OTP_NV_COUNTERS_SECTOR_SIZE) == 0,
                "RA6E1: the OTP area must be a whole number of erase sectors.");
 
-/*
- * The combined S+NS image (tfm_s_ns_signed.bin, produced by assemble.py in the NSPE build)
- * is a plain concatenation: the secure slot's contents, then the non-secure slot's, with
- * NON_SECURE_IMAGE_OFFSET saying where the second begins. That only describes the flash
- * correctly while the two PRIMARY slots are adjacent.
- *
- * Today they are - the secure slot ends exactly where the non-secure slot starts - but
- * that is a property of the current solution partitioning, not a rule. A repartition that
- * leaves a gap would produce a combined image that is silently wrong: it would flash, and
- * the non-secure half would land short of its slot.
- */
-_Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE == FLASH_AREA_1_OFFSET,
-               "RA6E1: the secure and non-secure PRIMARY slots are no longer adjacent, so "
-               "the concatenated tfm_s_ns_signed.bin would place the non-secure image at "
-               "the wrong address. Either restore adjacency in the solution, or stop "
-               "building the combined image (see NON_SECURE_IMAGE_OFFSET in flash_layout.h).");
