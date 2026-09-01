@@ -131,3 +131,18 @@ _Static_assert(TFM_OTP_NV_COUNTERS_AREA_SIZE >=
 _Static_assert((TFM_OTP_NV_COUNTERS_AREA_SIZE % TFM_OTP_NV_COUNTERS_SECTOR_SIZE) == 0,
                "RA6E1: the OTP area must be a whole number of erase sectors.");
 
+/*
+ * The combined S+NS image (tfm_s_ns_signed.bin, built by TF-M's NSPE rules for any NS
+ * application that does not exclude the target) is a plain concatenation, with
+ * NON_SECURE_IMAGE_OFFSET saying where the second half begins. That only describes the
+ * flash correctly while the two PRIMARY slots are adjacent.
+ *
+ * They are today, but that is a property of the current solution partitioning rather than
+ * a rule. A repartition leaving a gap would produce a combined image that is silently
+ * wrong: it would flash, and the non-secure half would land short of its slot.
+ */
+_Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE == FLASH_AREA_1_OFFSET,
+               "RA6E1: the secure and non-secure PRIMARY slots are no longer adjacent, so "
+               "a concatenated tfm_s_ns_signed.bin would place the non-secure image at the "
+               "wrong address. Restore adjacency in the solution, or stop building the "
+               "combined image (see NON_SECURE_IMAGE_OFFSET in flash_layout.h).");

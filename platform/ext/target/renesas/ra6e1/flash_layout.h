@@ -99,6 +99,27 @@
 #define FLASH_MAX_PARTITION_SIZE        ((FLASH_AREA_0_SIZE > FLASH_AREA_1_SIZE) ? \
                                           FLASH_AREA_0_SIZE : FLASH_AREA_1_SIZE)
 
+/*
+ * Combined S+NS image, for assemble.py.
+ *
+ * The two primary slots are ADJACENT - the secure slot ends exactly where the non-secure
+ * slot begins - so a plain concatenation describes the flash correctly, with these as the
+ * offsets relative to the start of the combined image. ra6e1_layout_checks.c asserts the
+ * adjacency, because it is a property of the current partitioning and not a rule.
+ *
+ * Nothing on this port FLASHES the combined image: ns_app excludes the target, because as
+ * an extra row in the debug session's program list it carries no address of its own and is
+ * silently destructive at the wrong one. But the macros stay, because TF-M's NSPE rules
+ * build tfm_s_ns_signed.bin for any NS application that does not exclude it - tf-m-tests'
+ * regression app does not - and without them assemble.py dies with
+ * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined". Removing them once already broke
+ * that build.
+ */
+#define SECURE_IMAGE_OFFSET             (0x0)
+#define SECURE_IMAGE_MAX_SIZE           FLASH_AREA_0_SIZE
+#define NON_SECURE_IMAGE_OFFSET         (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
+#define NON_SECURE_IMAGE_MAX_SIZE       FLASH_AREA_1_SIZE
+
 /* Sectors bootutil must be able to track for one image. ra6m4 sized this from the
  * scratch area; overwrite-only has no scratch, so size it from the largest slot,
  * rounded up. */

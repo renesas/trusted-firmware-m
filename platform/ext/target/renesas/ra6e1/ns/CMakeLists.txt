@@ -41,6 +41,99 @@ include(${RA6E1_NS_PLATFORM_DIR}/ra6e1_ns_config.cmake)
 
 add_library(platform_ns STATIC)
 
+#-------------------------------------------------------------------------------
+# The FSP BSP
+#
+# This lives in platform_ns, NOT in the application, because a stock NSPE application -
+# tf-m-tests' regression app being the one that matters - knows nothing about FSP and
+# supplies only main(). Startup, vectors, clocks and drivers are the platform's job. That
+# is also how every other vendor-SDK port draws the line; see nxp/lpcxpresso55s69, which
+# puts its startup, board, clock and pin-mux files in platform_ns and defines no main().
+#
+# WHAT IS EXCLUDED, AND WHY IT MATTERS
+#
+#   ra_gen/main.c   - four generated lines: main() { hal_entry(); }. FSP bundles it with
+#                     the generated project, but it is the APPLICATION's entry point, and
+#                     tf-m-tests brings its own main(). Two definitions would collide.
+#   src/hal_entry.c - the application. ns_app compiles it and wraps it.
+#
+# src/hal_warmstart.c IS included, despite living in FSP's src/ application area: it is
+# R_BSP_WarmStart, a weak BSP hook that opens IOPORT at POST_C. Left with the application,
+# a test app would silently link the BSP's weak default and never configure a pin - which
+# costs nothing with RTT output and is a baffling failure the moment a test touches a
+# peripheral.
+#
+# THE GLOB IS DELIBERATELY WIDE
+#
+# r_*/ and rm_*/ pick up every driver and middleware module, so a module ADDED IN e2 is
+# compiled with no edit here. The narrow bsp+r_ioport list this replaces silently ignored
+# anything else, which defeats the whole point of generating the project in e2.
+#
+# No opt-in registry, unlike FSP_MODULES_S on the secure side. That exists so nothing is
+# dragged into a SIGNED SECURE image by accident; the NS image simply is the FSP
+# application, so there is nothing to protect against and --gc-sections drops whatever is
+# unreferenced.
+#
+# CONFIGURE_DEPENDS so adding a module in e2 does not also require remembering to
+# reconfigure - CMake re-globs at build time. It costs a directory scan per build, which is
+# the right trade for this workflow.
+#-------------------------------------------------------------------------------
+file(GLOB_RECURSE RA6E1_FSP_NS_SOURCES CONFIGURE_DEPENDS
+     ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/src/bsp/*.c
+     ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/src/r_*/*.c
+     ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/src/rm_*/*.c
+     ${RA6E1_SPE_FSP_NS_APP_DIR}/ra_gen/*.c)
+
+list(REMOVE_ITEM RA6E1_FSP_NS_SOURCES
+     ${RA6E1_SPE_FSP_NS_APP_DIR}/ra_gen/main.c)
+
+# startup.c defines Reset_Handler and the FIXED vector table; vector_data.c defines
+# g_vector_table, the APPLICATION vector table. Both must reach the image even though
+# nothing calls them - and a static library only yields members that resolve an undefined
+# symbol, so KEEP() in the linker script is not enough: KEEP stops --gc-sections discarding
+# a section that is already there, it does not pull an archive member in.
+#
+# PUBLIC therefore, so the consuming executable compiles them directly. Same reason
+# nxp/lpcxpresso55s69 marks its startup PUBLIC. The library's own copies simply go
+# unextracted, because the executable has already defined the symbols.
+set(RA6E1_FSP_NS_MUST_LINK
+    ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c
+    ${RA6E1_SPE_FSP_NS_APP_DIR}/ra_gen/vector_data.c)
+list(REMOVE_ITEM RA6E1_FSP_NS_SOURCES ${RA6E1_FSP_NS_MUST_LINK})
+
+target_sources(platform_ns
+    PUBLIC
+        ${RA6E1_FSP_NS_MUST_LINK}
+    PRIVATE
+        ${RA6E1_FSP_NS_SOURCES}
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/src/hal_warmstart.c
+)
+
+target_include_directories(platform_ns
+    PUBLIC
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/inc
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/inc/api
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/inc/instances
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/arm/CMSIS_6/CMSIS/Core/Include
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra_gen
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra_cfg/fsp_cfg
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/ra_cfg/fsp_cfg/bsp
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/src
+        # Debug/ holds the GENERATED layout - bsp_linker_info.h and the linker fragments.
+        ${RA6E1_SPE_FSP_NS_APP_DIR}/Debug
+)
+
+# PUBLIC: the application compiles FSP headers too (hal_data.h from main.c), and it must
+# see the same TrustZone flavour. _RA_TZ_NONSECURE / BSP_TZ_NONSECURE_BUILD tell FSP this
+# image runs non-secure, so it skips the stack seal, the SAU setup and
+# R_BSP_NonSecureEnter() - all of which belong to the secure side and have already run.
+target_compile_definitions(platform_ns
+    PUBLIC
+        _RA_CORE=CM33
+        _RA_TZ_NONSECURE=1
+        BSP_TZ_NONSECURE_BUILD=1
+)
+
 # syscalls_ns.c is NOT here - it is compiled straight into the executable by
 # ns_app/CMakeLists.txt. It supplies newlib's _close/_lseek/_read/_write, and in a static
 # library those objects are never pulled in: the reference comes from libc, which the

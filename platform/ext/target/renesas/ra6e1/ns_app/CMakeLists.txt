@@ -14,8 +14,13 @@
 # The non-secure image is a whole FSP application. It keeps FSP's startup.c and FSP's own
 # linker script (script/fsp.ld, which INCLUDEs the solution's generated memory_regions.ld),
 # so its vectors, RAM and flash land in the partitions the e2 solution defined and nothing
-# here hardcodes an address. That is why the FSP BSP is built HERE and not in platform_ns:
-# it belongs to the application. Two copies would mean two startups and two vector tables.
+# here hardcodes an address.
+#
+# The BSP itself lives in platform_ns, not here. An earlier version of this file built it
+# here on the reasoning that the BSP belongs to the application; that is wrong for any
+# NSPE application that is not ours - tf-m-tests' regression app supplies only main() and
+# knows nothing about FSP, so it would link with no Reset_Handler and no vector table.
+# This file is now the application alone.
 #
 # It also means FSP_NS_APP_DIR must be the non-secure project from the SAME solution the
 # secure side was built against. The SPE records which one that was, and this file checks
@@ -148,57 +153,46 @@ if(NOT _ns_dir_real STREQUAL _spe_dir_real)
         "the same project. Override deliberately by setting RA6E1_SPE_FSP_NS_APP_DIR too.")
 endif()
 
-# Same collection the SPE build uses for the NS image: the whole FSP project tree, because
-# the NS side really is a complete FSP application rather than a set of chosen modules.
-file(GLOB_RECURSE FSP_NS_SOURCES
-     ${FSP_NS_APP_DIR}/ra/fsp/src/bsp/*.c
-     ${FSP_NS_APP_DIR}/ra/fsp/src/r_ioport/*.c
-     ${FSP_NS_APP_DIR}/ra_gen/*.c
-     ${FSP_NS_APP_DIR}/src/*.c)
-
-file(GLOB FSP_NS_INCLUDE_DIRS LIST_DIRECTORIES true
-     ${FSP_NS_APP_DIR}/ra/fsp/inc
-     ${FSP_NS_APP_DIR}/ra/fsp/inc/api
-     ${FSP_NS_APP_DIR}/ra/fsp/inc/instances
-     ${FSP_NS_APP_DIR}/ra/arm/CMSIS_6/CMSIS/Core/Include
-     ${FSP_NS_APP_DIR}/ra_gen
-     ${FSP_NS_APP_DIR}/ra_cfg/fsp_cfg
-     ${FSP_NS_APP_DIR}/ra_cfg/fsp_cfg/bsp
-     ${FSP_NS_APP_DIR}/src
-     # Debug/ holds the GENERATED layout - bsp_linker_info.h, memory_regions.ld,
-     # fsp_gen.ld. It is emitted by the e2 build and deliberately not committed, which is
-     # why an e2 build is a prerequisite for this one.
-     ${FSP_NS_APP_DIR}/Debug)
-
-add_executable(tfm_ns ${FSP_NS_SOURCES})
-
-target_include_directories(tfm_ns PRIVATE ${FSP_NS_INCLUDE_DIRS})
-
-# _RA_TZ_NONSECURE / BSP_TZ_NONSECURE_BUILD tell FSP this image runs non-secure: it then
-# skips the stack seal, the SAU setup and R_BSP_NonSecureEnter(), all of which belong to
-# the secure side and are already done by the time this image runs.
-target_compile_definitions(tfm_ns PRIVATE
-    _RA_CORE=CM33
-    _RA_TZ_NONSECURE=1
-    BSP_TZ_NONSECURE_BUILD=1
+# The APPLICATION only.
+#
+# The FSP BSP - startup, vectors, clocks, drivers, and every module the e2 project enables -
+# lives in platform_ns, installed with the SPE. See <api_ns>/platform/CMakeLists.txt for why
+# and for what it deliberately excludes. Adding an FSP module in e2 needs no edit here.
+#
+#   ra_gen/main.c     FSP's generated entry point: main() { hal_entry(); }. Compiled here
+#                     rather than in platform_ns because a stock NSPE application brings its
+#                     own main() - tf-m-tests does - and two definitions would collide.
+#   src/hal_entry.c   the application body, and the target of the --wrap below.
+#
+# src/hal_warmstart.c is NOT here: it is R_BSP_WarmStart, board init, and belongs to the
+# platform.
+add_executable(tfm_ns
+    ${FSP_NS_APP_DIR}/ra_gen/main.c
+    ${FSP_NS_APP_DIR}/src/hal_entry.c
 )
 
-# syscalls_ns.c goes in the EXECUTABLE, not in platform_ns. In a static library its
-# objects are never pulled in - libc is what references _write, and the linker reaches
-# libc after it has finished with platform_ns, so nosys.specs' stubs are used instead and
-# warn. NS links with -Wl,-fatal-warnings, so those warnings fail the build.
+# syscalls_ns.c in the EXECUTABLE as well as in platform_ns. In a static library its
+# objects are pulled in only to resolve an undefined symbol, and libc is what references
+# _write - reached after the linker has finished with platform_ns, so nosys.specs' stubs
+# would be used instead and warn, which -Wl,-fatal-warnings turns into a failure. Compiled
+# here the symbols are simply present, and platform_ns' copy then goes unextracted rather
+# than colliding.
 target_sources(tfm_ns PRIVATE ${CONFIG_SPE_PATH}/platform/ns/syscalls_ns.c)
 
 # tfm_ns_interface_dispatch() - the seam between the PSA client shims and the veneers.
-# TF-M ships two: bare metal, and one that takes an RTOS mutex. tfm_api_ns_tz supplies
-# neither, because which one is right is the application's decision, not the platform's.
-# Bare metal is correct here and ONLY here: it calls the veneer with no locking, which is
-# a data race the moment a second thread makes a PSA call. Switch to
-# tfm_ns_interface_rtos.c when this application gains a scheduler.
+# TF-M ships two implementations and tfm_api_ns_tz supplies neither, because which one is
+# right is the application's decision. Bare metal is correct for THIS application and only
+# this one: it calls the veneer with no locking, which is a data race the moment a second
+# thread makes a PSA call. tf-m-tests brings its own RTOS-aware os_wrapper instead, which
+# is why this belongs here and not in platform_ns.
 target_sources(tfm_ns PRIVATE
     ${CONFIG_SPE_PATH}/interface/src/os_wrapper/tfm_ns_interface_bare_metal.c)
 
+# platform_ns explicitly, not just transitively through tfm_api_ns: this application needs
+# its FSP include directories and its PUBLIC startup/vector sources, so the dependency is
+# real rather than incidental.
 target_link_libraries(tfm_ns PRIVATE
+    platform_ns
     tfm_api_ns
     $<$<BOOL:${CONFIG_TFM_USE_TRUSTZONE}>:tfm_api_ns_tz>
 )
