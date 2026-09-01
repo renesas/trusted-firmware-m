@@ -664,64 +664,12 @@ if(FSP_NS_APP_DIR AND RA6E1_NS_IN_SPE_BUILD)
         target_link_options(tfm_ns PRIVATE -Wl,--wrap=hal_entry)
     endif()
 
-    #---------------------------------------------------------------------------
-    # PSA client for the NS smoke test - SPIKE, and deliberately not how this ends up
-    #
-    # The note above is still true: a real NS app that calls PSA APIs belongs in a split
-    # SPE/NSPE build, linking the installed api_ns/ tree. This wires the client straight
-    # into the SPE build instead, so the services can be exercised on hardware NOW without
-    # first restructuring the build. Nothing here is load-bearing for tfm_s or bl2, and the
-    # test source itself carries over to the split build unchanged - only this plumbing is
-    # thrown away.
-    #
-    # s_veneers.o is the CMSE import library, emitted by tfm_s's --out-implib. It resolves
-    # the five veneers that are the entire NS->S surface:
-    #   tfm_psa_framework_version_veneer  tfm_psa_version_veneer
-    #   tfm_psa_connect_veneer  tfm_psa_close_veneer  tfm_psa_call_veneer
-    # Everything else - crypto, ITS, PS, attestation, platform - is a shim over psa_call,
-    # which is why so few veneers cover so much API. It only exists after tfm_s links,
-    # hence the explicit dependency.
-    #
-    # tfm_ns_interface_bare_metal.c, not the RTOS variant: no scheduler here. It gives
-    # tfm_ns_interface_dispatch() a straight call with no locking, which is correct for a
-    # single-threaded caller and wrong the moment one is added.
-    #---------------------------------------------------------------------------
-    set(RA6E1_NS_SERVICE_TESTS ON CACHE BOOL
-        "Exercise the PSA services from the NS image (bring-up smoke test)")
-
-    if(RA6E1_NS_SERVICE_TESTS)
-        target_sources(tfm_ns PRIVATE
-            ${CMAKE_SOURCE_DIR}/interface/src/tfm_tz_psa_ns_api.c
-            ${CMAKE_SOURCE_DIR}/interface/src/os_wrapper/tfm_ns_interface_bare_metal.c
-            ${CMAKE_SOURCE_DIR}/interface/src/tfm_crypto_api.c
-            ${CMAKE_SOURCE_DIR}/interface/src/tfm_its_api.c
-            ${CMAKE_SOURCE_DIR}/interface/src/tfm_ps_api.c
-            ${CMAKE_SOURCE_DIR}/interface/src/tfm_attest_api.c
-            ${CMAKE_SOURCE_DIR}/interface/src/tfm_platform_api.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/ns/tfm_service_tests.c
-        )
-        target_include_directories(tfm_ns PRIVATE
-            ${CMAKE_SOURCE_DIR}/interface/include
-            ${CMAKE_BINARY_DIR}/generated/interface/include
-            ${CMAKE_SOURCE_DIR}/secure_fw/include
-            ${CMAKE_SOURCE_DIR}/config
-            # tfm_crypto_defs.h includes tfm_builtin_key_ids.h. Platforms with their own
-            # builtin keys ship one; this port uses PLATFORM_DEFAULT_CRYPTO_KEYS, so the
-            # generic interface copy is the right one.
-            ${CMAKE_SOURCE_DIR}/interface/include/crypto_keys
-        )
-        # psa/crypto.h drags in mbedtls/build_info.h, which needs a config even on the
-        # client side where no algorithm is actually implemented - the NS build only wants
-        # the types and sizes. TFM_MBEDCRYPTO_CONFIG_CLIENT_PATH is TF-M's own answer to
-        # that (config_base.cmake: "Bare minimum config required on the client side"), so
-        # use it rather than inventing one; the secure side keeps its own full config.
-        target_compile_definitions(tfm_ns PRIVATE
-            RA6E1_NS_SERVICE_TESTS
-            MBEDTLS_CONFIG_FILE="${TFM_MBEDCRYPTO_CONFIG_CLIENT_PATH}"
-            MBEDTLS_PSA_CRYPTO_CONFIG_FILE="${TFM_MBEDCRYPTO_PSA_CRYPTO_CONFIG_PATH}")
-        target_link_libraries(tfm_ns PRIVATE ${CMAKE_BINARY_DIR}/secure_fw/s_veneers.o)
-        add_dependencies(tfm_ns tfm_s)
-    endif()
+    # No PSA client here, and no service tests. Linking the interface in this build was a
+    # spike, retired on 2026-08-30 when the split SPE/NSPE build started working: the NS
+    # image now gets tfm_api_ns from the installed api_ns/ tree, which is the only place it
+    # can come from. What remains of this path is a plain FSP application that makes no
+    # secure calls - useful for answering "does the S->NS jump still work" without the
+    # install step, and nothing more. See ns_app/.
 
     # Match tfm_s and bl2: .axf in bin/. Not cosmetic - add_convert_to_bin_target() reads
     # RUNTIME_OUTPUT_DIRECTORY, and with it unset the objcopy rule writes to a literal
