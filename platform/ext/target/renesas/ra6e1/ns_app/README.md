@@ -17,7 +17,12 @@ is built as an NSPE application against exactly this interface.
 
 ```sh
 # 1. Secure side, as before
+#
+#    CMAKE_BUILD_TYPE=Debug is not incidental: TFM_SPM_LOG_LEVEL defaults to SILENCE
+#    outside a Debug build, and the port turns TFM_SPM_DEBUG_TRACE on. That combination
+#    is rejected at configure time rather than silently tracing nothing.
 cmake -S . -B build_ra6e1 -GNinja \
+      -DCMAKE_BUILD_TYPE=Debug \
       -DTFM_PLATFORM=renesas/ra6e1 \
       -DFSP_S_APP_DIR=<...>/ra6e1_secure \
       -DFSP_BL2_APP_DIR=<...>/ra6e1_mcuboot \
