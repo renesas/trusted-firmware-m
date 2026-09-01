@@ -109,6 +109,15 @@ tfm_invalid_config(BL2_SANITIZE AND NOT BL2_SANITIZE IN_LIST BL2_SANITIZER_ALLOW
 get_property(TFM_SANITIZER_ALLOWED_VALUES CACHE TFM_SANITIZE PROPERTY STRINGS)
 tfm_invalid_config(TFM_SANITIZE AND NOT TFM_SANITIZE IN_LIST TFM_SANITIZER_ALLOWED_VALUES)
 
+###################### SPM debug trace #########################################
+
+# TFM_SPM_DEBUG_TRACE emits its messages through SPMLOG_ERRMSGVAL, which the SPM log level
+# compiles away to (void)(val) below TFM_SPM_LOG_LEVEL_ERROR. Enabling the trace with a
+# silent SPM log therefore produces no output and no diagnostic - the option reads ON, the
+# build succeeds, and nothing is traced. TFM_SPM_LOG_LEVEL defaults to SILENCE outside a
+# Debug build, so this combination is easy to reach by accident.
+tfm_invalid_config(TFM_SPM_DEBUG_TRACE AND TFM_SPM_LOG_LEVEL STREQUAL "TFM_SPM_LOG_LEVEL_SILENCE")
+
 ###################### Compiler check for FP support ###########################
 
 include(config/cp_check.cmake)

@@ -82,20 +82,6 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      */
     stdio_init();
 
-    /* TEMPORARY bring-up probe - remove once the ITS init failure is resolved.
-     *
-     * Calls the backend directly, which is the point: a partition's LOG_INFFMT goes
-     * printf -> tfm_hal_output_sp_log -> SVC -> handle_spm_svc_requests(), and that
-     * handler runs tfm_hal_memory_check() and calls tfm_core_panic() if it fails. This
-     * write skips printf, the SVC and the memory check, so if it appears in the viewer
-     * and the partition logs do not, the fault is in the SVC log path rather than in
-     * RTT, the control block address, or the partition being logged from.
-     */
-    {
-        static const char probe[] = "tfm_s: platform init\r\n";
-        (void)stdio_output_string(probe, (uint32_t)(sizeof(probe) - 1U));
-    }
-
     /* Note: target_cfg.h functions are called by TF-M framework */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
 }

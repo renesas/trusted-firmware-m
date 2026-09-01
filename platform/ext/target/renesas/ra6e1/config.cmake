@@ -111,6 +111,22 @@ set(TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH
     ${CMAKE_CURRENT_LIST_DIR}/mbedtls_extra_config.h CACHE PATH
     "Appended to TF-M's mbedcrypto config; enables MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG")
 
+# Fault diagnosis. Both default OFF upstream; both are on here because a fault on this
+# port is otherwise undiagnosable - every panic and every fault funnels into the same
+# tfm_hal_system_halt() spin with no detail, which is what made a HardFault look like a
+# deliberate SPM panic during bring-up and cost a long detour into the ITS filesystem.
+#
+# Set HERE rather than left in a build directory's cache: a cache value survives rebuilds
+# but not a clean reconfigure, so the next person to configure would silently get a
+# quieter build than this one and no way to know why.
+#
+# TFM_EXCEPTION_INFO_DUMP costs ~3.4 KB of secure text; TFM_SPM_DEBUG_TRACE is a handful of
+# log calls. Turn both off for a production or size-constrained build - they are debug
+# aids, and TFM_SPM_DEBUG_TRACE in particular reports partition ids and status codes on
+# the console.
+set(TFM_EXCEPTION_INFO_DUMP             ON          CACHE BOOL      "Capture and print exception info on a fatal error")
+set(TFM_SPM_DEBUG_TRACE                 ON          CACHE BOOL      "Log the tfm_core_panic() caller and each partition init")
+
 set(TFM_ISOLATION_LEVEL                 1           CACHE STRING    "Isolation level")
 set(CONFIG_TFM_SPM_BACKEND              "SFN"       CACHE STRING    "SFN - no IPC overhead")
 

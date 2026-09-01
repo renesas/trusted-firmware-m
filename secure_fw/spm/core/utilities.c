@@ -18,7 +18,7 @@
 #include "backtrace.h"
 #endif
 
-/* TEMPORARY bring-up instrumentation - remove before merging.
+/* SPM control-flow trace, enabled by TFM_SPM_DEBUG_TRACE (config_base.cmake, default OFF).
  *
  * tfm_core_panic() is called from ~140 sites and all of them land in the same
  * tfm_hal_system_halt() spin, which makes "it halted" useless as a diagnostic. Log the
@@ -35,15 +35,13 @@
  * AFTER the call - addr2line lands on the right line anyway, but subtract 4 if a site
  * sits at the very start of a source line.
  */
-#define TFM_PANIC_TRACE 1
-
-#if TFM_PANIC_TRACE
+#ifdef TFM_SPM_DEBUG_TRACE
 #include "tfm_spm_log.h"
 #endif
 
 void tfm_core_panic(void)
 {
-#if TFM_PANIC_TRACE
+#ifdef TFM_SPM_DEBUG_TRACE
     SPMLOG_ERRMSGVAL("\r\n[PANIC] tfm_core_panic() called from LR=",
                      (uint32_t)__builtin_return_address(0));
 #endif
