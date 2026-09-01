@@ -86,6 +86,19 @@ if(RA6E1_STDOUT_RTT)
     target_sources(platform_ns
         PRIVATE
             ${RA6E1_NS_PLATFORM_DIR}/rtt/SEGGER_RTT.c
+            # The stdio_*() backend behind uart_stdout.h. tf-m-tests' NS log library calls
+            # stdio_output_string() directly, so the regression tests need this in
+            # platform_ns; our own ns_app does not, but carrying it costs nothing.
+            #
+            # RA6E1_STDOUT_NO_WRITE: ns/syscalls_ns.c owns _write() for the NS side, and
+            # rtt_stdout.c would otherwise define a second one.
+            ${RA6E1_NS_PLATFORM_DIR}/rtt/rtt_stdout.c
+            ${RA6E1_NS_PLATFORM_DIR}/ns/syscalls_ns.c
+    )
+    target_compile_definitions(platform_ns PRIVATE RA6E1_STDOUT_NO_WRITE)
+    target_include_directories(platform_ns
+        PUBLIC
+            ${RA6E1_NS_PLATFORM_DIR}/ext/common
     )
     target_include_directories(platform_ns
         PUBLIC
@@ -110,6 +123,14 @@ endif()
 #-------------------------------------------------------------------------------
 set_target_properties(platform_ns PROPERTIES
     INTERFACE_LINK_DEPENDS ${RA6E1_SPE_FSP_NS_APP_DIR}/script/fsp.ld)
+
+# fsp.ld is a stub: it INCLUDEs memory_regions.ld and fsp_gen.ld, which ld resolves through
+# its library search path. Published as INTERFACE so ANY NSPE application inherits it -
+# tf-m-tests' regression app links platform_ns but knows nothing about FSP, and without
+# this it fails with "cannot open linker script file memory_regions.ld".
+target_link_options(platform_ns INTERFACE
+    -L${RA6E1_SPE_FSP_NS_APP_DIR}/Debug
+    -L${RA6E1_SPE_FSP_NS_APP_DIR})
 
 # DOMAIN_NS is also set by platform_ns_definitions, which spe-CMakeLists.cmake links in
 # after this file returns. Set here as well so platform_ns' own sources see it - they are

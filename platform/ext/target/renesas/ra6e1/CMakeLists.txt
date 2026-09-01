@@ -729,7 +729,19 @@ install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c
                     ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT_Conf.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_ns_init.c
+                    ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c
         DESTINATION ${INSTALL_PLATFORM_NS_DIR}/rtt)
+
+# uart_stdout.h is only the stdio_init/stdio_output_string/stdio_uninit API - no UART in it.
+# TF-M installs it only when PLATFORM_DEFAULT_UART_STDOUT is on, which this port turns OFF
+# because it logs over RTT. But tf-m-tests' NS log library includes it unconditionally, so
+# an RTT port cannot build the regression tests without it. rtt/rtt_stdout.c implements
+# exactly these four functions, so exporting the header is enough - it names the contract,
+# not the transport.
+if(NOT PLATFORM_DEFAULT_UART_STDOUT)
+    install(FILES       ${PLATFORM_DIR}/ext/common/uart_stdout.h
+            DESTINATION ${INSTALL_PLATFORM_NS_DIR}/ext/common)
+endif()
 
 # The NS application project itself. Not part of platform_ns - it is the app, not the
 # platform - but shipped so the NSPE build has something to point CONFIG_SPE_PATH at.

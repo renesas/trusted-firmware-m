@@ -52,11 +52,23 @@ bool stdio_is_initialized(void)
 /* Redirect newlib's printf/puts family to RTT for the GNUARM toolchain, mirroring
  * the toolchain hooks in the common uart_stdout.c. */
 #if defined(__GNUC__)
+/*
+ * newlib's write() backend, so printf() reaches RTT.
+ *
+ * RA6E1_STDOUT_NO_WRITE suppresses it for builds that get _write() from somewhere else.
+ * ns/syscalls_ns.c defines the whole newlib syscall set including an RTT-backed _write(),
+ * and both files are needed on the non-secure side: this one for the stdio_*() backend
+ * that TF-M's and tf-m-tests' logging call, that one for _close/_lseek/_read. Without the
+ * guard the two collide at link with a duplicate _write.
+ */
+#ifndef RA6E1_STDOUT_NO_WRITE
 int _write(int fd, char *str, int len)
 {
     (void)fd;
     return stdio_output_string(str, (uint32_t)len);
 }
+#endif /* RA6E1_STDOUT_NO_WRITE */
+
 #endif
 
 void stdio_init(void)
