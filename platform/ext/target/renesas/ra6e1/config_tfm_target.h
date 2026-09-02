@@ -68,13 +68,35 @@
  * each extra asset adds 32 to the floor and takes 32 off the ceiling. This cannot be
  * reduced far without also cutting PS_NUM_ASSETS.
  *
- * TESTED 2026-08-30: tf-m-tests TFM_NS_PS_TEST_1025 fails its psa_ps_set at BOTH 512 and
- * 448, so the failure is NOT size-related and this is back at 512. Still open; see
- * RA6E1_SOLUTION.md. The remaining suspect is accumulated storage state rather than any
- * limit here - the test itself prints "Wipe the storage area to run the full test", and
- * WRITE_ONCE_UID is by definition unremovable and survives every run.
+ * RESOLVED 2026-09-02. That band is a per-object bound and was never what 1025 hit. The
+ * block has to hold every live object at once, and the fixed overhead at PS_NUM_ASSETS 10
+ * leaves almost nothing for the asset:
+ *
+ *   usable         = block_size - (8 + 12 + (PS_NUM_ASSETS + 3)*32)
+ *   object tables  = 2 * (48 + (PS_NUM_ASSETS + 1)*32)   both FS IDs are always live
+ *   1004's write-once asset, 36 + 72                     unremovable, survives every run
+ *   => free for one asset object = 1152 - 96*PS_NUM_ASSETS
+ *
+ * At 10 that is 192 bytes and 1025's *smallest* cycle - PS_MAX_ASSET_SIZE >> 2, so 128
+ * bytes plus 72 of object header - already needs 200. Hence the identical failure at 512
+ * and at 448: the cycle that overflows moves, the failure does not. Erasing data flash
+ * first changes nothing either, which is what ruled the accumulated-state theory out.
+ *
+ * Struct sizes taken from the built objects rather than derived: ps_obj_table_ctx is 408
+ * (table 400 + 2 indices + pad) and g_ps_object 584 at PS_MAX_ASSET_SIZE 512.
+ *
+ * Each asset costs 96 bytes of fixed overhead - 32 of file metadata plus a 32-byte entry
+ * in each of the two tables - so PS_NUM_ASSETS is the knob here, not PS_MAX_ASSET_SIZE.
+ *
+ * Unchanged by any of this: rewriting an existing max-size asset needs both copies
+ * resident, 1168 bytes, which does not fit at any PS_NUM_ASSETS. Growing an asset that is
+ * already near PS_MAX_ASSET_SIZE returns PSA_ERROR_INSUFFICIENT_STORAGE on this part.
  * ---------------------------------------------------------------------------------------
  */
 #define PS_MAX_ASSET_SIZE                       512
+
+/* 1152 - 96*PS_NUM_ASSETS must cover PS_MAX_ASSET_SIZE + 72, which caps this at 5.
+ * ra6e1_layout_checks.c asserts the whole budget so it cannot regress silently. */
+#define PS_NUM_ASSETS                           5
 
 #endif /* __CONFIG_TFM_TARGET_H__ */
