@@ -591,6 +591,9 @@ endif()
 # tfm_s is checked too, and is expected to report CLEAN - it must carry no OFS at all.
 # The guard is not wired into the NSPE build; tfm_ns has no option-setting sections and
 # ns_app/ does not include this file.
+#
+# The script is shared with ra6m4 from renesas/common - the option-setting map is identical
+# on both parts, and divergent copies of this particular check are a hazard in themselves.
 #-------------------------------------------------------------------------------
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     # Scoped per directory, and this one has never called it - bl2/ and spe-CMakeLists do
@@ -602,7 +605,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         add_custom_target(ra6e1_ofs_check_${target} ALL
             COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
                     ${Python3_EXECUTABLE}
-                    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/check_ofs.py
+                    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
                     $<TARGET_FILE:${target}>
             DEPENDS $<TARGET_FILE:${target}>
             VERBATIM

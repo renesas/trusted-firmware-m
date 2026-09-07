@@ -283,6 +283,54 @@ else()
     add_subdirectory(ns_app)
 endif()
 
+#-------------------------------------------------------------------------------
+# OFS brick guard (post-link)
+#
+# This is the part that was actually destroyed. On 2026-07-21 two EK-RA6M4 boards were
+# permanently bricked by a bl2 image whose thirteen option-setting words had been coalesced
+# by ld into ONE PT_LOAD spanning 0x0100A100-0x0100A284, with the 368 bytes between them
+# zero-filled. A debugger flashes by program header, so it wrote 0x00000000 over the FCU
+# configuration in those gaps - including the FSPR permanence word - and the parts were
+# gone. DESIGN.md 8.4.
+#
+# The defence is in ra6m4_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
+# each with its own '> REGION', which forces one tiny PT_LOAD per word. check_ofs.py
+# asserts that on the linked ELF - the only artifact where the mistake is visible. It does
+# NOT appear in the srec, because the zero fill lives in the program header and objcopy
+# emits from sections, so the srec-diff approach cannot catch a regression here.
+#
+# Hard failure, no opt-out switch: silent, instant, unrecoverable. tfm_s is checked too and
+# must report CLEAN - it carries no OFS, by design, since imgtool needs a contiguous payload.
+#
+# The script is shared with ra6e1 from renesas/common; the option-setting map is byte
+# identical on both parts.
+#-------------------------------------------------------------------------------
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    # Scoped per directory; this one has never called it (bl2/ and spe-CMakeLists do their
+    # own). Not REQUIRED - a missing interpreter should surface as this guard failing, not
+    # as an aborted configure.
+    find_package(Python3 COMPONENTS Interpreter)
+
+    # A custom TARGET, not add_custom_command(TARGET ... POST_BUILD): that form is
+    # directory-scoped, and tfm_s and bl2 are created in secure_fw/ and bl2/, not here.
+    function(ra6m4_add_ofs_check target)
+        add_custom_target(ra6m4_ofs_check_${target} ALL
+            COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                    $<TARGET_FILE:${target}>
+            DEPENDS $<TARGET_FILE:${target}>
+            VERBATIM
+            COMMENT "RA6M4 [${target}]: OFS brick guard")
+        add_dependencies(ra6m4_ofs_check_${target} ${target})
+    endfunction()
+
+    ra6m4_add_ofs_check(tfm_s)
+    if(BL2)
+        ra6m4_add_ofs_check(bl2)
+    endif()
+endif()
+
 ############################ Install ###########################################
 
 # Install platform headers for TF-M

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-check_ofs.py - BRICK GUARD for RA6E1 option-setting (OFS) memory.
+check_ofs.py - BRICK GUARD for RA6M4 / RA6E1 option-setting (OFS) memory.
 
 Root cause of the two bricked EK-RA6M4 boards on 2026-07-21 (DESIGN.md 8.4): the OFS words were
 placed so GNU ld coalesced them into ONE PT_LOAD segment spanning
@@ -17,10 +17,14 @@ region -> a separate, tiny PT_LOAD segment. This guard enforces the same:
   bytes (0xC = the largest single option word, BPS/PBPS). A spanning/gap-filled
   segment (e.g. the 0x184 one that bricked the boards) is > 12 and fails.
 
-RA6E1's option-setting map is byte-identical to RA6M4's - all 13 groups at the
-same addresses and lengths - so the constants below serve both parts.
+The RA6E1 option-setting map is byte-identical to the RA6M4's - all 13 groups at
+the same addresses and lengths - so one copy serves both parts. It lives here,
+in renesas/common, rather than in either platform directory: three divergent
+copies of a brick guard is its own hazard, and the RA6E1 copy had already drifted
+into claiming the wrong part was bricked.
 
-This runs automatically after every link (see the wiring in CMakeLists.txt), and
+This runs automatically after every link (see the wiring in each platform's
+CMakeLists.txt), and
 fails the build rather than warning: a spanning segment is unrecoverable, so a
 warning that scrolls past is worth nothing. The standalone entry point below is
 for images the build did not produce - a preserved artifact, or one built
@@ -40,7 +44,8 @@ def default_images():
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.normpath(os.path.join(here, *([".."] * 6)))
     found = []
-    for build in ("build_ra6e1", os.path.join("build_test_spe", "build-spe")):
+    for build in ("build_ra6e1", "build_ra6m4_boot",
+                  os.path.join("build_test_spe", "build-spe")):
         binp = os.path.join(root, build, "bin")
         found += [os.path.join(binp, n) for n in ("bl2.axf", "tfm_s.axf")
                   if os.path.isfile(os.path.join(binp, n))]
@@ -89,7 +94,7 @@ def main():
     if bad:
         print(f"FAIL: {bad} image(s) have a spanning OFS segment. GNU ld coalesced option words into one")
         print("gap-filled PT_LOAD; flashing it programs PBPS=0 -> permanent brick. Give each OFS word its")
-        print("OWN MEMORY region (like FSP's fsp_gen.ld / ra6e1_bl2.ld). DESIGN.md 8.4.")
+        print("OWN MEMORY region (like FSP's fsp_gen.ld / ra6e1_bl2.ld / ra6m4_bl2.ld). DESIGN.md 8.4.")
         return 1
     print("PASS: OFS (if any) is in discrete per-word segments - safe to flash.")
     return 0

@@ -246,11 +246,37 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
     # signed on that side, by the rules in cmake/spe-CMakeLists.cmake, using the keys and
     # layout files this build exports into <api_ns>/image_signing. Guarded on the target
     # rather than on a flag so it follows whichever model is in use.
-    if(TARGET tfm_ns)
+    #
+    # DEFERRED to the end of the top-level scope, and that is not optional. The root
+    # CMakeLists adds bl2/ before platform/, and the in-tree NS model (FSP_NS_APP_DIR)
+    # creates tfm_ns from platform/ - so a plain if(TARGET tfm_ns) evaluated here is
+    # ALWAYS false, even when the NS image is built. Pairing that with a generate-time
+    # $<TARGET_EXISTS:tfm_ns> on signed_images made the two disagree and ninja was handed
+    # a dependency on a target that had never been created:
+    #     ninja: error: 'bl2/ext/mcuboot/tfm_ns_signed_bin', needed by ... missing
+    # Deferring makes one condition serve both, after every subdirectory has been added.
+    #
+    # A deferred call runs in the ROOT directory scope, and DEFER re-evaluates variable
+    # references in its arguments THERE, not here - so passing "${CMAKE_CURRENT_SOURCE_DIR}"
+    # as an argument silently yields the root source dir, and Python3_EXECUTABLE (found by
+    # bl2/, not by the root) comes through empty. Both have to be captured into cache
+    # variables instead, which are visible from every scope. The MCUBOOT_* settings come
+    # from config/ at root scope and need no capture.
+    #
+    # Paths below must be absolute for the same reason: a relative custom-command OUTPUT
+    # would resolve against the root binary dir.
+    set(BL2_NS_SIGN_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE INTERNAL "")
+    set(BL2_NS_SIGN_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE INTERNAL "")
+    set(BL2_NS_SIGN_PYTHON  "${Python3_EXECUTABLE}"       CACHE INTERNAL "")
+
+    function(bl2_sign_ns_image)
+    if(NOT TARGET tfm_ns)
+        return()
+    endif()
     add_custom_target(tfm_ns_signed_bin
-        SOURCES tfm_ns_signed.bin
+        DEPENDS ${BL2_NS_SIGN_BIN_DIR}/tfm_ns_signed.bin
     )
-    add_custom_command(OUTPUT tfm_ns_signed.bin
+    add_custom_command(OUTPUT ${BL2_NS_SIGN_BIN_DIR}/tfm_ns_signed.bin
         # File-level dependency - see the note on tfm_s_signed.bin above.
         DEPENDS $<TARGET_FILE_DIR:tfm_ns>/tfm_ns.bin
         DEPENDS tfm_ns signing_layout_ns
@@ -258,7 +284,7 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         WORKING_DIRECTORY ${MCUBOOT_PATH}/scripts
 
         #Sign non-secure binary image with provided secret key
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/wrapper/wrapper.py
+        COMMAND ${BL2_NS_SIGN_PYTHON} ${BL2_NS_SIGN_SRC_DIR}/scripts/wrapper/wrapper.py
             -v ${MCUBOOT_IMAGE_VERSION_NS}
             --layout $<TARGET_OBJECTS:signing_layout_ns>
             -k ${MCUBOOT_KEY_NS}
@@ -275,16 +301,18 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
             $<$<BOOL:${MCUBOOT_ENC_IMAGES}>:-E${MCUBOOT_KEY_ENC}>
             $<$<BOOL:${MCUBOOT_MEASURED_BOOT}>:--measured-boot-record>
             $<TARGET_FILE_DIR:tfm_ns>/tfm_ns.bin
-            ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin $<TARGET_FILE_DIR:bl2>
+            ${BL2_NS_SIGN_BIN_DIR}/tfm_ns_signed.bin
+        COMMAND ${CMAKE_COMMAND} -E copy ${BL2_NS_SIGN_BIN_DIR}/tfm_ns_signed.bin $<TARGET_FILE_DIR:bl2>
     )
 
-    endif()
+    add_dependencies(signed_images tfm_ns_signed_bin)
+    endfunction()
+
+    cmake_language(DEFER DIRECTORY "${CMAKE_SOURCE_DIR}" CALL bl2_sign_ns_image)
 
     add_custom_target(signed_images
         ALL
         DEPENDS tfm_s_signed_bin
-                $<$<BOOL:$<TARGET_EXISTS:tfm_ns>>:tfm_ns_signed_bin>
     )
 
 endif()
