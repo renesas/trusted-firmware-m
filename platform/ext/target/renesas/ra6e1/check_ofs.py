@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-check_ofs.py - BRICK GUARD for RA6E1/RA6E1 option-setting (OFS) memory.
+check_ofs.py - BRICK GUARD for RA6E1 option-setting (OFS) memory.
 
-Root cause of the two bricked RA6E1 boards (DESIGN.md 8.4): the OFS words were
+Root cause of the two bricked EK-RA6M4 boards on 2026-07-21 (DESIGN.md 8.4): the OFS words were
 placed so GNU ld coalesced them into ONE PT_LOAD segment spanning
 0x0100A100-0x0100A284 with the gaps ZERO-FILLED. A debugger flashes by program
 header, so it wrote 0x00000000 into the gap words - including PBPS (0x0100A1E0),
@@ -17,8 +17,17 @@ region -> a separate, tiny PT_LOAD segment. This guard enforces the same:
   bytes (0xC = the largest single option word, BPS/PBPS). A spanning/gap-filled
   segment (e.g. the 0x184 one that bricked the boards) is > 12 and fails.
 
+RA6E1's option-setting map is byte-identical to RA6M4's - all 13 groups at the
+same addresses and lengths - so the constants below serve both parts.
+
+This runs automatically after every link (see the wiring in CMakeLists.txt), and
+fails the build rather than warning: a spanning segment is unrecoverable, so a
+warning that scrolls past is worth nothing. The standalone entry point below is
+for images the build did not produce - a preserved artifact, or one built
+elsewhere.
+
 Usage:
-    python check_ofs.py [IMAGE_ELF ...]   (defaults to the build_ra6e1_boot images)
+    python check_ofs.py [IMAGE_ELF ...]   (defaults to any built RA6E1 images)
 Exit: 0 = safe, 1 = a spanning OFS segment found (DO NOT FLASH), 2 = tool error.
 """
 import os, re, shutil, subprocess, sys
@@ -29,10 +38,13 @@ READELF           = os.environ.get("READELF", "arm-none-eabi-readelf")
 
 def default_images():
     here = os.path.dirname(os.path.abspath(__file__))
-    binp = os.path.normpath(os.path.join(here, "..", "..", "trusted-firmware-m",
-                                          "build_ra6e1_boot", "bin"))
-    return [os.path.join(binp, n) for n in ("bl2.elf", "tfm_s.axf", "tfm_ns.axf")
-            if os.path.isfile(os.path.join(binp, n))]
+    root = os.path.normpath(os.path.join(here, *([".."] * 6)))
+    found = []
+    for build in ("build_ra6e1", os.path.join("build_test_spe", "build-spe")):
+        binp = os.path.join(root, build, "bin")
+        found += [os.path.join(binp, n) for n in ("bl2.axf", "tfm_s.axf")
+                  if os.path.isfile(os.path.join(binp, n))]
+    return found
 
 def load_segments(elf):
     """Return list of (vaddr, filesz) for PT_LOAD segments overlapping the config region."""

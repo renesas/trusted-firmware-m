@@ -570,6 +570,53 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
 endif()
 
 #-------------------------------------------------------------------------------
+# OFS brick guard (post-link)
+#
+# This one is not a style check. Two EK-RA6M4 boards were destroyed on 2026-07-21 by an
+# image whose option-setting words had been coalesced by ld into ONE PT_LOAD spanning
+# 0x0100A100-0x0100A284, with the gaps zero-filled. A debugger flashes by program header,
+# so it wrote 0x00000000 over PBPS - the one-time Permanent Block Protect - and the parts
+# were gone. DESIGN.md 8.4.
+#
+# The defence is in ra6e1_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
+# each with its own '> REGION'. That produces one tiny PT_LOAD per word instead of a span.
+# check_ofs.py asserts the outcome on the linked ELF, which is the only place the mistake
+# is actually visible - it does NOT show up in the srec, and a plausible-looking linker
+# script can still emit a spanning segment.
+#
+# Deliberately a hard failure, unlike the orphan check above, and deliberately not
+# switchable: the failure mode is silent, instant and unrecoverable. Nothing this build
+# produces is worth flashing if it trips.
+#
+# tfm_s is checked too, and is expected to report CLEAN - it must carry no OFS at all.
+# The guard is not wired into the NSPE build; tfm_ns has no option-setting sections and
+# ns_app/ does not include this file.
+#-------------------------------------------------------------------------------
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    # Scoped per directory, and this one has never called it - bl2/ and spe-CMakeLists do
+    # their own. Not REQUIRED: a missing interpreter should say so through the guard's own
+    # failure below, not by aborting configure for a platform that may not need it.
+    find_package(Python3 COMPONENTS Interpreter)
+
+    function(ra6e1_add_ofs_check target)
+        add_custom_target(ra6e1_ofs_check_${target} ALL
+            COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/check_ofs.py
+                    $<TARGET_FILE:${target}>
+            DEPENDS $<TARGET_FILE:${target}>
+            VERBATIM
+            COMMENT "RA6E1 [${target}]: OFS brick guard")
+        add_dependencies(ra6e1_ofs_check_${target} ${target})
+    endfunction()
+
+    ra6e1_add_ofs_check(tfm_s)
+    if(BL2)
+        ra6e1_add_ofs_check(bl2)
+    endif()
+endif()
+
+#-------------------------------------------------------------------------------
 # Non-secure application - built in-tree
 #
 # TF-M v2.2's canonical model is a split SPE/NSPE build: the SPE installs api_ns/ and
