@@ -10,6 +10,7 @@
  * of these has already been shipped wrong once and was invisible until hardware.
  */
 
+#include "config_tfm.h"
 #include "flash_otp_nv_counters_backend.h"
 #include "flash_layout.h"
 #include "region_defs.h"
@@ -146,3 +147,41 @@ _Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE == FLASH_AREA_1_OFFSET,
                "a concatenated tfm_s_ns_signed.bin would place the non-secure image at the "
                "wrong address. Restore adjacency in the solution, or stop building the "
                "combined image (see NON_SECURE_IMAGE_OFFSET in flash_layout.h).");
+
+/* ---------------------------------------------------------------------------------
+ * Protected Storage capacity
+ *
+ * With num_blocks == 2 the flash FS keeps its metadata and logical data block 0 in the
+ * same physical block, so every live PS object has to fit in one block together with the
+ * metadata. The per-object ceiling in config_tfm_target.h is not the binding constraint -
+ * the sum is, and it is dominated by fixed overhead that scales with PS_NUM_ASSETS.
+ *
+ * Sizes are from the flash FS and PS structs (its_flash_fs_mblock.h, ps_object_defs.h,
+ * ps_object_table.c) at this port's settings: PS_ENCRYPTION on, PS_ROLLBACK_PROTECTION on,
+ * PS_AES_KEY_USAGE_LIMIT 0, 4-byte program unit. Verified against the built objects.
+ * --------------------------------------------------------------------------------- */
+#define RA6E1_PS_BLOCK_SIZE     (TFM_HAL_PS_SECTOR_SIZE * TFM_HAL_PS_SECTORS_PER_BLOCK)
+#define RA6E1_PS_NUM_BLOCKS     (TFM_HAL_PS_FLASH_AREA_SIZE / RA6E1_PS_BLOCK_SIZE)
+
+/* Block metadata header + one block_meta + one file_meta per file. */
+#define RA6E1_PS_FS_METADATA    (8 + 12 + ((PS_NUM_ASSETS + 3) * 32))
+/* sizeof(struct ps_obj_table_t), and both FS IDs are always resident. */
+#define RA6E1_PS_TABLES         (2 * (48 + ((PS_NUM_ASSETS + 1) * 32)))
+/* sizeof(struct ps_obj_header_t) + PS_TAG_LEN_BYTES, added to every asset. */
+#define RA6E1_PS_OBJ_OVERHEAD   (56 + 16)
+/* One small asset assumed permanently resident. tf-m-tests' TFM_NS_PS_TEST_1004 creates a
+ * 36-byte PSA_STORAGE_FLAG_WRITE_ONCE asset that by definition can never be removed. */
+#define RA6E1_PS_RESIDENT       (36 + RA6E1_PS_OBJ_OVERHEAD)
+
+_Static_assert(RA6E1_PS_NUM_BLOCKS == 2,
+               "RA6E1: the PS budget below assumes the two-block filesystem, where data "
+               "block 0 shares the metadata block. Rework it if the PS area is resized to "
+               "give the FS dedicated data blocks.");
+
+_Static_assert((RA6E1_PS_BLOCK_SIZE - RA6E1_PS_FS_METADATA - RA6E1_PS_TABLES
+                - RA6E1_PS_RESIDENT) >= (PS_MAX_ASSET_SIZE + RA6E1_PS_OBJ_OVERHEAD),
+               "RA6E1: PS cannot hold one PS_MAX_ASSET_SIZE asset alongside its own "
+               "metadata and object tables. Each asset costs 96 bytes of fixed overhead, "
+               "so lower PS_NUM_ASSETS in config_tfm_target.h - lowering PS_MAX_ASSET_SIZE "
+               "recovers far less and has a floor of its own. This fires as "
+               "PSA_ERROR_INSUFFICIENT_STORAGE from psa_ps_set at run time.");
