@@ -15,7 +15,7 @@ The foundation module required by all FSP components.
 **Includes:**
 - BSP core functionality (clocks, delays, interrupts)
 - CMSIS startup and system initialization
-- Board-specific initialization (RA6E1-EK)
+- Board-specific initialization (RA6M4-EK)
 - I/O Port driver (r_ioport)
 - FSP-generated configuration (pin_data, vector_data, common_data)
 
@@ -77,7 +77,7 @@ build/
 ├── libfsp_bsp.a       # BSP library
 ├── libfsp_uart.a      # UART module
 ├── libfsp_flash.a     # Flash module
-└── FSP_Project_ra6e1.elf  # Final executable
+└── FSP_Project_ra6m4.elf  # Final executable
 ```
 
 ### Monolithic Build (Original)
@@ -154,7 +154,7 @@ target_link_libraries(${PROJECT_NAME}.elf
 ## Module Dependencies
 
 ```
-Application (FSP_Project_ra6e1.elf)
+Application (FSP_Project_ra6m4.elf)
     │
     ├── fsp_uart
     │   └── fsp_bsp

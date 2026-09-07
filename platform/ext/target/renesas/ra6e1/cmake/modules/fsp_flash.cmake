@@ -1,35 +1,21 @@
 # FSP Flash Module Library
-# This library provides Flash HP driver functionality
+# Flash HP driver. TF-M's cmsis_drivers/Driver_Flash.c wraps it as Driver_FLASH0 (code
+# flash) and Driver_FLASH1 (data flash, where ITS/PS/NV counters live), with the RA 32 KB
+# region-1 erase geometry (DESIGN.md 4).
 #
-# When FSP_S_APP_DIR is set, sources are pulled from the external RASC project.
-# Otherwise, sources are pulled from the embedded fsp/ directory.
+# Adding a module: fsp_cmake/TFM_INTEGRATION_COMPLETE.md, "Adding New FSP Modules".
 
-# Determine FSP source directory (use same logic as fsp_bsp.cmake)
-if(FSP_S_APP_DIR)
-    set(FSP_S_DIR ${FSP_S_APP_DIR})
-else()
-    set(FSP_S_DIR ${CMAKE_CURRENT_LIST_DIR}/../../fsp)
+fsp_module_library(FSP_FLASH_TARGET flash)
+
+fsp_module_glob(_src "ra/fsp/src/r_flash_hp")
+if(NOT _src)
+    message(FATAL_ERROR
+        "RA6E1: the Flash HP module is not in ${FSP_MODULE_BASE_DIR}.\n"
+        "Both the secure image (ITS/PS/NV counters on data flash) and BL2 (MCUboot slot "
+        "access) need it. Add the Flash (r_flash_hp) module in e2 studio, regenerate, and "
+        "build the project once.")
 endif()
 
-if(NOT TARGET fsp_flash)
-    add_library(fsp_flash STATIC)
-endif()
+target_sources(${FSP_FLASH_TARGET} PRIVATE ${_src})
 
-# Flash source files
-target_sources(fsp_flash
-    PRIVATE
-        ${FSP_S_DIR}/ra/fsp/src/r_flash_hp/r_flash_hp.c
-        ${FSP_S_DIR}/ra_gen/hal_data.c
-)
-
-# Flash depends on BSP
-target_link_libraries(fsp_flash
-    PUBLIC
-        fsp_bsp
-)
-
-# Flash compile options - must include -mcmse for TrustZone secure builds
-target_compile_options(fsp_flash
-    PRIVATE
-        -mcmse             # Enable CMSE intrinsics for TrustZone
-)
+target_link_libraries(${FSP_FLASH_TARGET} PUBLIC fsp_bsp_${FSP_MODULE_ROLE})

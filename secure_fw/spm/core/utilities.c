@@ -18,8 +18,34 @@
 #include "backtrace.h"
 #endif
 
+/* SPM control-flow trace, enabled by TFM_SPM_DEBUG_TRACE (config_base.cmake, default OFF).
+ *
+ * tfm_core_panic() is called from ~140 sites and all of them land in the same
+ * tfm_hal_system_halt() spin, which makes "it halted" useless as a diagnostic. Log the
+ * caller's return address so the halt names its own site; resolve it with
+ *
+ *   arm-none-eabi-addr2line -f -e build_ra6e1/bin/tfm_s.axf <PC>
+ *
+ * SPMLOG_ is deliberate: it goes tfm_hal_output_spm_log() -> stdio_output_string()
+ * straight to the backend, with no printf, no SVC and no memory check, so it works from
+ * Handler mode and cannot itself re-enter a panic path the way a partition LOG_INFFMT can.
+ *
+ * __builtin_return_address(0) is valid here because tfm_core_panic() is an ordinary
+ * function, not naked. The value is the LR at entry, so it points at the instruction
+ * AFTER the call - addr2line lands on the right line anyway, but subtract 4 if a site
+ * sits at the very start of a source line.
+ */
+#ifdef TFM_SPM_DEBUG_TRACE
+#include "tfm_spm_log.h"
+#endif
+
 void tfm_core_panic(void)
 {
+#ifdef TFM_SPM_DEBUG_TRACE
+    SPMLOG_ERRMSGVAL("\r\n[PANIC] tfm_core_panic() called from LR=",
+                     (uint32_t)__builtin_return_address(0));
+#endif
+
     (void)fih_delay();
 
 #ifdef CONFIG_TFM_BACKTRACE_ON_CORE_PANIC

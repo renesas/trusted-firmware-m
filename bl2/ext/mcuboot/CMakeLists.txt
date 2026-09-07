@@ -186,6 +186,11 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         SOURCES tfm_s_signed.bin
     )
     add_custom_command(OUTPUT tfm_s_signed.bin
+        # The FILE, not just the target. A target named in DEPENDS becomes an order-only
+        # edge in the generated build - "build this first", not "re-run me when it changes"
+        # - so the signed image was produced once and never regenerated. Every incremental
+        # build then shipped a signed image of an earlier tfm_s.bin.
+        DEPENDS $<TARGET_FILE_DIR:tfm_s>/tfm_s.bin
         DEPENDS tfm_s_bin signing_layout_s
         DEPENDS $<IF:$<BOOL:${MCUBOOT_GENERATE_SIGNING_KEYPAIR}>,generated_private_key,>
         WORKING_DIRECTORY ${MCUBOOT_PATH}/scripts
@@ -212,10 +217,6 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_s_signed.bin $<TARGET_FILE_DIR:bl2>
     )
 
-    # NS image is only signed when the NS side is actually built (FSP_NS_APP_DIR / NS=ON).
-    # Without it (e.g. RA6E1 BL2-first bring-up) tfm_ns doesn't exist; skip NS signing.
-    set(SIGNED_IMAGES_DEPS tfm_s_signed_bin)
-    if(TARGET tfm_ns)
     set(IMAGE_TYPE "NS_IMAGE")
     set(FLASH_AREA_NUM ${MCUBOOT_NS_IMAGE_FLASH_AREA_NUM})
     configure_file(signing_layout.c.in signing_layout_ns.c @ONLY)
@@ -239,11 +240,19 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
             platform_bl2
     )
 
-    # Sign NS image (tfm_ns from FSP_Project_ra6m4_ns_rtos or default NS app)
+    # Sign NS image - ONLY when the NS image is built here.
+    #
+    # In the split SPE/NSPE build it is not: tfm_ns is an NSPE target and the NS image is
+    # signed on that side, by the rules in cmake/spe-CMakeLists.cmake, using the keys and
+    # layout files this build exports into <api_ns>/image_signing. Guarded on the target
+    # rather than on a flag so it follows whichever model is in use.
+    if(TARGET tfm_ns)
     add_custom_target(tfm_ns_signed_bin
         SOURCES tfm_ns_signed.bin
     )
     add_custom_command(OUTPUT tfm_ns_signed.bin
+        # File-level dependency - see the note on tfm_s_signed.bin above.
+        DEPENDS $<TARGET_FILE_DIR:tfm_ns>/tfm_ns.bin
         DEPENDS tfm_ns signing_layout_ns
         DEPENDS $<IF:$<BOOL:${MCUBOOT_GENERATE_SIGNING_KEYPAIR}>,generated_private_key,>
         WORKING_DIRECTORY ${MCUBOOT_PATH}/scripts
@@ -270,12 +279,12 @@ if (PLATFORM_DEFAULT_IMAGE_SIGNING)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/tfm_ns_signed.bin $<TARGET_FILE_DIR:bl2>
     )
 
-    list(APPEND SIGNED_IMAGES_DEPS tfm_ns_signed_bin)
     endif()
 
     add_custom_target(signed_images
         ALL
-        DEPENDS ${SIGNED_IMAGES_DEPS}
+        DEPENDS tfm_s_signed_bin
+                $<$<BOOL:$<TARGET_EXISTS:tfm_ns>>:tfm_ns_signed_bin>
     )
 
 endif()

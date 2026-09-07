@@ -27,29 +27,25 @@ MEMORY
     FLASH (rx)  : ORIGIN = BL2_CODE_START, LENGTH = BL2_CODE_SIZE
     RAM   (rwx) : ORIGIN = BL2_DATA_START, LENGTH = BL2_DATA_SIZE
 
-    /* RA6M4 option-setting (OFS) memory - ONE region PER WORD, exactly as FSP's
-     * generated fsp_gen.ld does it. This is safety-critical: a separate, exactly-
-     * sized MEMORY region per option word forces GNU ld to emit a SEPARATE PT_LOAD
-     * segment for each (4 or 12 bytes), with NO span across the gaps between them.
-     * A tool that flashes by program header then writes ONLY the configured words.
-     * The previous (bricking) layout placed these at absolute addresses in the
-     * default region, so ld coalesced them into one 0x184 segment spanning
-     * 0x0100A100-0x0100A284 and ZERO-FILLED the gaps - flashing that programmed
-     * PBPS(0x0100A1E0)=0 => permanent block protect => bricked two boards.
-     * See DESIGN.md 8.4. Addresses are the fixed RA6M4 config-area map. */
-    OPTION_SETTING_OFS0        (r) : ORIGIN = 0x0100A100, LENGTH = 0x04
-    OPTION_SETTING_DUALSEL     (r) : ORIGIN = 0x0100A110, LENGTH = 0x04
-    OPTION_SETTING_OFS1        (r) : ORIGIN = 0x0100A180, LENGTH = 0x04
-    OPTION_SETTING_BANKSEL     (r) : ORIGIN = 0x0100A190, LENGTH = 0x04
-    OPTION_SETTING_BPS         (r) : ORIGIN = 0x0100A1C0, LENGTH = 0x0C
-    OPTION_SETTING_PBPS        (r) : ORIGIN = 0x0100A1E0, LENGTH = 0x0C
-    OPTION_SETTING_OFS1_SEC    (r) : ORIGIN = 0x0100A200, LENGTH = 0x04
-    OPTION_SETTING_BANKSEL_SEC (r) : ORIGIN = 0x0100A210, LENGTH = 0x04
-    OPTION_SETTING_BPS_SEC     (r) : ORIGIN = 0x0100A240, LENGTH = 0x0C
-    OPTION_SETTING_PBPS_SEC    (r) : ORIGIN = 0x0100A260, LENGTH = 0x0C
-    OPTION_SETTING_OFS1_SEL    (r) : ORIGIN = 0x0100A280, LENGTH = 0x04
-    OPTION_SETTING_BANKSEL_SEL (r) : ORIGIN = 0x0100A290, LENGTH = 0x04
-    OPTION_SETTING_BPS_SEL     (r) : ORIGIN = 0x0100A2C0, LENGTH = 0x0C
+    /* RA6M4 option-setting memory - one DISCRETE region per register group, the
+     * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
+     * region is sized to exactly its register group, so ld emits a separate
+     * PT_LOAD per group and CANNOT zero-fill the FCU config bytes in between.
+     * Merging these into one region/segment permanently bricks the part - see
+     * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
+    OPTION_SETTING_OFS0        (r) : ORIGIN = OPTION_SETTING_OFS0_START,        LENGTH = OPTION_SETTING_OFS0_LENGTH
+    OPTION_SETTING_DUALSEL     (r) : ORIGIN = OPTION_SETTING_DUALSEL_START,     LENGTH = OPTION_SETTING_DUALSEL_LENGTH
+    OPTION_SETTING_OFS1        (r) : ORIGIN = OPTION_SETTING_OFS1_START,        LENGTH = OPTION_SETTING_OFS1_LENGTH
+    OPTION_SETTING_BANKSEL     (r) : ORIGIN = OPTION_SETTING_BANKSEL_START,     LENGTH = OPTION_SETTING_BANKSEL_LENGTH
+    OPTION_SETTING_BPS         (r) : ORIGIN = OPTION_SETTING_BPS_START,         LENGTH = OPTION_SETTING_BPS_LENGTH
+    OPTION_SETTING_PBPS        (r) : ORIGIN = OPTION_SETTING_PBPS_START,        LENGTH = OPTION_SETTING_PBPS_LENGTH
+    OPTION_SETTING_OFS1_SEC    (r) : ORIGIN = OPTION_SETTING_OFS1_SEC_START,    LENGTH = OPTION_SETTING_OFS1_SEC_LENGTH
+    OPTION_SETTING_BANKSEL_SEC (r) : ORIGIN = OPTION_SETTING_BANKSEL_SEC_START, LENGTH = OPTION_SETTING_BANKSEL_SEC_LENGTH
+    OPTION_SETTING_BPS_SEC     (r) : ORIGIN = OPTION_SETTING_BPS_SEC_START,     LENGTH = OPTION_SETTING_BPS_SEC_LENGTH
+    OPTION_SETTING_PBPS_SEC    (r) : ORIGIN = OPTION_SETTING_PBPS_SEC_START,    LENGTH = OPTION_SETTING_PBPS_SEC_LENGTH
+    OPTION_SETTING_OFS1_SEL    (r) : ORIGIN = OPTION_SETTING_OFS1_SEL_START,    LENGTH = OPTION_SETTING_OFS1_SEL_LENGTH
+    OPTION_SETTING_BANKSEL_SEL (r) : ORIGIN = OPTION_SETTING_BANKSEL_SEL_START, LENGTH = OPTION_SETTING_BANKSEL_SEL_LENGTH
+    OPTION_SETTING_BPS_SEL     (r) : ORIGIN = OPTION_SETTING_BPS_SEL_START,     LENGTH = OPTION_SETTING_BPS_SEL_LENGTH
 }
 
 __heap_size__  = BL2_HEAP_SIZE;
@@ -255,15 +251,23 @@ SECTIONS
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 
-    /* RA6M4 option-setting (OFS) - BL2 ONLY, placed EXACTLY as FSP's generated
-     * fsp_gen.ld does: each option word into its OWN, exactly-sized MEMORY region
-     * (declared above), so ld emits a SEPARATE PT_LOAD segment per word and NEVER
-     * spans/zero-fills the gaps. Only words actually emitted by bl2_option_setting.c
-     * (i.e. configured via BSP_CFG_OPTION_SETTING_* in RASC) produce a segment;
-     * unconfigured ones stay empty and emit nothing - matching FSP, where fsp_gen.ld
-     * only contains entries for configured OFS. DO NOT collapse these into one region
-     * or place them at absolute addresses in a shared region - that reintroduces the
-     * gap-filled span that bricked two boards (DESIGN.md 8.4). */
+    /* RA6M4 option-setting memory (OFS) - BL2 ONLY.
+     *
+     * Places the RASC-configured OFS words emitted by bl2_option_setting.c. Each
+     * section goes to its OWN MEMORY region (see the MEMORY block above) - this is
+     * the whole point, and it mirrors FSP's generated fsp_gen.ld exactly.
+     *
+     * ⚠ DO NOT rewrite these as bare addressed sections:
+     *       .option_setting_ofs0 0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
+     *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
+     *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes of FCU config in the
+     *   gaps (including the FSPR permanence word). Flashing that from a debugger
+     *   permanently bricks the part - it cost two EK-RA6M4 boards on 2026-07-21.
+     *   The zero fill is invisible in the srec; check readelf -l. Full rationale
+     *   and the verification command are in region_defs.h (OPTION_SETTING_* block).
+     *
+     * BL2-only: the secure/NS images are MCUboot-signed and imgtool needs a
+     * contiguous payload, and two images programming OFS would collide. */
     .option_setting_ofs0        : { KEEP(*(.option_setting_ofs0))        } > OPTION_SETTING_OFS0
     .option_setting_dualsel     : { KEEP(*(.option_setting_dualsel))     } > OPTION_SETTING_DUALSEL
     .option_setting_ofs1        : { KEEP(*(.option_setting_ofs1))        } > OPTION_SETTING_OFS1

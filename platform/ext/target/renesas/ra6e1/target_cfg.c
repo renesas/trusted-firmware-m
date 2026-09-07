@@ -11,7 +11,9 @@
 #include "tfm_plat_defs.h"
 #include "cmsis.h"
 #include "bsp_api.h"
-#include "hal_data.h"
+/* Deliberately NOT hal_data.h: nothing here uses it, and once the Crypto stack is in the
+ * e2 project the generated ra_gen/common_data.h it pulls in includes FSP's own
+ * psa/crypto.h, which would shadow TF-M's for everything in platform_s. */
 
 /* To write into AIRCR register, 0x5FA value must be write to the VECTKEY field,
  * otherwise the processor ignores the write.
@@ -36,19 +38,50 @@ void sau_and_idau_cfg(void)
     /* SAU configuration is handled by TF-M's common ARMv8-M isolation framework */
     /* The framework will configure SAU based on region_defs.h and memory_regions */
 
-    /* RA6E1 doesn't have IDAU - security attribution is done entirely via SAU */
+    /* RA6M4 doesn't have IDAU - security attribution is done entirely via SAU */
 }
 
 enum tfm_plat_err_t mpc_init_cfg(void)
 {
-    /* RA6E1 does not have MPC - memory protection is done via SAU/MPU */
+    /* RA6M4 does not have MPC - memory protection is done via SAU/MPU */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 enum tfm_plat_err_t ppc_init_cfg(void)
 {
-    /* RA6E1 does not have PPC - peripheral protection is done via SAU */
+    /* RA6 has no PPC - peripheral protection is done via SAU/IDAU and the Renesas PSAR
+     * registers, which FSP programs from the solution. See target_cfg.h. */
     return TFM_PLAT_ERR_SUCCESS;
+}
+
+/*
+ * No-ops, present only so the shared isolation HAL links.
+ *
+ * tfm_hal_bind_boundary() guards these calls with
+ * "if (periph_ppc_bank != PPC_SP_DO_NOT_CONFIGURE)", and every platform_data_t on this
+ * port sets exactly that sentinel, so none is ever reached at run time. The call sites are
+ * still COMPILED, so the symbols must resolve.
+ *
+ * If a future RA6 partition genuinely needs per-peripheral attribution, this is the wrong
+ * place for it: that attribution lives in PSAR and belongs in the solution, not in a
+ * TF-M-side emulation of a controller the part does not have.
+ */
+void ppc_configure_to_secure(ppc_bank_t bank, uint32_t pos)
+{
+    (void)bank;
+    (void)pos;
+}
+
+void ppc_clr_secure_unpriv(ppc_bank_t bank, uint32_t pos)
+{
+    (void)bank;
+    (void)pos;
+}
+
+void ppc_en_secure_unpriv(ppc_bank_t bank, uint32_t pos)
+{
+    (void)bank;
+    (void)pos;
 }
 
 enum tfm_plat_err_t enable_fault_handlers(void)

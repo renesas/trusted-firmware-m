@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2025 Renesas Electronics Corporation. All rights reserved.
+﻿/*
+ * Copyright (c) 2026 Renesas Electronics Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,151 +7,225 @@
 #ifndef __FLASH_LAYOUT_H__
 #define __FLASH_LAYOUT_H__
 
-/* Flash layout for Renesas RA6E1 (R7FA6E10F2CFP)
+/*
+ * RA6E1 flash layout - DERIVED, NOT HAND-MAINTAINED.
  *
- * Total Flash: 1MB (0x100000)
- * Flash Block Size: 8KB (minimum erase size)
+ * Every address and size below comes from bsp_linker_info.h, which the e2 studio
+ * SOLUTION generates for each project from solution.xml. Change the partitions in
+ * the solution, rebuild the projects in e2, and this header follows with no edits.
  *
- * Optimized Memory Map for MCUboot Swap Mode:
+ * This inverts the ra6m4 model, where flash_layout.h was authoritative and the RASC
+ * values were vestigial (DESIGN.md 3). Here RASC/e2 is the source of truth.
  *
- * Without BL2:
- * 0x0000_0000 - 0x000F_FFFF : All available for application (1MB)
+ * bsp_linker_info.h lives in <project>/Debug/, so the solution must have been built
+ * in e2 at least once before TF-M can configure. The platform CMakeLists fails with a
+ * clear message if it is absent.
  *
- * With BL2 (MCUboot) - Full configuration with all TF-M services:
- * 0x0000_0000 - 0x0001_FFFF : BL2 Bootloader (128KB allocated, ~26KB used)
- * 0x0002_0000 - 0x0004_FFFF : Secure Image Primary Slot (192KB allocated, ~170KB used)
- * 0x0005_0000 - 0x0006_FFFF : Non-Secure Image Primary Slot (128KB)
- * 0x0007_0000 - 0x0009_FFFF : Secure Image Secondary Slot (192KB) - OTA updates
- * 0x000A_0000 - 0x000B_FFFF : Non-Secure Image Secondary Slot (128KB) - OTA updates
- * 0x000C_0000 - 0x000F_FFFF : Scratch Area (256KB) - for MCUboot swap operations
+ * We include bsp_partitions.h, not bsp_linker_info.h directly: the platform CMakeLists
+ * filters the generated file down to its #define BSP_PARTITION_* lines. This header is
+ * preprocessed into ra6e1_bl2.ld as well as compiled, and bsp_linker_info.h also
+ * declares C types and externs that a linker script cannot parse.
  *
- * Current TF-M build (with Crypto, ITS, PS, Attestation, Platform services):
- *   - BL2 (MCUboot): 26KB flash, 20KB RAM (20.31% of allocation)
- *   - TF-M Secure: 170KB flash, 47KB RAM (88.54% of allocation)
- *
- * Data Flash (8KB at 0x0800_0000):
- *   - OTP/NV Counters: 2KB
- *   - Protected Storage (PS): 3KB - encrypted with AES-GCM
- *   - Internal Trusted Storage (ITS): 2KB
+ * Partition -> TF-M mapping:
+ *   FLASH_BL_CPU0_S   -> BL2 (MCUboot)
+ *   __BL_0_P_*        -> image 0 primary   = secure     (FLASH_AREA_0)
+ *   __BL_1_P_*        -> image 1 primary   = non-secure (FLASH_AREA_1)
+ *   __BL_0_S_*        -> image 0 secondary = secure     (FLASH_AREA_2)
+ *   __BL_1_S_*        -> image 1 secondary = non-secure (FLASH_AREA_3)
  */
 
-/* Flash base address */
-#define FLASH_BASE_ADDRESS              0x00000000
+#include "bsp_partitions.h"
 
-/* Flash total size */
-#define FLASH_TOTAL_SIZE                0x00100000  /* 1MB */
-
-/* Flash area for BL2 bootloader */
-#define FLASH_AREA_BL2_OFFSET           0x0
-#define FLASH_AREA_BL2_SIZE             0x20000     /* 128KB */
-
-/* Sector size (minimum erase unit) for RA6E1 */
-/* RA6E1 HP code flash: region 0 (0x0-0xFFFF) = 8KB blocks, region 1 (0x10000+)
- * = 32KB blocks. All MCUboot-managed slots (S @0x20000, NS @0x50000, scratch)
- * live in region 1, so the erase/sector unit must be the 32KB region-1 block.
- * Slot offsets are all 32KB-aligned. */
-#define FLASH_AREA_IMAGE_SECTOR_SIZE    0x8000      /* 32KB (RA6E1 region-1 block) */
-
-/* Flash area for secure image (primary slot) */
-#define FLASH_AREA_0_ID                 1
-#ifdef BL2
-#define FLASH_AREA_0_OFFSET             (FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE)  /* 0x20000 */
-#define FLASH_AREA_0_SIZE               0x30000     /* 192KB - increased for modular build */
-#else
-#define FLASH_AREA_0_OFFSET             0x0         /* Without BL2, start at beginning of flash */
-#define FLASH_AREA_0_SIZE               0xA0000     /* 640KB without BL2 */
-#endif
-
-/* Flash area for non-secure image (primary slot) */
-#define FLASH_AREA_1_ID                 2
-#define FLASH_AREA_1_OFFSET             (FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE)  /* 0x40000 */
-#define FLASH_AREA_1_SIZE               0x20000     /* 128KB */
-
-/* Secondary slot for secure image (for MCUboot swap upgrade) */
-#define FLASH_AREA_2_ID                 (FLASH_AREA_1_ID + 1)
-#define FLASH_AREA_2_OFFSET             (FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE)  /* 0x60000 */
-#define FLASH_AREA_2_SIZE               0x30000     /* 192KB - matches primary secure slot */
-
-/* Secondary slot for non-secure image (for MCUboot swap upgrade) */
-#define FLASH_AREA_3_ID                 (FLASH_AREA_2_ID + 1)
-#define FLASH_AREA_3_OFFSET             (FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE)  /* 0x80000 */
-#define FLASH_AREA_3_SIZE               0x20000     /* 128KB */
-
-/* Scratch area for MCUboot swap operations */
-#define FLASH_AREA_SCRATCH_ID           (FLASH_AREA_3_ID + 1)
-#define FLASH_AREA_SCRATCH_OFFSET       (FLASH_AREA_3_OFFSET + FLASH_AREA_3_SIZE)  /* 0xA0000 */
-#define FLASH_AREA_SCRATCH_SIZE         0x40000     /* 256KB - reduced from 384KB */
-
-/* Secure partition sizes */
-#define FLASH_S_PARTITION_SIZE          FLASH_AREA_0_SIZE
-#define FLASH_NS_PARTITION_SIZE         FLASH_AREA_1_SIZE
-
-/* Maximum number of image sectors (for MCUboot) */
-/* Based on largest partition size (scratch area is 256KB) */
-#define MCUBOOT_MAX_IMG_SECTORS         (FLASH_AREA_SCRATCH_SIZE / \
-                                         FLASH_AREA_IMAGE_SECTOR_SIZE)  /* 256KB / 8KB = 32 sectors */
-
-/* Maximum number of status entries supported by the bootloader */
-#define MCUBOOT_STATUS_MAX_ENTRIES      MCUBOOT_MAX_IMG_SECTORS
-
-/* Data Flash area for PS/ITS/NV counters */
-#define FLASH_DATA_FLASH_BASE           0x08000000
-#define FLASH_DATA_FLASH_SIZE           0x2000      /* 8KB */
-#define FLASH_DATA_FLASH_SECTOR_SIZE    0x40        /* 64 bytes */
-
-/* OTP / NV counters area in data flash */
-#define FLASH_OTP_NV_COUNTERS_AREA_OFFSET   FLASH_DATA_FLASH_BASE
-#define FLASH_OTP_NV_COUNTERS_AREA_SIZE     0x800   /* 2KB */
-
-/* PS area in data flash */
-#define FLASH_PS_AREA_OFFSET                (FLASH_OTP_NV_COUNTERS_AREA_OFFSET + \
-                                             FLASH_OTP_NV_COUNTERS_AREA_SIZE)
-#define FLASH_PS_AREA_SIZE                  0xC00   /* 3KB */
-
-/* ITS area in data flash */
-#define FLASH_ITS_AREA_OFFSET               (FLASH_PS_AREA_OFFSET + \
-                                             FLASH_PS_AREA_SIZE)
-#define FLASH_ITS_AREA_SIZE                 0x800   /* 2KB */
-
-/* Flash device IDs */
-#define FLASH_DEVICE_ID                     0
-#define FLASH_DEVICE_DATA                   1
-
-/* Offset and size definitions for TFM flash driver */
-#define TFM_HAL_FLASH_PROGRAM_UNIT          0x1     /* 1 byte programming */
-
-/* Flash driver definitions for OTP/NV counters */
-/* Flash device name for BL2 (MCUboot) */
+/* Device geometry. Region 1 (0x10000+) erases in 32 KB blocks; every MCUboot slot
+ * lives there, so that is the sector size MCUboot must use. Region 0 is 8 KB but no
+ * slot boundary falls in it. Confirm against BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE
+ * if the device is ever changed. */
+#define FLASH_BASE_ADDRESS              (0x00000000)
+#define FLASH_TOTAL_SIZE                (0x00100000)     /* 1 MB */
+#define FLASH_AREA_IMAGE_SECTOR_SIZE    (0x8000)         /* 32 KB */
 #define FLASH_DEV_NAME                  Driver_FLASH0
+#define TFM_HAL_FLASH_PROGRAM_UNIT      (128)            /* code flash write size */
 
-/* Use Driver_FLASH1 for data flash (OTP/ITS storage) */
-#define TFM_HAL_ITS_FLASH_DRIVER            Driver_FLASH1
-#define TFM_HAL_ITS_PROGRAM_UNIT            0x4  /* data-flash min write = BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE */
+/* BL2 */
+#define FLASH_AREA_BL2_OFFSET           (BSP_PARTITION_FLASH_BL_CPU0_S_START)
+#define FLASH_AREA_BL2_SIZE             (BSP_PARTITION_FLASH_BL_CPU0_S_SIZE)
 
-#define TFM_HAL_ITS_FLASH_AREA_ADDR         FLASH_ITS_AREA_OFFSET
-#define TFM_HAL_ITS_FLASH_AREA_SIZE         FLASH_ITS_AREA_SIZE
-#define TFM_HAL_ITS_SECTORS_PER_BLOCK       (0x800 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 32 sectors per block */
+/* A slot spans its header through the end of its trailer.
+ *
+ * The solution's components MUST be contiguous, so that this span equals the sum of the
+ * component sizes. Everything downstream assumes that: the FSP generator emits
+ * .fa_size as a plain sum of the parts (linker_macros_bsp_h.j2), imgtool pads to
+ * FLASH_AREA_0_SIZE via RE_SIGN_BIN_SIZE, and bootutil reads the trailer magic at
+ * fa_off + fa_size - 16. A gap between components makes the span exceed the sum, and
+ * the two views of the slot silently diverge.
+ *
+ * The slot must also be a whole number of FLASH_AREA_IMAGE_SECTOR_SIZE erase sectors:
+ * flash_area_get_sectors() walks the area sector by sector and fails outright on a
+ * remainder, which surfaces only on hardware as boot_read_sectors() returning
+ * BOOT_EFLASH. An earlier layout left 0x100 between the NSC region and the trailer and
+ * hit exactly that.
+ *
+ * ra6e1_layout_checks.c asserts both properties at build time. */
+#define TFM_SLOT_SPAN(h, t)             (((t##_START) + (t##_SIZE)) - (h##_START))
 
-#define TFM_HAL_PS_FLASH_DRIVER             Driver_FLASH1
-#define TFM_HAL_PS_PROGRAM_UNIT             0x4  /* data-flash min write = BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE */
-#define TFM_HAL_PS_FLASH_AREA_ADDR          FLASH_PS_AREA_OFFSET
-#define TFM_HAL_PS_FLASH_AREA_SIZE          FLASH_PS_AREA_SIZE
-#define TFM_HAL_PS_SECTORS_PER_BLOCK        (0xC00 / FLASH_DATA_FLASH_SECTOR_SIZE)   /* 48 sectors per block */
+/* Image 0 = secure */
+#define FLASH_AREA_0_ID                 (1)
+#define FLASH_AREA_0_OFFSET             (BSP_PARTITION___BL_0_P_H_START)
+#define FLASH_AREA_0_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_0_P_H, \
+                                                      BSP_PARTITION___BL_0_P_T)
+#define FLASH_AREA_2_ID                 (FLASH_AREA_0_ID + 2)
+#define FLASH_AREA_2_OFFSET             (BSP_PARTITION___BL_0_S_H_START)
+#define FLASH_AREA_2_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_0_S_H, \
+                                                      BSP_PARTITION___BL_0_S_T)
 
-/* OTP_NV_COUNTERS_FLASH_DEV will default to TFM_HAL_ITS_FLASH_DRIVER if not defined */
-/* Uncomment below to use a different driver for OTP counters */
-/* #define OTP_NV_COUNTERS_FLASH_DEV       Driver_FLASH1 */
+/* Image 1 = non-secure */
+#define FLASH_AREA_1_ID                 (FLASH_AREA_0_ID + 1)
+#define FLASH_AREA_1_OFFSET             (BSP_PARTITION___BL_1_P_H_START)
+#define FLASH_AREA_1_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_1_P_H, \
+                                                      BSP_PARTITION___BL_1_P_T)
+#define FLASH_AREA_3_ID                 (FLASH_AREA_0_ID + 3)
+#define FLASH_AREA_3_OFFSET             (BSP_PARTITION___BL_1_S_H_START)
+#define FLASH_AREA_3_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_1_S_H, \
+                                                      BSP_PARTITION___BL_1_S_T)
 
-/* OTP NV Counters configuration */
-#define TFM_OTP_NV_COUNTERS_AREA_ADDR       FLASH_OTP_NV_COUNTERS_AREA_OFFSET
-#define TFM_OTP_NV_COUNTERS_AREA_SIZE       FLASH_OTP_NV_COUNTERS_AREA_SIZE
-#define TFM_OTP_NV_COUNTERS_SECTOR_SIZE     FLASH_DATA_FLASH_SECTOR_SIZE
+/* The solution is configured overwrite-only, so there is no scratch area. If the
+ * upgrade mode is changed to swap-using-scratch in e2, a scratch partition must be
+ * added to the solution and wired up here. */
+#define FLASH_AREA_SCRATCH_ID           (FLASH_AREA_0_ID + 4)
+#define FLASH_AREA_SCRATCH_OFFSET       (0)
+#define FLASH_AREA_SCRATCH_SIZE         (0)
+#define MCUBOOT_STATUS_MAX_ENTRIES      (0)
+
+#define FLASH_MAX_PARTITION_SIZE        ((FLASH_AREA_0_SIZE > FLASH_AREA_1_SIZE) ? \
+                                          FLASH_AREA_0_SIZE : FLASH_AREA_1_SIZE)
+
+/*
+ * Combined S+NS image, for assemble.py.
+ *
+ * The two primary slots are ADJACENT - the secure slot ends exactly where the non-secure
+ * slot begins - so a plain concatenation describes the flash correctly, with these as the
+ * offsets relative to the start of the combined image. ra6e1_layout_checks.c asserts the
+ * adjacency, because it is a property of the current partitioning and not a rule.
+ *
+ * Nothing on this port FLASHES the combined image: ns_app excludes the target, because as
+ * an extra row in the debug session's program list it carries no address of its own and is
+ * silently destructive at the wrong one. But the macros stay, because TF-M's NSPE rules
+ * build tfm_s_ns_signed.bin for any NS application that does not exclude it - tf-m-tests'
+ * regression app does not - and without them assemble.py dies with
+ * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined". Removing them once already broke
+ * that build.
+ */
+#define SECURE_IMAGE_OFFSET             (0x0)
+#define SECURE_IMAGE_MAX_SIZE           FLASH_AREA_0_SIZE
+#define NON_SECURE_IMAGE_OFFSET         (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
+#define NON_SECURE_IMAGE_MAX_SIZE       FLASH_AREA_1_SIZE
+
+/* Sectors bootutil must be able to track for one image. ra6m4 sized this from the
+ * scratch area; overwrite-only has no scratch, so size it from the largest slot,
+ * rounded up. */
+#define MCUBOOT_MAX_IMG_SECTORS         ((FLASH_MAX_PARTITION_SIZE + \
+                                          FLASH_AREA_IMAGE_SECTOR_SIZE - 1) / \
+                                         FLASH_AREA_IMAGE_SECTOR_SIZE)
+
+/* Image sizes seen by imgtool/bootutil (slot minus header and trailer). */
+#define IMAGE_S_CODE_SIZE               (BSP_PARTITION_FLASH_CPU0_S_SIZE + \
+                                         BSP_PARTITION_FLASH_CPU0_C_SIZE)
+#define IMAGE_NS_CODE_SIZE              (BSP_PARTITION_FLASH_CPU0_N_SIZE)
+
+/*
+ * Data flash: ITS, PS and the MCUboot NV counters all live in the SECURE data flash
+ * partition. The split below is proportional so it tracks a resized partition, and
+ * the static assert fires if the solution ever gives secure data flash less than the
+ * services need.
+ */
+#define FLASH_DEV_NAME_DATA             Driver_FLASH1
+#define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (4)
+
+/* Code flash minimum write, BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE. Advertised by
+ * Driver_Flash.c as the code-flash program_unit and returned to MCUboot as
+ * flash_area_align(); config.cmake must keep MCUBOOT_ALIGN_VAL equal to it, since the
+ * images are signed with --align and the trailer geometry has to match at runtime.
+ * Named rather than written as a literal so the coupling is greppable. */
+#define TFM_HAL_CODE_FLASH_PROGRAM_UNIT (128)
+
+/* Data flash geometry, as cmsis_drivers/Driver_Flash.c names it. The secure partition
+ * starts at the device base, and the two partitions cover the whole device. */
+#define FLASH_DATA_FLASH_BASE           (BSP_PARTITION_DATA_FLASH_CPU0_S_START)
+#define FLASH_DATA_FLASH_SIZE           (BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE + \
+                                         BSP_PARTITION_DATA_FLASH_CPU0_N_SIZE)
+#define FLASH_DATA_FLASH_SECTOR_SIZE    (64)
+
+#define TFM_NV_COUNTERS_AREA_OFFSET     (BSP_PARTITION_DATA_FLASH_CPU0_S_START)
+
+/* 2048 B = 32 sectors, split into a 1024 B area and a 1024 B backup mirror.
+ *
+ * The floor is sizeof(struct flash_otp_nv_counters_region_t), which the backend requires
+ * to fit in EACH half. That is 784 B for this configuration:
+ *
+ *     init_value 4 | OTP items 284 | BL2 ROTPKs x4 + BL2 NV counters x4 384
+ *     | entropy_seed + secure_debug_pk 96 | flash_nv_counters[3] 12 | swap_count 4
+ *
+ * It grows with MCUBOOT_BUILTIN_KEY (ROTPKs become 68/100 B each, not a 32 B hash),
+ * PLATFORM_NS_NV_COUNTERS (64 B each, currently 0) and FLASH_NV_COUNTER_AM. This was
+ * 512 B total, i.e. 256 B per half - far under the floor - and the effect was invisible:
+ * init_otp_nv_counters_flash() opens with a compile-time-constant size check, so the
+ * whole function folded to "return TFM_PLAT_ERR_SYSTEM_ERR" and never touched flash.
+ * ra6e1_otp_size_check.c now makes that a build error instead.
+ */
+#define TFM_NV_COUNTERS_AREA_SIZE       (FLASH_DATA_FLASH_SECTOR_SIZE * 32)   /* 2048 B */
+
+/* platform/ext/common/template/flash_otp_nv_counters_backend.c is the backend, and it
+ * mirrors the area so a power loss mid-write is recoverable - hence the backup, which
+ * must be a separate erase sector. The two halves split TFM_NV_COUNTERS_AREA_SIZE. */
+#define TFM_OTP_NV_COUNTERS_SECTOR_SIZE      (FLASH_DATA_FLASH_SECTOR_SIZE)
+#define TFM_OTP_NV_COUNTERS_AREA_SIZE        (TFM_NV_COUNTERS_AREA_SIZE / 2)
+#define TFM_OTP_NV_COUNTERS_AREA_ADDR        (TFM_NV_COUNTERS_AREA_OFFSET)
 #define TFM_OTP_NV_COUNTERS_BACKUP_AREA_ADDR (TFM_OTP_NV_COUNTERS_AREA_ADDR + \
                                               TFM_OTP_NV_COUNTERS_AREA_SIZE)
-/* Backend write-chunk size. Constraints (checked at compile time in the backend):
- *   TFM_OTP_NV_COUNTERS_SECTOR_SIZE (64) % this == 0   AND   this % TFM_HAL_ITS_PROGRAM_UNIT (4) == 0
- * The backend's default formula yields 128, which fails the 64-byte-sector check,
- * so it must be overridden. 64 = one data-flash block, and a multiple of the 4B write unit. */
-#define OTP_NV_COUNTERS_WRITE_BLOCK_SIZE    64
+#define OTP_NV_COUNTERS_WRITE_BLOCK_SIZE     (TFM_HAL_DATA_FLASH_PROGRAM_UNIT)
+
+#define TFM_HAL_PS_FLASH_AREA_ADDR      (TFM_NV_COUNTERS_AREA_OFFSET + \
+                                         TFM_NV_COUNTERS_AREA_SIZE)
+#define TFM_HAL_PS_FLASH_AREA_SIZE      ((BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE - \
+                                          TFM_NV_COUNTERS_AREA_SIZE) / 2)
+#define TFM_HAL_PS_SECTOR_SIZE          (FLASH_DATA_FLASH_SECTOR_SIZE)
+#define PS_RAM_FS_SIZE                  TFM_HAL_PS_FLASH_AREA_SIZE
+
+/* Half the area per logical block, i.e. two blocks, which is the minimum the flash FS
+ * needs to rotate between on a write. Derived rather than fixed so it still holds if
+ * the secure data flash partition is resized in the solution. */
+#define TFM_HAL_PS_SECTORS_PER_BLOCK    ((TFM_HAL_PS_FLASH_AREA_SIZE / \
+                                          TFM_HAL_PS_SECTOR_SIZE) / 2)
+
+#define TFM_HAL_ITS_FLASH_AREA_ADDR     (TFM_HAL_PS_FLASH_AREA_ADDR + \
+                                         TFM_HAL_PS_FLASH_AREA_SIZE)
+#define TFM_HAL_ITS_FLASH_AREA_SIZE     (TFM_HAL_PS_FLASH_AREA_SIZE)
+#define TFM_HAL_ITS_SECTOR_SIZE         (FLASH_DATA_FLASH_SECTOR_SIZE)
+#define ITS_RAM_FS_SIZE                 TFM_HAL_ITS_FLASH_AREA_SIZE
+#define TFM_HAL_ITS_SECTORS_PER_BLOCK   ((TFM_HAL_ITS_FLASH_AREA_SIZE / \
+                                          TFM_HAL_ITS_SECTOR_SIZE) / 2)
+
+#define TFM_HAL_PS_FLASH_DRIVER         Driver_FLASH1
+#define TFM_HAL_ITS_FLASH_DRIVER        Driver_FLASH1
+#define TFM_HAL_PS_PROGRAM_UNIT         TFM_HAL_DATA_FLASH_PROGRAM_UNIT
+#define TFM_HAL_ITS_PROGRAM_UNIT        TFM_HAL_DATA_FLASH_PROGRAM_UNIT
+
+/* Secure data flash must hold NV counters + PS + ITS with room for wear levelling.
+ * The e2 solution currently allocates 4 KB (half the device's 8 KB) to secure; the
+ * ra6m4 port used ~7 KB. If this fires, give the secure DATA_FLASH partition more
+ * space in solution.xml rather than shrinking the services here. */
+#if (BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE) < 0x1000
+#error "RA6E1: secure data flash partition too small for NV counters + PS + ITS"
+#endif
+
+/* Flash device IDs used by the CMSIS flash driver shim.
+ *
+ * Deliberately NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1. Those are per-flash-area driver
+ * overrides for a target whose images live on different devices; both our images are on
+ * code flash, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
+ * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips
+ * the paired-definition check in bl2/ext/mcuboot/include/target.h. */
+#define FLASH_DEVICE_ID                 (100)
+#define FLASH_DEVICE_ID_DATA            (101)
 
 #endif /* __FLASH_LAYOUT_H__ */

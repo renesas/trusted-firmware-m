@@ -103,9 +103,24 @@ Revision: $Rev: 23635 $
   #define SEGGER_RTT_PRINTF_BUFFER_SIZE             (64u)    // Size of buffer for RTT printf to bulk-send chars via RTT     (Default: 64)
 #endif
 
+//
+// Mode for the pre-initialized terminal channel (buffer 0).
+//
+// NO_BLOCK_SKIP: when the 1 KB up-buffer is full, drop the write and carry on.
+// BLOCK_IF_FIFO_FULL: spin in _WriteBlocking() until the host drains the buffer.
+//
+// This defaults to NO_BLOCK_SKIP deliberately. Under BLOCK_IF_FIFO_FULL, firmware
+// running without an attached RTT reader wedges the moment the buffer fills - nothing
+// ever drains it. That cost us a debug session: TF-M's boot output filled the buffer and
+// the secure image then hung inside LOG_INFFMT("Creating an empty ITS flash layout.")
+// during tfm_its_init(), looking for all the world like a fault in ITS.
+//
+// Switch to BLOCK_IF_FIFO_FULL only when you need a guaranteed-complete log AND a viewer
+// is attached (JLinkRTTClient, or J-Link RTT Viewer on channel 0). It is a debugging
+// choice, not a default: it makes the firmware depend on a debugger being present.
+//
 #ifndef   SEGGER_RTT_MODE_DEFAULT
-    //#define SEGGER_RTT_MODE_DEFAULT                   SEGGER_RTT_MODE_NO_BLOCK_SKIP // Mode for pre-initialized terminal channel (buffer 0)
-    #define SEGGER_RTT_MODE_DEFAULT                   SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL // Print all the data, wait until ready
+    #define SEGGER_RTT_MODE_DEFAULT                   SEGGER_RTT_MODE_NO_BLOCK_SKIP
 #endif
 
 /*********************************************************************

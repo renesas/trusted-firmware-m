@@ -1,0 +1,33 @@
+#-------------------------------------------------------------------------------
+# Copyright (c) 2026 Renesas Electronics Corporation. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Port-specific configuration handed from the SPE build to the NSPE build.
+#
+# GENERATED - configure_file() fills this in from the SPE build's values. Edit
+# ns/ra6e1_ns_config.cmake.in, not the copy in the installed tree.
+#
+# TF-M's own cmake/spe_config.cmake already carries the standard options (partitions,
+# MCUBOOT_ALIGN_VAL, CONFIG_TFM_USE_TRUSTZONE, ...), but it is generated from an upstream
+# template and has no place for a platform's own settings. Anything below is a value the
+# two sides MUST agree on, so it is carried rather than re-decided.
+#-------------------------------------------------------------------------------
+
+# Console. If the secure side logs over RTT and the non-secure side is built for UART, the
+# NS image pulls in an SCI it does not own and the secure side's output is the only thing
+# ever seen - which reads as "NS never ran".
+set(RA6E1_STDOUT_RTT           @RA6E1_STDOUT_RTT@           CACHE BOOL "stdout over SEGGER RTT")
+
+# The e2 project set the secure side was built against. The NS application needs the
+# non-secure project from the SAME solution: its Debug/memory_regions.ld is what places the
+# NS image, and a mismatch puts it at the wrong address with no build-time complaint.
+set(RA6E1_SPE_FSP_NS_APP_DIR   "@FSP_NS_APP_DIR@"           CACHE PATH "FSP NS project the SPE was built against")
+
+# The toolchain. TF-M's toolchain_ns_GNUARM.cmake locates the compiler with
+# find_program(${CROSS_COMPILE}-gcc), which needs it on PATH. The SPE was built with an
+# explicit path (an e2 studio install is not usually on PATH), so carry the same prefix
+# rather than making the two builds disagree about which GCC they used - a mismatch
+# between the veneers the SPE emitted and the NS objects linking them is not a mistake
+# worth debugging.
+set(RA6E1_SPE_CROSS_COMPILE    "@RA6E1_SPE_CROSS_COMPILE@"  CACHE STRING "Compiler prefix the SPE used")

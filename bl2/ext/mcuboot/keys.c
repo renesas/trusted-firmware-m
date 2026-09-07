@@ -511,6 +511,9 @@ const struct bootutil_key bootutil_keys[] = {
     },
 #endif /* MCUBOOT_IMAGE_NUMBER > 3 */
 };
+/* The RSA branch above defines this; the EC branch did not, so an EC-P256 or EC-P384
+ * build left bootutil_key_cnt undefined and failed to link bootutil_find_key(). */
+const int bootutil_key_cnt = MCUBOOT_IMAGE_NUMBER;
 #endif /* MCUBOOT_SIGN_RSA */
 #endif /* HAVE_KEYS */
 

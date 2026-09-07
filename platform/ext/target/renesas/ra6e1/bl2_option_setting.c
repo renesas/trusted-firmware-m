@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * RA6E1 option-setting memory (OFS) emitter for the TF-M BL2 image.
+ * RA6M4 option-setting memory (OFS) emitter for the TF-M BL2 image.
  *
  * WHY THIS FILE EXISTS (and is not just the FSP bsp_linker.c):
  * The RASC-generated FSP bsp_linker.c emits exactly these .option_setting_*

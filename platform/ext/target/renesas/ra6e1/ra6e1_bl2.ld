@@ -27,29 +27,25 @@ MEMORY
     FLASH (rx)  : ORIGIN = BL2_CODE_START, LENGTH = BL2_CODE_SIZE
     RAM   (rwx) : ORIGIN = BL2_DATA_START, LENGTH = BL2_DATA_SIZE
 
-    /* RA6E1 option-setting (OFS) memory - ONE region PER WORD, exactly as FSP's
-     * generated fsp_gen.ld does it. This is safety-critical: a separate, exactly-
-     * sized MEMORY region per option word forces GNU ld to emit a SEPARATE PT_LOAD
-     * segment for each (4 or 12 bytes), with NO span across the gaps between them.
-     * A tool that flashes by program header then writes ONLY the configured words.
-     * The previous (bricking) layout placed these at absolute addresses in the
-     * default region, so ld coalesced them into one 0x184 segment spanning
-     * 0x0100A100-0x0100A284 and ZERO-FILLED the gaps - flashing that programmed
-     * PBPS(0x0100A1E0)=0 => permanent block protect => bricked two boards.
-     * See DESIGN.md 8.4. Addresses are the fixed RA6E1 config-area map. */
-    OPTION_SETTING_OFS0        (r) : ORIGIN = 0x0100A100, LENGTH = 0x04
-    OPTION_SETTING_DUALSEL     (r) : ORIGIN = 0x0100A110, LENGTH = 0x04
-    OPTION_SETTING_OFS1        (r) : ORIGIN = 0x0100A180, LENGTH = 0x04
-    OPTION_SETTING_BANKSEL     (r) : ORIGIN = 0x0100A190, LENGTH = 0x04
-    OPTION_SETTING_BPS         (r) : ORIGIN = 0x0100A1C0, LENGTH = 0x0C
-    OPTION_SETTING_PBPS        (r) : ORIGIN = 0x0100A1E0, LENGTH = 0x0C
-    OPTION_SETTING_OFS1_SEC    (r) : ORIGIN = 0x0100A200, LENGTH = 0x04
-    OPTION_SETTING_BANKSEL_SEC (r) : ORIGIN = 0x0100A210, LENGTH = 0x04
-    OPTION_SETTING_BPS_SEC     (r) : ORIGIN = 0x0100A240, LENGTH = 0x0C
-    OPTION_SETTING_PBPS_SEC    (r) : ORIGIN = 0x0100A260, LENGTH = 0x0C
-    OPTION_SETTING_OFS1_SEL    (r) : ORIGIN = 0x0100A280, LENGTH = 0x04
-    OPTION_SETTING_BANKSEL_SEL (r) : ORIGIN = 0x0100A290, LENGTH = 0x04
-    OPTION_SETTING_BPS_SEL     (r) : ORIGIN = 0x0100A2C0, LENGTH = 0x0C
+    /* RA6M4 option-setting memory - one DISCRETE region per register group, the
+     * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
+     * region is sized to exactly its register group, so ld emits a separate
+     * PT_LOAD per group and CANNOT zero-fill the FCU config bytes in between.
+     * Merging these into one region/segment permanently bricks the part - see
+     * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
+    OPTION_SETTING_OFS0        (r) : ORIGIN = OPTION_SETTING_OFS0_START,        LENGTH = OPTION_SETTING_OFS0_LENGTH
+    OPTION_SETTING_DUALSEL     (r) : ORIGIN = OPTION_SETTING_DUALSEL_START,     LENGTH = OPTION_SETTING_DUALSEL_LENGTH
+    OPTION_SETTING_OFS1        (r) : ORIGIN = OPTION_SETTING_OFS1_START,        LENGTH = OPTION_SETTING_OFS1_LENGTH
+    OPTION_SETTING_BANKSEL     (r) : ORIGIN = OPTION_SETTING_BANKSEL_START,     LENGTH = OPTION_SETTING_BANKSEL_LENGTH
+    OPTION_SETTING_BPS         (r) : ORIGIN = OPTION_SETTING_BPS_START,         LENGTH = OPTION_SETTING_BPS_LENGTH
+    OPTION_SETTING_PBPS        (r) : ORIGIN = OPTION_SETTING_PBPS_START,        LENGTH = OPTION_SETTING_PBPS_LENGTH
+    OPTION_SETTING_OFS1_SEC    (r) : ORIGIN = OPTION_SETTING_OFS1_SEC_START,    LENGTH = OPTION_SETTING_OFS1_SEC_LENGTH
+    OPTION_SETTING_BANKSEL_SEC (r) : ORIGIN = OPTION_SETTING_BANKSEL_SEC_START, LENGTH = OPTION_SETTING_BANKSEL_SEC_LENGTH
+    OPTION_SETTING_BPS_SEC     (r) : ORIGIN = OPTION_SETTING_BPS_SEC_START,     LENGTH = OPTION_SETTING_BPS_SEC_LENGTH
+    OPTION_SETTING_PBPS_SEC    (r) : ORIGIN = OPTION_SETTING_PBPS_SEC_START,    LENGTH = OPTION_SETTING_PBPS_SEC_LENGTH
+    OPTION_SETTING_OFS1_SEL    (r) : ORIGIN = OPTION_SETTING_OFS1_SEL_START,    LENGTH = OPTION_SETTING_OFS1_SEL_LENGTH
+    OPTION_SETTING_BANKSEL_SEL (r) : ORIGIN = OPTION_SETTING_BANKSEL_SEL_START, LENGTH = OPTION_SETTING_BANKSEL_SEL_LENGTH
+    OPTION_SETTING_BPS_SEL     (r) : ORIGIN = OPTION_SETTING_BPS_SEL_START,     LENGTH = OPTION_SETTING_BPS_SEL_LENGTH
 }
 
 __heap_size__  = BL2_HEAP_SIZE;
@@ -99,6 +95,9 @@ SECTIONS
         LONG (LOADADDR(.data))
         LONG (ADDR(.data))
         LONG (SIZEOF(.data) / 4)
+        LONG (LOADADDR(.ram_from_flash))
+        LONG (ADDR(.ram_from_flash))
+        LONG (SIZEOF(.ram_from_flash) / 4)
         __copy_table_end__ = .;
 
         /* .zero.table */
@@ -165,6 +164,38 @@ SECTIONS
     } > RAM
     Image$$SHARED_DATA$$RW$$Base = ADDR(.tfm_bl2_shared_data);
     Image$$SHARED_DATA$$RW$$Limit = ADDR(.tfm_bl2_shared_data) + SIZEOF(.tfm_bl2_shared_data);
+
+    /* FSP flash driver routines that MUST execute from RAM.
+     *
+     * r_flash_hp.c marks flash_hp_erase, flash_hp_cf_write, flash_hp_pe_mode_exit,
+     * flash_hp_status_clear and the delay loop PLACE_IN_RAM_SECTION, which resolves to
+     * BSP_PLACE_IN_SECTION(".ram_from_flash"). The reason is hardware: while the FCU is in
+     * program/erase mode for CODE flash, code flash is not readable. Any instruction fetched
+     * from it in that window returns garbage, so the routines driving the operation cannot
+     * live there.
+     *
+     * Without this section the linker gave .ram_from_flash a plain flash VMA next to .text
+     * (0x0000D160), because this file never named it and FSP's own bsp_linker.c - which would
+     * have relocated it - is excluded from the build. Data flash was unaffected, since
+     * data-flash P/E leaves code flash readable; that is why NV counters, ITS and PS all
+     * worked. Code flash P/E is undefined behaviour in that state: on 2026-08-30 BL2 erased
+     * image 1's slot, then died partway through image 0's erase, leaving 0x58000 blank and
+     * the CPU executing erased flash. Surviving one erase and not the next is the expected
+     * signature - it depends on what is in the prefetch buffer and flash cache at the time.
+     *
+     * Kept out of .data because it is executable (the RAM region is declared rwx above), and
+     * copied by the CMSIS copy-table entry added beside .data's, which TF-M's startup already
+     * runs. That deliberately avoids adding a MEMORY region or PT_LOAD - see the
+     * OPTION_SETTING note below for why segment layout in this file is handled with care.
+     */
+    .ram_from_flash : ALIGN(4)
+    {
+        __ram_from_flash_start__ = .;
+        *(.ram_from_flash)
+        *(.ram_from_flash.*)
+        . = ALIGN(4);
+        __ram_from_flash_end__ = .;
+    } > RAM AT > FLASH
 
     .data : ALIGN(4)
     {
@@ -255,15 +286,23 @@ SECTIONS
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 
-    /* RA6E1 option-setting (OFS) - BL2 ONLY, placed EXACTLY as FSP's generated
-     * fsp_gen.ld does: each option word into its OWN, exactly-sized MEMORY region
-     * (declared above), so ld emits a SEPARATE PT_LOAD segment per word and NEVER
-     * spans/zero-fills the gaps. Only words actually emitted by bl2_option_setting.c
-     * (i.e. configured via BSP_CFG_OPTION_SETTING_* in RASC) produce a segment;
-     * unconfigured ones stay empty and emit nothing - matching FSP, where fsp_gen.ld
-     * only contains entries for configured OFS. DO NOT collapse these into one region
-     * or place them at absolute addresses in a shared region - that reintroduces the
-     * gap-filled span that bricked two boards (DESIGN.md 8.4). */
+    /* RA6M4 option-setting memory (OFS) - BL2 ONLY.
+     *
+     * Places the RASC-configured OFS words emitted by bl2_option_setting.c. Each
+     * section goes to its OWN MEMORY region (see the MEMORY block above) - this is
+     * the whole point, and it mirrors FSP's generated fsp_gen.ld exactly.
+     *
+     * ⚠ DO NOT rewrite these as bare addressed sections:
+     *       .option_setting_ofs0 0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
+     *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
+     *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes of FCU config in the
+     *   gaps (including the FSPR permanence word). Flashing that from a debugger
+     *   permanently bricks the part - it cost two EK-RA6M4 boards on 2026-07-21.
+     *   The zero fill is invisible in the srec; check readelf -l. Full rationale
+     *   and the verification command are in region_defs.h (OPTION_SETTING_* block).
+     *
+     * BL2-only: the secure/NS images are MCUboot-signed and imgtool needs a
+     * contiguous payload, and two images programming OFS would collide. */
     .option_setting_ofs0        : { KEEP(*(.option_setting_ofs0))        } > OPTION_SETTING_OFS0
     .option_setting_dualsel     : { KEEP(*(.option_setting_dualsel))     } > OPTION_SETTING_DUALSEL
     .option_setting_ofs1        : { KEEP(*(.option_setting_ofs1))        } > OPTION_SETTING_OFS1

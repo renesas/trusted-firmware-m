@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * CMSIS Core header for Renesas RA6E1 (Cortex-M33)
+ * CMSIS Core header for Renesas RA6M4 (Cortex-M33)
  */
 
 #ifndef __CMSIS_H__
