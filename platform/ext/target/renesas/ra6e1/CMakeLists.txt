@@ -623,28 +623,42 @@ endif()
 # The script is shared with ra6m4 from renesas/common - the option-setting map is identical
 # on both parts, and divergent copies of this particular check are a hazard in themselves.
 #-------------------------------------------------------------------------------
-if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    # Scoped per directory, and this one has never called it - bl2/ and spe-CMakeLists do
-    # their own. Not REQUIRED: a missing interpreter should say so through the guard's own
-    # failure below, not by aborting configure for a platform that may not need it.
-    find_package(Python3 COMPONENTS Interpreter)
+# NOT gated on the compiler. It was, on GNU, and that was wrong: the guard defends against
+# a LINKER SCRIPT mistake, so it is needed most precisely when the linker script is new and
+# unproven. An IAR port has to express the thirteen discrete regions again in .icf syntax,
+# from scratch, and would have been the first build to write that file with the guard
+# switched off. check_ofs.py itself is toolchain-agnostic - it reads program headers out of
+# the linked ELF, and both toolchains emit ELF.
+#
+# Scoped per directory, and this one has never called it - bl2/ and spe-CMakeLists do their
+# own. Not REQUIRED: a missing interpreter should say so through the guard's own failure
+# below, not by aborting configure for a platform that may not need it.
+find_package(Python3 COMPONENTS Interpreter)
 
-    function(ra6e1_add_ofs_check target)
-        add_custom_target(ra6e1_ofs_check_${target} ALL
-            COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
-                    ${Python3_EXECUTABLE}
-                    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
-                    $<TARGET_FILE:${target}>
-            DEPENDS $<TARGET_FILE:${target}>
-            VERBATIM
-            COMMENT "RA6E1 [${target}]: OFS brick guard")
-        add_dependencies(ra6e1_ofs_check_${target} ${target})
-    endfunction()
+# CMAKE_READELF is set by CMake's GNU toolchain support and may be empty elsewhere. Fall
+# back to the arm-none-eabi readelf beside the compiler, then to whatever is on PATH;
+# check_ofs.py fails loudly if none of them works, which is the correct outcome - a build
+# that cannot run this check must not produce a flashable bl2.
+set(RA6E1_OFS_READELF "${CMAKE_READELF}")
+if(NOT RA6E1_OFS_READELF)
+    find_program(RA6E1_OFS_READELF NAMES arm-none-eabi-readelf readelf)
+endif()
 
-    ra6e1_add_ofs_check(tfm_s)
-    if(BL2)
-        ra6e1_add_ofs_check(bl2)
-    endif()
+function(ra6e1_add_ofs_check target)
+    add_custom_target(ra6e1_ofs_check_${target} ALL
+        COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6E1_OFS_READELF}
+                ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                $<TARGET_FILE:${target}>
+        DEPENDS $<TARGET_FILE:${target}>
+        VERBATIM
+        COMMENT "RA6E1 [${target}]: OFS brick guard")
+    add_dependencies(ra6e1_ofs_check_${target} ${target})
+endfunction()
+
+ra6e1_add_ofs_check(tfm_s)
+if(BL2)
+    ra6e1_add_ofs_check(bl2)
 endif()
 
 #-------------------------------------------------------------------------------
