@@ -21,6 +21,28 @@ extern uint64_t __StackSeal;
 __attribute__((weak, section(".msp_stack_seal_res")))
 uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
 
+/* Everything below is secure-side (SPM and platform-service) HAL. BL2 links this file
+ * only for the __STACK_SEAL definition above, and calls none of it.
+ *
+ * The guard is not cosmetic: tfm_hal_platform_init() is declared FIH_RET_TYPE(...) and
+ * returns fih_int_encode(...), which agree only while fih_ret and fih_int are the same
+ * type. In BL2 the real mcuboot fih.h is in scope, and at MCUBOOT_FIH_PROFILE MEDIUM -
+ * selected by TFM_PROFILE=profile_large, which the PSA Arch crypto tests require - they
+ * are not:
+ *     error: incompatible types when returning type 'fih_int' but 'fih_ret'
+ *            {aka 'volatile int'} was expected
+ * The default FIH profile is OFF, which is why this compiled until the first
+ * profile_large build. Upstream platforms (an521) never compile this file into BL2 at
+ * all; here it cannot simply be dropped, because __STACK_SEAL would go with it and
+ * ra6e1_bl2.ld resolves FSP's __StackSeal from the section it anchors.
+ *
+ * The discriminator is RA6E1_BUILDING_BL2, set by CMakeLists.txt on platform_bl2 alone -
+ * NOT the plain BL2 macro, which is defined for every image in the build whenever BL2 is
+ * enabled, so guarding on it would delete these symbols from tfm_s as well:
+ *     undefined reference to `tfm_hal_platform_init' (secure_fw/spm/core/main.c)
+ */
+#ifndef RA6E1_BUILDING_BL2
+
 FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
 {
     /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
@@ -138,3 +160,5 @@ enum tfm_platform_err_t tfm_platform_hal_ioctl(tfm_platform_ioctl_req_t request,
     /* Return not supported for now */
     return TFM_PLATFORM_ERR_NOT_SUPPORTED;
 }
+
+#endif /* !RA6E1_BUILDING_BL2 */
