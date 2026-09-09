@@ -130,6 +130,24 @@ set(TFM_SPM_DEBUG_TRACE                 ON          CACHE BOOL      "Log the tfm
 set(TFM_ISOLATION_LEVEL                 1           CACHE STRING    "Isolation level")
 set(CONFIG_TFM_SPM_BACKEND              "SFN"       CACHE STRING    "SFN - no IPC overhead")
 
+# Levels 2 and 3 are reachable with -DTFM_ISOLATION_LEVEL=, which overrides the default
+# above. Level 3 additionally needs this declaration, because config/check_config.cmake
+# rejects TFM_ISOLATION_LEVEL 3 unless the platform claims support - there is no such gate
+# on level 2.
+#
+# Nothing platform-specific implements it: this port uses the shared
+# platform/ext/common/tfm_hal_isolation_v8m.c, which carries the whole level-3 mechanism
+# (per-partition MPU regions programmed on each context switch), and the RA6E1 Cortex-M33
+# has the 8-region ARMv8-M MPU it assumes. The flag is a statement that the port has been
+# built and run that way, so keep it honest.
+#
+# The isolation level does NOT change the TrustZone boundaries programmed with the Renesas
+# Device Partition Manager. Those come from the solution's IDAU partitioning - the
+# BSP_PARTITION_* values in the generated bsp_linker_info.h - and separate secure from
+# non-secure. Levels 2 and 3 subdivide the SECURE side with the MPU, which is invisible to
+# the IDAU/SAU. RA6E1_SOLUTION.md carries the RDPM values; they are unaffected by this.
+set(PLATFORM_HAS_ISOLATION_L3_SUPPORT   ON          CACHE BOOL      "Shared v8m isolation HAL implements L3")
+
 # Partitions
 set(TFM_PARTITION_CRYPTO                ON          CACHE BOOL      "")
 set(TFM_PARTITION_INTERNAL_TRUSTED_STORAGE ON       CACHE BOOL      "")
