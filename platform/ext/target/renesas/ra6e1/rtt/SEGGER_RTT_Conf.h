@@ -91,8 +91,22 @@ Revision: $Rev: 23635 $
   #define SEGGER_RTT_MAX_NUM_DOWN_BUFFERS           (3)     // Max. number of down-buffers (H->T) available on this target  (Default: 3)
 #endif
 
+// Raised from SEGGER's 1024 default on 2026-09-09. The mode is
+// SEGGER_RTT_MODE_NO_BLOCK_SKIP (see below), which DISCARDS a write outright when the
+// up-buffer has no room rather than waiting for the host - so a burst that outruns RTT
+// Viewer's polling is lost silently, mid-line, with no gap marker. At 1024 a PSA Arch
+// test run came back with whole check lines and test headers missing and no end-of-suite
+// summary; the results that did arrive were correct, which is what makes it dangerous.
+//
+// 4096 costs 3 KB of .bss in every image that links RTT. Both have room: the NS test
+// image uses ~16 KB of 128 KB, the secure image ~48 KB of 127 KB.
+//
+// This reduces drops, it does not eliminate them. If a transcript still comes back with
+// holes, the reliable fix is blocking mode for the capture run - deliberately NOT the
+// default here, because f7acfd0fc made channel 0 non-blocking so an image with no host
+// attached cannot hang in a log call.
 #ifndef   BUFFER_SIZE_UP
-  #define BUFFER_SIZE_UP                            (1024)  // Size of the buffer for terminal output of target, up to host (Default: 1k)
+  #define BUFFER_SIZE_UP                            (4096)  // Size of the buffer for terminal output of target, up to host
 #endif
 
 #ifndef   BUFFER_SIZE_DOWN
