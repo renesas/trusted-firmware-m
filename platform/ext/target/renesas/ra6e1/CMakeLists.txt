@@ -281,8 +281,23 @@ fsp_collect_includes(FSP_S_INCLUDES "${FSP_S_APP_DIR}")
 # consumed by C code AND by ra6e1_bl2.ld, which the toolchain preprocesses with -xc.
 # bsp_linker_info.h cannot serve the second: alongside the macros it declares C types
 # and externs (typedef enum e_bsp_init_mem, gp_ddsc_*), which land verbatim in the
-# preprocessed linker script and fail to parse. It also carries FSP's own MCUboot flash
-# identity, which conflicts with TF-M's dual-image flash_map (DESIGN.md 4).
+# preprocessed linker script and fail to parse.
+#
+# It also defines, under #ifdef FLASH_MAP_C, a `static const struct flash_area flash_map[]`
+# that would collide with TF-M's own definition of that object.
+#
+# That map is NOT single-image and does not disagree with this port about the layout - the
+# solution's bootloader is MCUBOOT_IMAGE_NUMBER 2, and its four entries carry the same four
+# offsets, derived from the same BSP_PARTITION___BL_* macros this port uses. An earlier
+# version of this comment claimed a dual-image conflict; that was true of the standalone
+# RASC BL2 project (since removed), not of the solution. What does differ is the ID
+# numbering, so never mix the two conventions in one image:
+#
+#   area              FSP id                TF-M id
+#   secure primary    FLASH_AREA_0P_ID 1    FLASH_AREA_0_ID 1
+#   secure secondary  FLASH_AREA_0S_ID 2    FLASH_AREA_2_ID 3
+#   NS primary        FLASH_AREA_1P_ID 3    FLASH_AREA_1_ID 2
+#   NS secondary      FLASH_AREA_1S_ID 4    FLASH_AREA_3_ID 4
 #
 # So filter the file down to its #define BSP_PARTITION_* lines at configure time. Still
 # fully derived - CMAKE_CONFIGURE_DEPENDS re-runs cmake when the solution regenerates it,
@@ -412,14 +427,22 @@ target_add_scatter_file(tfm_s
 #
 # Done with --defsym rather than in C: the target symbol is defined by the linker script,
 # so __attribute__((alias)) is rejected and an assembler .set leaves it undefined.
-# NOTE the SINGLE '$' in each separator. The real symbol is Image$$ARM_LIB_STACK$$ZI$$Base
-# with doubled dollars, but CMake escapes '$' twice on the way into build.ninja, so one
-# here arrives as two on the link line. Verify after any change with:
-#   grep -o 'defsym=g_main_stack=[^ "]*' build_ra6e1/build.ninja
-# which should show four '$' per separator (ninja halves them), and then confirm with
-#   arm-none-eabi-nm bin/tfm_s.axf | grep g_main_stack
-# that the symbol resolved to Image$$ARM_LIB_STACK$$ZI$$Base rather than being absent.
-set(RA6E1_MAIN_STACK_DEFSYM "-Wl,--defsym=g_main_stack=Image$ARM_LIB_STACK$ZI$Base")
+#
+# The option goes through a RESPONSE FILE, and that is not a style choice. The symbol is
+# Image$$ARM_LIB_STACK$$ZI$$Base - doubled dollars - and how many '$' a CMake string needs
+# to survive as two on the link line is CMake/Ninja version dependent. Written literally
+# on the link options, it worked under CMake 3.27.6 / Ninja 1.11.1 and produced
+#     ld: --defsym:1: undefined symbol `Image$ARM_LIB_STACK$ZI$Base'
+# under CMake 4.1.1 / Ninja 1.13.1, which halved it to one '$' instead. file(WRITE) emits
+# the bytes verbatim and ld reads them verbatim, so no escaping layer is left to disagree.
+#
+# Verify after any change - and after any toolchain upgrade:
+#   cat build_ra6e1/platform/target/g_main_stack.rsp     # two '$' per separator
+#   arm-none-eabi-nm bin/tfm_s.axf | grep g_main_stack   # resolved, not absent
+set(RA6E1_MAIN_STACK_RSP "${CMAKE_CURRENT_BINARY_DIR}/g_main_stack.rsp")
+file(WRITE "${RA6E1_MAIN_STACK_RSP}"
+     "--defsym=g_main_stack=Image$$ARM_LIB_STACK$$ZI$$Base\n")
+set(RA6E1_MAIN_STACK_DEFSYM "-Wl,@${RA6E1_MAIN_STACK_RSP}")
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_link_options(tfm_s PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
 endif()
@@ -448,11 +471,16 @@ if(BL2)
 
     # bsp_init_stub.c is NOT here - it lives in the fsp_bsp_bl2 module, beside the FSP
     # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
+    #
+    # tfm_hal_platform.c is here for ONE symbol: __STACK_SEAL, which anchors
+    # .msp_stack_seal_res. It guards its secure-only half on RA6E1_BUILDING_BL2 - see the
+    # note there for why the plain BL2 macro cannot serve.
     target_sources(platform_bl2 PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
         ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
     )
+    target_compile_definitions(platform_bl2 PRIVATE RA6E1_BUILDING_BL2)
     target_include_directories(platform_bl2 PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
@@ -675,10 +703,11 @@ if(FSP_NS_APP_DIR AND RA6E1_NS_IN_SPE_BUILD)
         ${CMAKE_BINARY_DIR}/generated/interface/include
         ${CMAKE_SOURCE_DIR}/interface/include
     )
+    # BSP_TZ_NONSECURE_BUILD is not defined here - bsp_mcu_family_cfg.h derives it from
+    # _RA_TZ_NONSECURE and defines it as `(1)`. See the longer note in ns/CMakeLists.txt.
     target_compile_definitions(tfm_ns PRIVATE
         ${FSP_COMPILE_DEFS}
         _RA_TZ_NONSECURE=1
-        BSP_TZ_NONSECURE_BUILD=1
     )
     target_compile_options(tfm_ns PRIVATE ${FSP_COMPILE_OPTIONS})
 

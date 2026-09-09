@@ -124,14 +124,20 @@ target_include_directories(platform_ns
 )
 
 # PUBLIC: the application compiles FSP headers too (hal_data.h from main.c), and it must
-# see the same TrustZone flavour. _RA_TZ_NONSECURE / BSP_TZ_NONSECURE_BUILD tell FSP this
-# image runs non-secure, so it skips the stack seal, the SAU setup and
-# R_BSP_NonSecureEnter() - all of which belong to the secure side and have already run.
+# see the same TrustZone flavour. _RA_TZ_NONSECURE tells FSP this image runs non-secure, so
+# it skips the stack seal, the SAU setup and R_BSP_NonSecureEnter() - all of which belong to
+# the secure side and have already run.
+#
+# BSP_TZ_NONSECURE_BUILD is deliberately NOT defined here. The generated
+# bsp_mcu_family_cfg.h derives it from _RA_TZ_NONSECURE and defines it as `(1)`, so passing
+# `BSP_TZ_NONSECURE_BUILD=1` on the command line is both redundant and a token mismatch:
+#     bsp_mcu_family_cfg.h:37: error: "BSP_TZ_NONSECURE_BUILD" redefined [-Werror]
+# It went unnoticed because nothing in this port compiles NS code with -Werror. The PSA Arch
+# tests do (-Wall -Werror -Wextra), and the first file of theirs to include bsp_api.h failed.
 target_compile_definitions(platform_ns
     PUBLIC
         _RA_CORE=CM33
         _RA_TZ_NONSECURE=1
-        BSP_TZ_NONSECURE_BUILD=1
 )
 
 # syscalls_ns.c is NOT here - it is compiled straight into the executable by
