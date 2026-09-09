@@ -200,6 +200,13 @@ if(BL2)
         )
 
         # Platform library for BL2
+        #
+        # tfm_hal_platform.c is here for ONE symbol: the __STACK_SEAL definition that
+        # anchors .msp_stack_seal_res, which ra6m4_bl2.ld turns into the __StackSeal that
+        # FSP's Reset_Handler references. Dropping the file from this library therefore
+        # fails the BL2 link, not just the seal. Everything else it defines is dead code
+        # here. The file guards its secure-only half on RA6M4_BUILDING_BL2 - see the note
+        # there for why the plain BL2 macro cannot serve.
         target_sources(platform_bl2
             PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
@@ -207,6 +214,7 @@ if(BL2)
                 ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
                 ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c
         )
+        target_compile_definitions(platform_bl2 PRIVATE RA6M4_BUILDING_BL2)
 
         target_link_libraries(platform_bl2
             PUBLIC
@@ -264,7 +272,28 @@ target_add_scatter_file(tfm_s
 # This gets included automatically by TF-M build system when building NS side
 add_subdirectory(ns)
 
-if(FSP_NS_APP_DIR)
+#-------------------------------------------------------------------------------
+# RA6M4_NS_IN_SPE_BUILD - build the NS image HERE, in the secure build.
+#
+# The RA6E1 equivalent of this switch (RA6E1_NS_IN_SPE_BUILD) defaults OFF, because that
+# port has a working split SPE/NSPE build. RA6M4 does not yet, so this one defaults ON and
+# the flow documented in TFM_RA6M4_STATUS.md is unchanged.
+#
+# It has to exist even before the split works, because every test flow that consumes the
+# SPE - tf-m-tests regression, tests_psa_arch - builds the SPE ALONE and supplies its own
+# tfm_ns. With the NS app added unconditionally, those builds died at
+#     ninja: error: 'bin/tfm_ns.bin', needed by 'bl2/ext/mcuboot/tfm_ns_signed.bin',
+#                   missing and no known rule to make it
+# because the FSP integration creates the tfm_ns target - so BL2's signing step, which is
+# guarded on that target existing, wires itself up - but the test SPE build never produces
+# the binary behind it.
+#
+# Keyed off FSP_NS_APP_DIR rather than NS: in the v2.2 SPE build NS is not set.
+#-------------------------------------------------------------------------------
+set(RA6M4_NS_IN_SPE_BUILD ON CACHE BOOL
+    "Build the NS image in the secure build instead of the NSPE build")
+
+if(FSP_NS_APP_DIR AND RA6M4_NS_IN_SPE_BUILD)
     # Use external FSP NS application
     message(STATUS "Using external FSP NS application: ${FSP_NS_APP_DIR}")
 
@@ -278,7 +307,7 @@ if(FSP_NS_APP_DIR)
 
     # Include the FSP NS application's TF-M integration layer
     include(${FSP_NS_APP_DIR}/tfm_integration/CMakeLists_tfm.cmake)
-else()
+elseif(NOT FSP_NS_APP_DIR AND RA6M4_NS_IN_SPE_BUILD)
     # Use built-in test application
     add_subdirectory(ns_app)
 endif()
