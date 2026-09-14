@@ -166,12 +166,22 @@ define block PT_RO_DATA_END with alignment = TFM_LINKER_PT_RO_DATA_ALIGNMENT, si
 /* Flash drivers code that gets copied from Flash */
 initialize by copy {
     ro object *libflash_drivers*,
+#ifdef S_ICF_PLATFORM_SECTIONS
+#define TFM_ICF_HOOK_RAM_CODE_INIT
+#include S_ICF_PLATFORM_SECTIONS
+#undef  TFM_ICF_HOOK_RAM_CODE_INIT
+#endif
 };
 
 define block ER_CODE_SRAM with fixed order, alignment = 4, maximum size = S_RAM_CODE_SIZE {
     rw section .text,
     rw section .rodata,
     rw section .textrw, /* __ramfunc */
+#ifdef S_ICF_PLATFORM_SECTIONS
+#define TFM_ICF_HOOK_RAM_CODE_MEMBERS
+#include S_ICF_PLATFORM_SECTIONS
+#undef  TFM_ICF_HOOK_RAM_CODE_MEMBERS
+#endif
 };
 
 place at address S_RAM_CODE_START { block ER_CODE_SRAM };
@@ -347,6 +357,26 @@ do not initialize {
    section .noinit,
    rw section .ramvec
 };
+
+/*
+ * Platform sections the template cannot name for itself.
+ *
+ * This is an #include of literal ICF text, NOT a section-name macro, and that is forced by
+ * the preprocessor. iccarm re-emits a macro expansion token by token, so a section name
+ * arriving through a macro comes out as ". ram_from_flash" - the dot separated from the
+ * identifier so the two cannot paste - and ICF rejects it ("syntax error, unexpected
+ * 'ram'"). It happens under every --preprocess variant, and a quoted name is refused by
+ * the grammar ("no_tick_identifier"), so no spelling of a macro survives. Text that is
+ * literal in the included file is not a macro expansion and passes through intact.
+ *
+ * The platform names one file in S_ICF_PLATFORM_SECTIONS; it is included at each hook
+ * below with a different TFM_ICF_HOOK_* defined, so one file serves every insertion point.
+ */
+#ifdef S_ICF_PLATFORM_SECTIONS
+#define TFM_ICF_HOOK_DIRECTIVES
+#include S_ICF_PLATFORM_SECTIONS
+#undef  TFM_ICF_HOOK_DIRECTIVES
+#endif
 initialize by copy with packing = none { readwrite }
 #ifndef S_RAM_CODE_START
     except { section .textrw }
@@ -427,6 +457,12 @@ define block PRIV_DATA with fixed order {
 
 #ifdef RAM_VECTORS_SUPPORT
     block ER_RAM_VECTORS,
+#endif
+
+#ifdef S_ICF_PLATFORM_SECTIONS
+#define TFM_ICF_HOOK_DATA_MEMBERS
+#include S_ICF_PLATFORM_SECTIONS
+#undef  TFM_ICF_HOOK_DATA_MEMBERS
 #endif
 
     block SRAM_WATERMARK,

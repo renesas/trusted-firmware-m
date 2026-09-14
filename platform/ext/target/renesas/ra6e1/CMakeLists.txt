@@ -158,7 +158,18 @@ function(fsp_collect_includes out_var dir)
 endfunction()
 
 # FSP is built with warnings TF-M does not use; keep them off the TF-M targets.
-set(FSP_COMPILE_OPTIONS -Wno-conversion -Wno-sign-conversion -Wno-unused-parameter)
+#
+# GCC spellings, so they are gated. iccarm does not merely ignore an unknown -W option, it
+# refuses the whole command line:
+#     Command line error: Unexpected command line arguments: -Wno-conversion ...
+# and every FSP source fails to compile. IAR needs no equivalent here: the TF-M IAR
+# toolchain file already passes --diag_suppress=Pe546,Pe940,Pa082,Pa084, and warnings are
+# only fatal there when CONFIG_TFM_WARNINGS_ARE_ERRORS adds --warnings_are_errors.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(FSP_COMPILE_OPTIONS -Wno-conversion -Wno-sign-conversion -Wno-unused-parameter)
+else()
+    set(FSP_COMPILE_OPTIONS "")
+endif()
 set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 
 # TrustZone build flavour, PER ROLE. The secure image declares itself secure to FSP; BL2
@@ -443,8 +454,20 @@ set(RA6E1_MAIN_STACK_RSP "${CMAKE_CURRENT_BINARY_DIR}/g_main_stack.rsp")
 file(WRITE "${RA6E1_MAIN_STACK_RSP}"
      "--defsym=g_main_stack=Image$$ARM_LIB_STACK$$ZI$$Base\n")
 set(RA6E1_MAIN_STACK_DEFSYM "-Wl,@${RA6E1_MAIN_STACK_RSP}")
+
+# IAR does the same job by a different mechanism, and needs it on the same two images.
+# ILINK has no block-address expression to alias against, so the REFERENCE is redirected
+# instead of a symbol being defined. Hoisted here (rather than left in the bl2 block) so
+# tfm_s and bl2 share one response file. See the long note at the bl2 site below.
+set(RA6E1_IAR_STACK_RSP "${CMAKE_CURRENT_BINARY_DIR}/g_main_stack_iar.rsp")
+file(WRITE "${RA6E1_IAR_STACK_RSP}"
+     "--redirect g_main_stack=ARM_LIB_STACK$$Base
+")
+set(RA6E1_IAR_STACK_OPT "SHELL:-f ${RA6E1_IAR_STACK_RSP}")
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_link_options(tfm_s PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
+elseif(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+    target_link_options(tfm_s PRIVATE "${RA6E1_IAR_STACK_OPT}")
 endif()
 
 if(RA6E1_STDOUT_RTT)
@@ -521,12 +544,28 @@ if(BL2)
     target_add_scatter_file(bl2
         $<$<C_COMPILER_ID:GNU>:${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_bl2.ld>
         $<$<C_COMPILER_ID:ARMClang>:${PLATFORM_DIR}/ext/common/armclang/tfm_common_bl2.sct>
-        $<$<C_COMPILER_ID:IAR>:${PLATFORM_DIR}/ext/common/iar/tfm_common_bl2.icf>
+        $<$<C_COMPILER_ID:IAR>:${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_bl2.icf>
     )
 
     # Same g_main_stack aliasing as the secure image - see the note above. BL2 is flat, so
     # BSP_TZ_SECURE_BUILD is 0 and it skips the seal write; only MSPLIM applies. It did not
     # fault before only because the private array happened to land below BL2's stack.
+    if(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+        # Same job as the GNU --defsym below, different mechanism. FSP's system.c reads
+        # &g_main_stack[0] for MSPLIM, but g_main_stack is DEFINED in FSP's startup.c,
+        # which this port excludes for S and BL2 (TF-M supplies its own startup). ILINK
+        # cannot alias a symbol to a linker-created block from the .icf - there is no
+        # block-address expression - so the reference is redirected instead.
+        #
+        # ARM_LIB_STACK$$Base is created by ILINK for the .icf block of that name; it is
+        # the same symbol TF-M's own cmsis_override.h maps __STACK_LIMIT onto for IAR,
+        # so this points FSP at exactly the stack TF-M is running on.
+        #
+        # Through a response file for the reason in D010: the symbol contains '$$' and how
+        # many CMake/Ninja rewrite is version dependent. file(WRITE) emits it verbatim.
+        target_link_options(bl2 PRIVATE "${RA6E1_IAR_STACK_OPT}")
+    endif()
+
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_options(bl2 PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
         # ra6e1_bl2.ld relocates FSP's .ram_from_flash (the code-flash program/erase

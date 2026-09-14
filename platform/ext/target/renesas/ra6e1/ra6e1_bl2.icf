@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2022 Arm Limited
+ * Copyright (c) 2021 IAR Systems AB
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* IAR BL2 linker script for RA6E1. This file will be run through the pre-processor.
+ *
+ * It is platform/ext/common/iar/tfm_common_bl2.icf plus the three things the RA6E1
+ * bootloader needs and the common script has no hook for. It is the IAR counterpart of
+ * ra6e1_bl2.ld and the two must be changed together.
+ *
+ * 1. OPTION-SETTING (OFS) MEMORY - the brick hazard. See DECISIONS.md D002.
+ *
+ *    Each option group gets its OWN region and its own placement, exactly as FSP
+ *    generated fsp_gen.icf does. That is the whole point: one region per group means the
+ *    linker cannot merge them, so each word becomes its own small PT_LOAD.
+ *
+ *    DO NOT collapse these into one region spanning 0x0100A100..0x0100A2CC. Under GNU ld
+ *    that mistake produced a single PT_LOAD across the range and zero-filled the 368 bytes
+ *    of FCU configuration in the gaps - including the FSPR permanence word - and flashing
+ *    it permanently bricked two EK-RA6M4 boards on 2026-07-21. The zero fill is invisible
+ *    in the srec; only the program headers show it. check_ofs.py runs post-link on this
+ *    image and is not optional.
+ *
+ *    BL2 only: the secure and NS images are MCUboot-signed, imgtool needs a contiguous
+ *    payload, and two images programming option memory would collide.
+ *
+ * 2. .ram_from_flash - FSP marks the r_flash_hp code-flash program/erase routines
+ *    PLACE_IN_RAM_SECTION because the FCU makes the entire code flash unreadable while a
+ *    code-flash P/E is in progress. Running them from flash is a prefetch abort with the
+ *    FCU left in P/E mode. ILINK emits the ROM copy and the startup init copies it.
+ *
+ * 3. .ram_noinit - FSP keeps state there that must survive the C-runtime init
+ *    (SystemCoreClock, g_clock_freq, g_protect_counters). SystemInit runs before the
+ *    runtime init, so anything landing in zeroed memory is lost - that was FSP_ERR_FCLK,
+ *    DESIGN.md 8.1. Marking it not-initialized gives the NOLOAD and never-zeroed
+ *    behaviour the GNU script gets by placing it outside the zero table.
+ */
+
+#include "region_defs.h"
+
+do not initialize  { section .noinit };
+/* See note 3. Never copied, never zeroed. */
+do not initialize  { section .ram_noinit, section .ram_noinit* };
+
+/* See note 2. */
+initialize by copy { readwrite, ro section .ram_from_flash };
+
+define block ER_CODE        with fixed order, alignment = 8 {
+       section .intvec,
+       readonly
+       };
+define block LR_CODE with fixed order, maximum size = BL2_CODE_SIZE {block ER_CODE};
+place at address BL2_CODE_START {block LR_CODE};
+
+define block TFM_SHARED_DATA with alignment = 32, size = BOOT_TFM_SHARED_DATA_SIZE { };
+define block ER_DATA         with alignment = 32 {readwrite};
+
+/* RAM-resident, see notes 2 and 3. */
+/* Declared "rw section" - the idiom tfm_isolation_s.icf.template uses for ER_CODE_SRAM.
+ * That is what makes ILINK treat it as copy-initialised, so the initialiser bytes fall to
+ * the readonly catch-all in ER_CODE and land in FLASH. Naming the section plainly instead
+ * left the ROM copy in RAM (map: "Initializer bytes ... 0x2000'30f8 <for ER_RAM_CODE-1>"),
+ * which leaves nothing to copy from and makes the image unflashable. The RAM side stays
+ * inside DATA, mirroring how ra6e1_bl2.ld keeps .ram_from_flash in the RAM region. */
+define block ER_RAM_CODE     with alignment = 8 { rw section .ram_from_flash };
+define block ER_RAM_NOINIT   with alignment = 4 { section .ram_noinit,
+                                                  section .ram_noinit* };
+
+#if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+define block ARM_LIB_STACK   with alignment = 32, size = BL2_MSP_STACK_SIZE - 0x8 { };
+define block STACKSEAL with size = 0x8 { };
+#else
+define block ARM_LIB_STACK   with alignment = 32, size = BL2_MSP_STACK_SIZE { };
+#endif /* #if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U) */
+define block HEAP            with alignment = 8, size = BL2_HEAP_SIZE { };
+define block ARM_LIB_HEAP    with alignment = 8, size = BL2_HEAP_SIZE { };
+define overlay HEAP_OVL      {block HEAP};
+define overlay HEAP_OVL      {block ARM_LIB_HEAP};
+keep {block TFM_SHARED_DATA, block ER_DATA, block ARM_LIB_STACK,
+      block HEAP, block ARM_LIB_HEAP, block ER_RAM_CODE, block ER_RAM_NOINIT};
+
+if (isdefinedsymbol(__USE_DLIB_PERTHREAD))
+{
+  // Required in a multi-threaded application
+  initialize by copy with packing = none { section __DLIB_PERTHREAD };
+}
+
+define block DATA with fixed order, maximum size = BL2_DATA_SIZE {
+       block TFM_SHARED_DATA,
+       block ER_DATA,
+       block ER_RAM_CODE,
+       block ER_RAM_NOINIT,
+       block ARM_LIB_STACK,
+#if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+       block STACKSEAL,
+#endif /* #if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U) */
+       overlay HEAP_OVL
+};
+place at address BOOT_TFM_SHARED_DATA_BASE {block DATA};
+
+/* ---------------------------------------------------------------------------
+ * Option-setting memory. See note 1. One region per group - never merge these.
+ * --------------------------------------------------------------------------- */
+define region OPTION_SETTING_OFS0 = mem:[from OPTION_SETTING_OFS0_START size OPTION_SETTING_OFS0_LENGTH];
+define region OPTION_SETTING_DUALSEL = mem:[from OPTION_SETTING_DUALSEL_START size OPTION_SETTING_DUALSEL_LENGTH];
+define region OPTION_SETTING_OFS1 = mem:[from OPTION_SETTING_OFS1_START size OPTION_SETTING_OFS1_LENGTH];
+define region OPTION_SETTING_BANKSEL = mem:[from OPTION_SETTING_BANKSEL_START size OPTION_SETTING_BANKSEL_LENGTH];
+define region OPTION_SETTING_BPS = mem:[from OPTION_SETTING_BPS_START size OPTION_SETTING_BPS_LENGTH];
+define region OPTION_SETTING_PBPS = mem:[from OPTION_SETTING_PBPS_START size OPTION_SETTING_PBPS_LENGTH];
+define region OPTION_SETTING_OFS1_SEC = mem:[from OPTION_SETTING_OFS1_SEC_START size OPTION_SETTING_OFS1_SEC_LENGTH];
+define region OPTION_SETTING_BANKSEL_SEC = mem:[from OPTION_SETTING_BANKSEL_SEC_START size OPTION_SETTING_BANKSEL_SEC_LENGTH];
+define region OPTION_SETTING_BPS_SEC = mem:[from OPTION_SETTING_BPS_SEC_START size OPTION_SETTING_BPS_SEC_LENGTH];
+define region OPTION_SETTING_PBPS_SEC = mem:[from OPTION_SETTING_PBPS_SEC_START size OPTION_SETTING_PBPS_SEC_LENGTH];
+define region OPTION_SETTING_OFS1_SEL = mem:[from OPTION_SETTING_OFS1_SEL_START size OPTION_SETTING_OFS1_SEL_LENGTH];
+define region OPTION_SETTING_BANKSEL_SEL = mem:[from OPTION_SETTING_BANKSEL_SEL_START size OPTION_SETTING_BANKSEL_SEL_LENGTH];
+define region OPTION_SETTING_BPS_SEL = mem:[from OPTION_SETTING_BPS_SEL_START size OPTION_SETTING_BPS_SEL_LENGTH];
+
+keep {section .option_setting_ofs0,
+      section .option_setting_dualsel,
+      section .option_setting_ofs1,
+      section .option_setting_banksel,
+      section .option_setting_bps,
+      section .option_setting_pbps,
+      section .option_setting_ofs1_sec,
+      section .option_setting_banksel_sec,
+      section .option_setting_bps_sec,
+      section .option_setting_pbps_sec,
+      section .option_setting_ofs1_sel,
+      section .option_setting_banksel_sel,
+      section .option_setting_bps_sel };
+
+place in OPTION_SETTING_OFS0 { section .option_setting_ofs0 };
+place in OPTION_SETTING_DUALSEL { section .option_setting_dualsel };
+place in OPTION_SETTING_OFS1 { section .option_setting_ofs1 };
+place in OPTION_SETTING_BANKSEL { section .option_setting_banksel };
+place in OPTION_SETTING_BPS { section .option_setting_bps };
+place in OPTION_SETTING_PBPS { section .option_setting_pbps };
+place in OPTION_SETTING_OFS1_SEC { section .option_setting_ofs1_sec };
+place in OPTION_SETTING_BANKSEL_SEC { section .option_setting_banksel_sec };
+place in OPTION_SETTING_BPS_SEC { section .option_setting_bps_sec };
+place in OPTION_SETTING_PBPS_SEC { section .option_setting_pbps_sec };
+place in OPTION_SETTING_OFS1_SEL { section .option_setting_ofs1_sel };
+place in OPTION_SETTING_BANKSEL_SEL { section .option_setting_banksel_sel };
+place in OPTION_SETTING_BPS_SEL { section .option_setting_bps_sel };

@@ -111,6 +111,13 @@
  * future FSP release split it; today GCC emits exactly one section. */
 #define S_RAM_CODE_EXTRA_SECTION_NAME   .ram_from_flash*
 
+/* IAR reaches the same two sections through literal ICF text instead: a section name
+ * cannot survive iccarm's preprocessor as a macro. See ra6e1_fsp_sections.icf, and the
+ * note at the hook in platform/ext/common/iar/tfm_isolation_s.icf.template. */
+#ifdef __ICCARM__
+#define S_ICF_PLATFORM_SECTIONS         "ra6e1_fsp_sections.icf"
+#endif
+
 /*
  * FSP's "do not initialise" sections, collected into .TFM_NOINIT - NOLOAD, and placed
  * outside __bss_start__..__bss_end__ so the C runtime does not zero them.
