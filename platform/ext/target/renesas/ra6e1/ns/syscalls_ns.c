@@ -3,11 +3,19 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Newlib syscall stubs and weak function stubs for non-secure FreeRTOS application
+ * C library retargeting and weak function stubs for the non-secure application.
+ *
+ * The two toolchains retarget stdout through completely different interfaces, so the
+ * bodies below are split. GCC/newlib calls the _close/_fstat/_isatty/_lseek/_read/_write
+ * syscall family; IAR's DLIB calls __write()/__read() from LowLevelIOInterface.h and has
+ * no <sys/stat.h> at all - that header does not exist anywhere in the IAR installation,
+ * so it cannot simply be included conditionally, it has to be out of the IAR branch.
+ *
+ * The weak stubs are shared: TF-M's IAR builds compile with -e (language extensions), so
+ * the GCC __attribute__((weak)) spelling is accepted by iccarm too. Without -e it is not -
+ * iccarm rejects it with Pe079/Pe130 - so do not remove that flag expecting this to hold.
  */
 
-#include <sys/stat.h>
-#include <errno.h>
 #include <stdint.h>
 
 #ifdef RA6E1_STDOUT_RTT
@@ -29,6 +37,49 @@ __attribute__((weak)) void vPortFreeSecureContext(uint32_t *pulSecureContext) {
     (void)pulSecureContext;
     /* Stub - real implementation in FreeRTOS port */
 }
+
+#ifdef __ICCARM__
+
+#include <LowLevelIOInterface.h>
+
+/*
+ * DLIB low-level IO. printf() reaches __write_buffered(), which calls __write(); a
+ * definition here overrides the one the library would otherwise supply, which under
+ * --semihosting would need a debugger attached to go anywhere.
+ *
+ * Only stdout and stderr are accepted. A NULL buffer is DLIB asking for a flush, and RTT
+ * writes straight into the control block with nothing held back, so there is nothing to
+ * do but report success - returning _LLIO_ERROR there would fail an ordinary fflush().
+ */
+size_t __write(int handle, const unsigned char *buffer, size_t size)
+{
+    if (buffer == NULL) {
+        return 0;
+    }
+
+    if ((handle != _LLIO_STDOUT) && (handle != _LLIO_STDERR)) {
+        return _LLIO_ERROR;
+    }
+
+#ifdef RA6E1_STDOUT_RTT
+    return (size_t)SEGGER_RTT_Write(0U, (const char *)buffer, (unsigned)size);
+#else
+    return size;  /* No backend - claim success rather than fail the caller */
+#endif
+}
+
+size_t __read(int handle, unsigned char *buffer, size_t size)
+{
+    (void)handle;
+    (void)buffer;
+    (void)size;
+    return _LLIO_ERROR;  /* No input device */
+}
+
+#else /* !__ICCARM__ - GCC/newlib */
+
+#include <sys/stat.h>
+#include <errno.h>
 
 /* Newlib syscall stubs - disable warnings from -Wl,-fatal-warnings */
 
@@ -82,3 +133,5 @@ int _write(int file, char *ptr, int len) {
     return len;  /* No backend - pretend we wrote everything to avoid errors */
 #endif
 }
+
+#endif /* __ICCARM__ */

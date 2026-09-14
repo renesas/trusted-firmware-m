@@ -255,7 +255,19 @@ keep {block ARM_LIB_STACK};
 #if ((defined(__ARM8M_MAINLINE__) && (__CORE__ == __ARM8M_MAINLINE__)) || \
      (defined(__ARM8M_BASELINE__) && (__CORE__ == __ARM8M_BASELINE__)) || \
      (defined(__ARM8EM_MAINLINE__) && (__CORE__ == __ARM8EM_MAINLINE__)))
-define block STACKSEAL with size = STACKSEAL_SIZE { };
+/*
+ * The seal needs a SECTION, not merely reserved space.
+ *
+ * __STACK_SEAL is an ordinary C object that the platform places in .msp_stack_seal_res -
+ * the same section the GNU template anchors __StackSeal to, immediately above the stack.
+ * An empty block reserves the 8 bytes but leaves that object unplaced, so ILINK sweeps it
+ * into the general data area: Reset_Handler then seals an address that sits on top of
+ * live partition data, and __iar_data_init3 overwrites the seal moments later. The SPM
+ * seal check fails and tfm_core_panic() resets, so the image reboots before reaching
+ * main() with nothing on the console. Observed on renesas/ra6e1: the seal landed at
+ * 0x20009ca0, on ER_TFM_DATA, instead of 0x20001760.
+ */
+define block STACKSEAL with size = STACKSEAL_SIZE { section .msp_stack_seal_res };
 #endif
 
 #ifdef ENABLE_HEAP
@@ -330,7 +342,7 @@ define block LR_CODE with fixed order, maximum size = S_CODE_SIZE {
     block ER_VECTORS,
 
     block PT_UNPRIV_CODE_START,
-#ifdef CONFIG_TFM_USE_TRUSTZONE
+#if defined(CONFIG_TFM_USE_TRUSTZONE) && !defined(TFM_LINKER_VENEERS_LOCATION_END)
     block ER_VENEER,
     block VENEER_ALIGN,
 #endif
@@ -389,6 +401,25 @@ if (isdefinedsymbol(__USE_DLIB_PERTHREAD))
 }
 
 place at address S_CODE_START { block LR_CODE };
+
+#if defined(CONFIG_TFM_USE_TRUSTZONE) && defined(TFM_LINKER_VENEERS_LOCATION_END)
+/*
+ * Veneers pinned at the NSC window instead of following the vector table.
+ *
+ * A platform whose Non-Secure-Callable region is fixed by hardware - set by the SAU/IDAU,
+ * or by a vendor partition table - cannot take the default placement, which puts the
+ * veneers wherever LR_CODE reaches them. They must land inside the NSC window or the SG
+ * instruction is not permitted there: the call leaves Non-secure, lands on Secure (not
+ * NSC) memory, and faults with SFSR.INVEP before the first instruction of the veneer
+ * runs. On renesas/ra6e1 the veneers sat at 0x58400, just past the vector table, while
+ * the window is at 0x97800 - every NS-to-S call hard-faulted.
+ *
+ * Same contract as the GNU template, which selects between an inline VENEERS() and an
+ * end-located one on this macro; the platform supplies TFM_LINKER_VENEERS_START.
+ */
+place at address TFM_LINKER_VENEERS_START { block ER_VENEER, block VENEER_ALIGN };
+keep { block ER_VENEER };
+#endif
 
 define block DATA with fixed order {
     block TFM_SECURE_DATA_START,

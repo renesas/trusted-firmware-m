@@ -134,11 +134,18 @@ if(NOT DEFINED FSP_NS_APP_DIR)
     set(FSP_NS_APP_DIR ${RA6E1_SPE_FSP_NS_APP_DIR})
 endif()
 
-if(NOT EXISTS ${FSP_NS_APP_DIR}/Debug/memory_regions.ld)
+# The solution emits one or the other depending on the toolchain it was generated for.
+if(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+    set(RA6E1_NS_REGIONS Debug/memory_regions.icf)
+else()
+    set(RA6E1_NS_REGIONS Debug/memory_regions.ld)
+endif()
+
+if(NOT EXISTS ${FSP_NS_APP_DIR}/${RA6E1_NS_REGIONS})
     message(FATAL_ERROR
-        "RA6E1: ${FSP_NS_APP_DIR}/Debug/memory_regions.ld not found. The solution emits the "
+        "RA6E1: ${FSP_NS_APP_DIR}/${RA6E1_NS_REGIONS} not found. The solution emits the "
         "layout during the e2 build - build the non-secure project in e2 studio once, then "
-        "re-run cmake.")
+        "re-run cmake. Note the toolchain: a GCC solution emits .ld, an IAR one .icf.")
 endif()
 
 # Not merely a warning. The NS image is placed by the FSP project's own generated linker
@@ -210,7 +217,13 @@ if(RA6E1_STDOUT_RTT)
     # no .init_array, since FSP's Reset_Handler reaches main() without newlib's crt0, so a
     # constructor would link and never run. See the file.
     target_sources(tfm_ns PRIVATE ${CONFIG_SPE_PATH}/platform/rtt/rtt_ns_init.c)
-    target_link_options(tfm_ns PRIVATE -Wl,--wrap=hal_entry)
+    # ILINK has --wrap too, with the same __wrap_/__real_ convention, so rtt_ns_init.c
+    # is unchanged between toolchains - only the spelling of the option differs.
+    if(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+        target_link_options(tfm_ns PRIVATE "SHELL:--wrap hal_entry")
+    else()
+        target_link_options(tfm_ns PRIVATE -Wl,--wrap=hal_entry)
+    endif()
 
     if(RA6E1_NS_SERVICE_TESTS)
         target_sources(tfm_ns PRIVATE ${CONFIG_SPE_PATH}/platform/ns/tfm_service_tests.c)
@@ -236,9 +249,15 @@ endif()
 # INTERFACE_LINK_DEPENDS, set in the installed platform/CMakeLists.txt. This is the one
 # place where the NS and secure macros of the same name differ in signature.
 target_add_scatter_file(tfm_ns)
-target_link_options(tfm_ns PRIVATE
-    -L${FSP_NS_APP_DIR}/Debug
-    -L${FSP_NS_APP_DIR})
+if(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+    target_link_options(tfm_ns PRIVATE
+        "SHELL:--config_search ${FSP_NS_APP_DIR}/Debug"
+        "SHELL:--config_search ${FSP_NS_APP_DIR}")
+else()
+    target_link_options(tfm_ns PRIVATE
+        -L${FSP_NS_APP_DIR}/Debug
+        -L${FSP_NS_APP_DIR})
+endif()
 
 # spe-CMakeLists.cmake's signing rules depend on the target tfm_ns_bin and on
 # $<TARGET_FILE_DIR:tfm_ns>/tfm_ns.bin, so both the .axf name and the output directory

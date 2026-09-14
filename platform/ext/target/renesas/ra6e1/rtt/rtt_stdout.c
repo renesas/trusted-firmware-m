@@ -69,6 +69,34 @@ int _write(int fd, char *str, int len)
 }
 #endif /* RA6E1_STDOUT_NO_WRITE */
 
+#elif defined(__ICCARM__)
+/*
+ * The IAR equivalent. DLIB calls __write(), never _write(), so the GNU hook above leaves
+ * IAR builds with no backend at all: MCUboot's BOOT_LOG_* expand to printf(), which then
+ * reaches the library __write() and semihosting - silent without a debugger attached, and
+ * never RTT. That is why BL2 produced no output under IAR while the secure image, whose
+ * SPM logging calls stdio_output_string() directly, was unaffected.
+ *
+ * A NULL buffer is DLIB asking for a flush; RTT holds nothing back, so there is nothing
+ * to do but report success.
+ */
+#ifndef RA6E1_STDOUT_NO_WRITE
+#include <LowLevelIOInterface.h>
+
+size_t __write(int handle, const unsigned char *buffer, size_t size)
+{
+    if (buffer == NULL) {
+        return 0;
+    }
+
+    if ((handle != _LLIO_STDOUT) && (handle != _LLIO_STDERR)) {
+        return _LLIO_ERROR;
+    }
+
+    return (size_t)stdio_output_string((const char *)buffer, (uint32_t)size);
+}
+#endif /* RA6E1_STDOUT_NO_WRITE */
+
 #endif
 
 void stdio_init(void)

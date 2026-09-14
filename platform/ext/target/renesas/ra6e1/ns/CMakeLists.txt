@@ -220,16 +220,33 @@ endif()
 # takes no file argument, it reads this property off platform_ns (or globs *.ld from an
 # install directory passed as an optional argument). See toolchain_ns_GNUARM.cmake.
 #-------------------------------------------------------------------------------
+# fsp.ld / fsp.icf: same stub, one per toolchain. This is read with get_target_property()
+# and tested with EXISTS at CONFIGURE time, so it cannot be a generator expression.
+if(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+    set(RA6E1_NS_FSP_SCATTER script/fsp.icf)
+else()
+    set(RA6E1_NS_FSP_SCATTER script/fsp.ld)
+endif()
+
 set_target_properties(platform_ns PROPERTIES
-    INTERFACE_LINK_DEPENDS ${RA6E1_SPE_FSP_NS_APP_DIR}/script/fsp.ld)
+    INTERFACE_LINK_DEPENDS ${RA6E1_SPE_FSP_NS_APP_DIR}/${RA6E1_NS_FSP_SCATTER})
 
 # fsp.ld is a stub: it INCLUDEs memory_regions.ld and fsp_gen.ld, which ld resolves through
 # its library search path. Published as INTERFACE so ANY NSPE application inherits it -
 # tf-m-tests' regression app links platform_ns but knows nothing about FSP, and without
 # this it fails with "cannot open linker script file memory_regions.ld".
-target_link_options(platform_ns INTERFACE
-    -L${RA6E1_SPE_FSP_NS_APP_DIR}/Debug
-    -L${RA6E1_SPE_FSP_NS_APP_DIR})
+# ILINK resolves an ICF "include" through --config_search, which is the exact counterpart
+# of ld's -L for this purpose: fsp.icf includes memory_regions.icf and fsp_gen.icf by bare
+# name, both of which live in Debug/.
+if(CMAKE_C_COMPILER_ID STREQUAL "IAR")
+    target_link_options(platform_ns INTERFACE
+        "SHELL:--config_search ${RA6E1_SPE_FSP_NS_APP_DIR}/Debug"
+        "SHELL:--config_search ${RA6E1_SPE_FSP_NS_APP_DIR}")
+else()
+    target_link_options(platform_ns INTERFACE
+        -L${RA6E1_SPE_FSP_NS_APP_DIR}/Debug
+        -L${RA6E1_SPE_FSP_NS_APP_DIR})
+endif()
 
 # DOMAIN_NS is also set by platform_ns_definitions, which spe-CMakeLists.cmake links in
 # after this file returns. Set here as well so platform_ns' own sources see it - they are

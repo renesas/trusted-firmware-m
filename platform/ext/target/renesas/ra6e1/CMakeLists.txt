@@ -464,10 +464,22 @@ file(WRITE "${RA6E1_IAR_STACK_RSP}"
      "--redirect g_main_stack=ARM_LIB_STACK$$Base
 ")
 set(RA6E1_IAR_STACK_OPT "SHELL:-f ${RA6E1_IAR_STACK_RSP}")
+
+# TF-M's IAR toolchain links with "--redirect __write=__write_buffered". That leaves NO
+# reference to __write anywhere, so the RTT-backed __write() in rtt/rtt_stdout.c is
+# garbage-collected out of the image and printf() - which is what MCUboot's BOOT_LOG_*
+# expand to - falls through to the semihosting stub, silent without a debugger attached.
+# The symptom is an image that boots correctly and prints nothing.
+#
+# --keep forces the definition in, so __write_buffered binds to ours. Verify after any
+# toolchain change:
+#   arm-none-eabi-readelf -sW bin/bl2.axf | grep " __write$"      # present, not absent
+#   arm-none-eabi-readelf -sW bin/bl2.axf | grep SEGGER_RTT_Write # pulled in behind it
+set(RA6E1_IAR_KEEP_WRITE "SHELL:--keep __write")
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_link_options(tfm_s PRIVATE ${RA6E1_MAIN_STACK_DEFSYM})
 elseif(CMAKE_C_COMPILER_ID STREQUAL "IAR")
-    target_link_options(tfm_s PRIVATE "${RA6E1_IAR_STACK_OPT}")
+    target_link_options(tfm_s PRIVATE "${RA6E1_IAR_STACK_OPT}" "${RA6E1_IAR_KEEP_WRITE}")
 endif()
 
 if(RA6E1_STDOUT_RTT)
@@ -563,7 +575,7 @@ if(BL2)
         #
         # Through a response file for the reason in D010: the symbol contains '$$' and how
         # many CMake/Ninja rewrite is version dependent. file(WRITE) emits it verbatim.
-        target_link_options(bl2 PRIVATE "${RA6E1_IAR_STACK_OPT}")
+        target_link_options(bl2 PRIVATE "${RA6E1_IAR_STACK_OPT}" "${RA6E1_IAR_KEEP_WRITE}")
     endif()
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
