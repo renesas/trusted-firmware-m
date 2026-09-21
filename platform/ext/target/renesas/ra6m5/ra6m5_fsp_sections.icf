@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2026, Renesas Electronics Corporation. All rights reserved.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ */
+
+/*
+ * FSP sections for the IAR secure image.
+ *
+ * Included by platform/ext/common/iar/tfm_isolation_s.icf.template, once per hook, with a
+ * different TFM_ICF_HOOK_* defined each time - see the note there for why this is literal
+ * text in a file rather than a section-name macro (iccarm's preprocessor splits ".name"
+ * into ". name" on expansion, and ICF will not parse the result).
+ *
+ * The GNU build reaches the same two sections through S_RAM_CODE_EXTRA_SECTION_NAME and
+ * S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h. Keep the two in step: a section that
+ * matters under one toolchain matters under both.
+ */
+
+#if defined(TFM_ICF_HOOK_RAM_CODE_INIT)
+/*
+ * .ram_from_flash holds the code-flash program/erase routines. The FCU makes the whole
+ * code flash unreadable while a P/E operation is in progress, so a routine executing from
+ * flash would prefetch-abort mid-erase with the FCU still in P/E mode - a hang, not a
+ * fault. It therefore runs from RAM, with its initialiser left behind in flash.
+ *
+ * 'ro' here and 'rw' in the members hook below, which is required rather than stylistic:
+ * this directive splits the section, leaving the flash half as initialiser bytes and
+ * flipping the RAM half to rw. Naming 'ro' in the block captures the initialiser instead
+ * and leaves the block empty; naming 'rw' here matches nothing, so no copy is set up and
+ * the code stays in flash. Both were observed before this settled.
+ */
+    ro section .ram_from_flash,
+
+#elif defined(TFM_ICF_HOOK_RAM_CODE_MEMBERS)
+    rw section .ram_from_flash,
+
+#elif defined(TFM_ICF_HOOK_DIRECTIVES)
+/*
+ * .ram_noinit must be neither initialised nor zeroed. Reset_Handler calls SystemInit()
+ * before the C runtime starts, and SystemInit() is what sets SystemCoreClock and the
+ * bsp_clocks state that lives here. Initialising or zeroing it afterwards discards clock
+ * state that was already established, which surfaces as FSP_ERR_FCLK.
+ */
+do not initialize { section .ram_noinit, section .ram_noinit* };
+
+#elif defined(TFM_ICF_HOOK_DATA_MEMBERS)
+/* Placed inside the secure DATA block so it lands in the secure RAM partition. */
+    section .ram_noinit,
+    section .ram_noinit*,
+
+#endif
