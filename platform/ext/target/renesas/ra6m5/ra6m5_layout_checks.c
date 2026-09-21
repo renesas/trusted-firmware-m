@@ -34,6 +34,23 @@
 #define STACKSEAL_SIZE (8)
 #endif
 
+/* ---------------------------------------------------------------------------------
+ * BSP_CFG_EARLY_INIT must be 1 in the secure e2 project (DESIGN.md 8.1).
+ *
+ * TF-M's Reset_Handler calls SystemInit() BEFORE the C runtime zeroes .bss. With early
+ * init off, FSP leaves SystemCoreClock and the rest of its clock state in ordinary .bss,
+ * so the value SystemInit() computed is wiped straight after, R_FLASH_HP_Open() derives
+ * FCLK = 0 from it and fails with FSP_ERR_FCLK. Early init is what moves that state into
+ * .ram_noinit, which the port's linker scripts keep out of .bss.
+ *
+ * The linker half of this fix lives in the port and carries over by itself; this half
+ * lives in the e2 project and does not - the first RA6M5 generation had it off and failed
+ * on hardware exactly this way. bl2_option_setting.c carries the same check for BL2.
+ * --------------------------------------------------------------------------------- */
+#if !defined(BSP_CFG_EARLY_INIT) || !(BSP_CFG_EARLY_INIT)
+#error "RA6M5: BSP_CFG_EARLY_INIT is 0 in the secure e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit() and R_FLASH_HP_Open() fails with FSP_ERR_FCLK. See DESIGN.md 8.1."
+#endif
+
 _Static_assert(S_MSP_STACK_SIZE == (BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE),
                "RA6M5: S_MSP_STACK_SIZE must be BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE. "
                "FSP's SystemInit() writes its stack seal at "

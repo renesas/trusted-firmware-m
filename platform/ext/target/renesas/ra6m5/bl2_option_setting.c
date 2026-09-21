@@ -27,6 +27,14 @@
 
 #include "bsp_api.h"
 
+/* BL2 runs TF-M's Reset_Handler too, so it has the same SystemInit()-before-.bss-zeroing
+ * hazard as the secure image, and it is the image that fails first: MCUboot opens the
+ * flash before anything else. See the matching check in ra6m5_layout_checks.c and
+ * DESIGN.md 8.1. This file is BL2-only, which is why the check lives here. */
+#if !defined(BSP_CFG_EARLY_INIT) || !(BSP_CFG_EARLY_INIT)
+#error "RA6M5: BSP_CFG_EARLY_INIT is 0 in the bootloader e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit() and R_FLASH_HP_Open() fails with FSP_ERR_FCLK. See DESIGN.md 8.1."
+#endif
+
 /* UNCRUSTIFY-OFF */
 #ifndef BSP_BOOTLOADED_APPLICATION
 
