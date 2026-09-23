@@ -18,6 +18,7 @@
 # NS image pulls in an SCI it does not own and the secure side's output is the only thing
 # ever seen - which reads as "NS never ran".
 set(RA6M5_STDOUT_RTT           @RA6M5_STDOUT_RTT@           CACHE BOOL "stdout over SEGGER RTT")
+set(RA6M5_RTT_BLOCKING         @RA6M5_RTT_BLOCKING@         CACHE BOOL "RTT blocks rather than dropping output")
 set(RA6M5_SPE_CRYPTO_HW_ACCELERATOR @CRYPTO_HW_ACCELERATOR@ CACHE BOOL "SPE built with the SCE9 accelerator")
 
 # The e2 project set the secure side was built against. The NS application needs the

@@ -195,6 +195,13 @@ if(RA6M5_STDOUT_RTT)
             ${RA6M5_NS_PLATFORM_DIR}/ns/syscalls_ns.c
     )
     target_compile_definitions(platform_ns PRIVATE RA6M5_STDOUT_NO_WRITE)
+    # 2 is SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL. Carried over from the SPE build like
+    # RA6M5_STDOUT_RTT, because the NS side is where the fast talkers live - the PSA Arch
+    # suites out-run the host's polling and, in the default skip mode, whole writes vanish
+    # from the transcript while the run itself is fine. See config.cmake.
+    if(RA6M5_RTT_BLOCKING)
+        target_compile_definitions(platform_ns PRIVATE SEGGER_RTT_MODE_DEFAULT=2)
+    endif()
     target_include_directories(platform_ns
         PUBLIC
             ${RA6M5_NS_PLATFORM_DIR}/ext/common

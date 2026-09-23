@@ -494,6 +494,9 @@ if(RA6M5_STDOUT_RTT)
         ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c
         ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c)
     target_include_directories(platform_s PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/rtt)
+    if(RA6M5_RTT_BLOCKING)
+        target_compile_definitions(platform_s PRIVATE SEGGER_RTT_MODE_DEFAULT=2)
+    endif()
 else()
     target_sources(platform_s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c)
 endif()
@@ -560,6 +563,9 @@ if(BL2)
             ${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c
             ${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c)
         target_include_directories(platform_bl2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/rtt)
+        if(RA6M5_RTT_BLOCKING)
+            target_compile_definitions(platform_bl2 PRIVATE SEGGER_RTT_MODE_DEFAULT=2)
+        endif()
     else()
         target_sources(platform_bl2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_USART.c)
     endif()
@@ -816,6 +822,9 @@ if(FSP_NS_APP_DIR AND RA6M5_NS_IN_SPE_BUILD)
             ${CMAKE_CURRENT_SOURCE_DIR}/rtt
             ${CMAKE_CURRENT_SOURCE_DIR}/ns)
         target_compile_definitions(tfm_ns PRIVATE RA6M5_STDOUT_RTT)
+        if(RA6M5_RTT_BLOCKING)
+            target_compile_definitions(tfm_ns PRIVATE SEGGER_RTT_MODE_DEFAULT=2)
+        endif()
         # Redirects main()'s call to hal_entry() into __wrap_hal_entry() in rtt_ns_init.c,
         # which emits the NS banner and then calls __real_hal_entry(). This pairs with that
         # file and the two must move together: the flag without the definition is an

@@ -25,9 +25,9 @@
 #     validate_primary  enabled      - re-verifies the secure image every boot
 #     MCUBOOT_IMAGE_NUMBER 2         - dual image
 #
-# NOTE: RA6M5 DOES have SCE9 (bsp_feature.h: BSP_FEATURE_RSIP_SCE9_SUPPORTED == 1), same
-# as RA6M4. Ciphers still run in software here - only the TRNG is taken from hardware, see
-# the crypto block below - so hardware acceleration remains a deliberate later project.
+# NOTE: RA6M5 has SCE9 (bsp_feature.h: BSP_FEATURE_RSIP_SCE9_SUPPORTED == 1), same as RA6M4,
+# and this port uses it: ciphers, hashes and ECC run on the engine through FSP's rm_psa_crypto
+# *_ALT sources, and BL2 hashes images there too. See the crypto block below.
 #-------------------------------------------------------------------------------
 
 set(BL2                                 ON          CACHE BOOL      "Build BL2")
@@ -189,6 +189,15 @@ set(PLATFORM_DEFAULT_SYSTEM_RESET_HALT  OFF         CACHE BOOL      "Port suppli
 # Console. RTT avoids UART wiring and S/NS peripheral contention; each image gets its
 # own control block. OFF routes stdout to the FSP SCI UART instead.
 set(RA6M5_STDOUT_RTT                    ON          CACHE BOOL      "stdout over SEGGER RTT")
+
+# RTT drops a whole write when the up-buffer is full (SEGGER_RTT_MODE_NO_BLOCK_SKIP), which
+# is why a fast talker - the PSA Arch suites - loses whole lines and tests from the log while
+# the run itself is fine. ON makes the target wait for the host to drain instead, so the
+# transcript is complete.
+#
+# Test builds only: with no RTT viewer attached, nothing drains the buffer and the first
+# write past 4 KB blocks forever. Default OFF for that reason.
+set(RA6M5_RTT_BLOCKING          OFF         CACHE BOOL      "RTT blocks rather than dropping output")
 if(RA6M5_STDOUT_RTT)
     set(PLATFORM_DEFAULT_UART_STDOUT    OFF         CACHE BOOL      "RTT backend instead")
 else()
