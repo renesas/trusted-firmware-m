@@ -232,10 +232,25 @@ macro(add_convert_to_bin_target target)
             ${bin_dir}/${target}.hex
     )
 
+    # .srec, to match toolchain_ns_GNUARM.cmake. Renesas debug launches flash S-records, so
+    # an NS application built with IAR had nothing to hand the launch configuration while the
+    # GNU one did - the toolchains disagreed about what a build produces.
+    add_custom_target(${target}_srec
+        SOURCES ${bin_dir}/${target}.srec
+    )
+    add_custom_command(OUTPUT ${bin_dir}/${target}.srec
+        DEPENDS ${target}
+        COMMAND ielftool
+            --silent
+            --srec $<TARGET_FILE:${target}>
+            ${bin_dir}/${target}.srec
+    )
+
     add_custom_target(${target}_binaries
         ALL
         DEPENDS ${target}_bin
         DEPENDS ${target}_elf
         DEPENDS ${target}_hex
+        DEPENDS ${target}_srec
     )
 endmacro()

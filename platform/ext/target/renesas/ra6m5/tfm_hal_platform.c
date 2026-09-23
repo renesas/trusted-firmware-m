@@ -5,6 +5,7 @@
  */
 
 #include "tfm_hal_platform.h"
+#include <string.h>
 #include "target_cfg.h"
 #include "region_defs.h"
 #include "bsp_api.h"
@@ -43,6 +44,45 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
  */
 #ifndef RA6M5_BUILDING_BL2
 
+#if defined(__ICCARM__)
+/*
+ * Copy .ram_from_flash to RAM. DECISIONS D029.
+ *
+ * FSP's code-flash program/erase routines must run from RAM: the FCU makes code flash
+ * unreadable for the duration of a P/E operation, so a routine fetching from flash aborts
+ * mid-erase with the FCU still in P/E mode - a hang, not a fault.
+ *
+ * ILINK will not be trusted with the copy. Asked to copy-init the section it decides for
+ * itself whether it may, and at isolation 3 it declined - "excluded because they were marked
+ * as possibly needed for init" (--log initialization) - leaving the routines in flash while
+ * isolation 1 relocated them correctly, with nothing in the build to say so. The ICF now
+ * declares the section 'initialize manually' and the copy happens here, identically at every
+ * isolation level.
+ *
+ * The section pragmas give the RAM half and the initialiser ILINK left in ER_RO_DATA.
+ * Sizes are taken from the destination: it is what the members hook placed, and ER_CODE_SRAM
+ * has maximum size = S_RAM_CODE_SIZE, so an overflow is a link error rather than a run-time
+ * overrun. The GNU build reaches the same result through the linker script and needs none of
+ * this.
+ */
+#pragma section = ".ram_from_flash"
+#pragma section = ".ram_from_flash_init"
+
+static void ra_ram_code_init(void)
+{
+    const uint8_t *src = (const uint8_t *)__section_begin(".ram_from_flash_init");
+    uint8_t       *dst = (uint8_t *)__section_begin(".ram_from_flash");
+    size_t         len = (size_t)__section_size(".ram_from_flash");
+
+    if ((src != dst) && (len != 0U)) {
+        (void)memcpy(dst, src, len);
+        /* The copied bytes are executed: make them visible to the instruction side. */
+        __DSB();
+        __ISB();
+    }
+}
+#endif /* __ICCARM__ */
+
 FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
 {
     /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
@@ -67,6 +107,11 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * BL2 never calls it. BL2 runs TF-M's startup too and is the image that actually
      * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
      */
+#if defined(__ICCARM__)
+    /* Before anything can reach the flash driver. DECISIONS D029. */
+    ra_ram_code_init();
+#endif
+
     SystemCoreClockUpdate();
 
     /* Clear PRIMASK. Reset_Handler in startup_ra6m5.c does __disable_irq() - standard,

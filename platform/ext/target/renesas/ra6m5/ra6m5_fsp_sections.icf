@@ -25,13 +25,13 @@
  * flash would prefetch-abort mid-erase with the FCU still in P/E mode - a hang, not a
  * fault. It therefore runs from RAM, with its initialiser left behind in flash.
  *
- * 'ro' here and 'rw' in the members hook below, which is required rather than stylistic:
- * this directive splits the section, leaving the flash half as initialiser bytes and
- * flipping the RAM half to rw. Naming 'ro' in the block captures the initialiser instead
- * and leaves the block empty; naming 'rw' here matches nothing, so no copy is set up and
- * the code stays in flash. Both were observed before this settled.
+ * NOT listed in this copy-init batch - see the 'initialize manually' directive below.
+ * ILINK decides for itself which sections a copy batch may contain, and at isolation 3 it
+ * dropped this one ("excluded because they were marked as possibly 'needed for init'",
+ * --log initialization), silently leaving the routines in flash while isolation 1 relocated
+ * them correctly. The copy is therefore ours to make, in tfm_hal_platform_init(), which is
+ * the same path at every isolation level (DECISIONS D029).
  */
-    ro section .ram_from_flash,
 
 #elif defined(TFM_ICF_HOOK_RAM_CODE_MEMBERS)
     rw section .ram_from_flash,
@@ -44,6 +44,13 @@
  * state that was already established, which surfaces as FSP_ERR_FCLK.
  */
 do not initialize { section .ram_noinit, section .ram_noinit* };
+
+/*
+ * The RAM half of .ram_from_flash is placed by the members hook above; its initialiser is
+ * left as a separate read-only section, .ram_from_flash_init, which ILINK sweeps into
+ * ER_RO_DATA with the rest of 'ro data'. ra_ram_code_init() copies one to the other.
+ */
+initialize manually { section .ram_from_flash };
 
 #elif defined(TFM_ICF_HOOK_DATA_MEMBERS)
 /* Placed inside the secure DATA block so it lands in the secure RAM partition. */
