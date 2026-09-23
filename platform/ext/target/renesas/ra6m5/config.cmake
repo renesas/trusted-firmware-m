@@ -100,9 +100,28 @@ set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
 set(MCUBOOT_MEASURED_BOOT               OFF         CACHE BOOL      "Disabled in the solution")
 set(MCUBOOT_DATA_SHARING                OFF         CACHE BOOL      "Disabled in the solution")
 
-# Ciphers in software (TF-M's own mbedcrypto). CRYPTO_HW_ACCELERATOR stays OFF: turning it
-# on means FSP's mbedTLS + rm_psa_crypto *_ALT stack, which is a separate project.
-set(CRYPTO_HW_ACCELERATOR               OFF         CACHE BOOL      "SCE ciphers not wired yet")
+# SCE9 cipher acceleration: platform/ext/accelerator/renesas/sce9. FSP's rm_psa_crypto
+# *_ALT sources (AES, AES-GCM, SHA-256, ECDSA/ECDH P-256, plaintext keys) compiled into
+# TF-M's Mbed TLS for the secure crypto partition, and SHA-256 for BL2's image hash. CCM is
+# the exception and stays in software - FSP's SCE9 CCM caps associated data at 110 B, which
+# Protected Storage exceeds (DECISIONS D043). Needs the Crypto
+# stack (rm_psa_crypto) in the secure e2 project. -DCRYPTO_HW_ACCELERATOR=OFF returns to
+# all-software ciphers. The TRNG is hardware either way (sce_trng.c).
+set(CRYPTO_HW_ACCELERATOR               ON          CACHE BOOL      "SCE9 ciphers via FSP *_ALT")
+set(CRYPTO_HW_ACCELERATOR_TYPE          "renesas/sce9" CACHE STRING "platform/ext/accelerator/<type>")
+
+# Crypto library: FSP's Mbed TLS, not upstream.
+#
+# FSP's *_ALT sources are written against FSP's PSA core, which differs from upstream in ways
+# they depend on - GCM finish reporting its ciphertext length, GCM verify routed to
+# sce_gcm_verify with the expected tag - and FSP's cipher_alt.c supplies the block chunking
+# and session close that its aes_alt.c assumes. cmake/fsp_mbedtls.cmake builds an overlay of
+# FSP's include/library on upstream scaffolding of the same version and points MBEDCRYPTO_PATH
+# at it. OFF falls back to TF-M's downloaded Mbed TLS, with multi-part GCM unsupported.
+set(RA6M5_FSP_MBEDTLS                   ON          CACHE BOOL      "Crypto from FSP's Mbed TLS")
+if(RA6M5_FSP_MBEDTLS AND CRYPTO_HW_ACCELERATOR)
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/fsp_mbedtls.cmake)
+endif()
 set(TFM_CRYPTO_TEST_ALG_CFB             OFF         CACHE BOOL      "")
 
 # Entropy from the SCE9 TRNG via PSA's external-RNG hook (sce_trng.c), NOT from a stored

@@ -1,12 +1,17 @@
 # FSP SCE Module Library
-# SCE9 crypto engine. TF-M uses this module for ONE thing: the TRNG, which backs PSA's
-# external RNG (see sce_trng.c). The *_ALT hardware-accelerated cipher path is a separate,
-# later project - it needs FSP's mbedTLS and rm_psa_crypto, whose generated config pulls
-# bsp_api.h and wires PSA ITS to littlefs, which collides with TF-M's ITS. See DESIGN.md 6.
+# SCE9 crypto engine - the HW_SCE_* procedures. This module builds r_sce only. The
+# rm_psa_crypto *_ALT sources that drive it are compiled by the accelerator
+# (platform/ext/accelerator/renesas/sce9) into TF-M's own Mbed TLS, NOT through FSP's
+# mbedTLS/rm_psa_crypto config - that config wires PSA ITS to littlefs, which collides with
+# TF-M's ITS (DESIGN.md 6).
 #
-# Secure image only. BL2 verifies signatures but never needs randomness - it builds with
-# MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider - so the bootloader role does
-# not declare this module even though its e2 project contains r_sce.
+# Secure image: the TRNG always; the cipher ALT path when CRYPTO_HW_ACCELERATOR is on
+# (platform/ext/accelerator/renesas/sce9).
+#
+# BL2: only with CRYPTO_HW_ACCELERATOR, for the SHA-256 image hash. BL2 never needs
+# randomness - it builds with MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider - so
+# without the accelerator the bootloader role does not declare this module, even though its
+# e2 project contains r_sce.
 #
 # Adding a module: fsp_cmake/TFM_INTEGRATION_COMPLETE.md, "Adding New FSP Modules".
 

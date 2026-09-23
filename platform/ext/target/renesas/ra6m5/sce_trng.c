@@ -27,23 +27,22 @@
  * bsp_cfg.h -> the board headers, which use FSP_HEADER before fsp_common_api.h has got
  * as far as defining it. Entering through bsp_api.h defines it first. */
 #include "bsp_api.h"           /* fsp_err_t, FSP_SUCCESS - no SCE private headers */
+#include "ra_sce_init.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
-#if defined(MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG)
-
-/* SCE9 primitives, from the fsp_sce module (r_sce_adapt.c). Declared here rather than by
+/* SCE9 primitive, from the fsp_sce module (r_sce_adapt.c). Declared here rather than by
  * including hw_sce_private.h so this file does not drag the SCE private headers into
- * every consumer of platform_s. */
-extern fsp_err_t HW_SCE_McuSpecificInit(void);
+ * every consumer of platform_s. The engine itself is brought up by ra_sce_init()
+ * (ra_sce_init.c), shared with the cipher accelerator. */
 extern fsp_err_t HW_SCE_RNG_Read(uint32_t *OutData_Text);
+
+#if defined(MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG)
 
 /* HW_SCE_RNG_Read fills a fixed 128-bit block per call. */
 #define SCE_TRNG_BLOCK_WORDS  (4U)
 #define SCE_TRNG_BLOCK_BYTES  (SCE_TRNG_BLOCK_WORDS * sizeof(uint32_t))
-
-static bool sce_trng_ready = false;
 
 psa_status_t mbedtls_psa_external_get_random(
     mbedtls_psa_external_random_context_t *context,
@@ -60,14 +59,11 @@ psa_status_t mbedtls_psa_external_get_random(
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 
-    /* Powers on SCE, resets it and runs its self-check. Idempotent in effect, but it is
-     * not free, so only do it once. */
-    if (!sce_trng_ready) {
-        if (FSP_SUCCESS != HW_SCE_McuSpecificInit()) {
-            *output_length = 0U;
-            return PSA_ERROR_HARDWARE_FAILURE;
-        }
-        sce_trng_ready = true;
+    /* Powers on SCE, resets it and runs its self-check - once, shared with the cipher
+     * accelerator. */
+    if (FSP_SUCCESS != ra_sce_init()) {
+        *output_length = 0U;
+        return PSA_ERROR_HARDWARE_FAILURE;
     }
 
     while (produced < output_size) {

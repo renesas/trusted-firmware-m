@@ -222,7 +222,12 @@ set(FSP_TZ_DEFS_BL2 )
 # startup and linker script, and is still collected by fsp_collect_sources() below.
 #-------------------------------------------------------------------------------
 set(FSP_MODULES_S    bsp flash sce)   # sce: SCE9 TRNG backs the PSA external RNG
-set(FSP_MODULES_BL2  bsp flash)       # BL2 needs no randomness - see fsp_sce.cmake
+set(FSP_MODULES_BL2  bsp flash)
+# BL2 needs no randomness, but with the SCE9 accelerator on its image hash (SHA-256) runs on
+# the engine - platform/ext/accelerator/renesas/sce9. See fsp_sce.cmake.
+if(CRYPTO_HW_ACCELERATOR)
+    list(APPEND FSP_MODULES_BL2 sce)
+endif()
 
 # Which ra/fsp/src/<dir> each module accounts for, so an unclaimed module in the project
 # can be reported rather than silently dropped.
@@ -364,6 +369,8 @@ target_link_libraries(platform_s PUBLIC ${FSP_S_MODULES})
 target_sources(platform_s PRIVATE
     # PSA external RNG over the SCE9 TRNG - the entropy source for the whole secure image
     ${CMAKE_CURRENT_SOURCE_DIR}/sce_trng.c
+    # One-time SCE bring-up, shared by the TRNG and the cipher accelerator
+    ${CMAKE_CURRENT_SOURCE_DIR}/ra_sce_init.c
     ${CMAKE_CURRENT_SOURCE_DIR}/target_cfg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tfm_hal_platform.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tfm_peripherals_def.c
@@ -534,6 +541,15 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m5.c
         ${CMAKE_CURRENT_SOURCE_DIR}/bl2_option_setting.c
     )
+
+    # SCE9 accelerator: BL2's SHA-256 runs on the engine, so BL2 brings it up itself in
+    # boot_platform_post_init(), before MCUboot hashes the first slot.
+    if(CRYPTO_HW_ACCELERATOR)
+        target_sources(bl2 PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/ra_sce_init.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/bl2_boot_hal.c
+        )
+    endif()
 
     # MCUboot's bl2_main.c calls stdio_init/stdio_uninit, so BL2 needs a stdout backend
     # of its own - it is a separate binary from the secure image, with its own RTT

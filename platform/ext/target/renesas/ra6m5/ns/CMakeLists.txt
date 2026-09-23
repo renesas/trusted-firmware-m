@@ -210,6 +210,23 @@ if(RA6M5_STDOUT_RTT)
 endif()
 
 #-------------------------------------------------------------------------------
+# What the secure image's crypto can do, for NS code that probes it
+#
+# With the SCE9 accelerator the SPE does not provide PSA_ALG_DETERMINISTIC_ECDSA: the engine
+# draws its own ECDSA nonce, and FSP does not support deterministic ECDSA on the SCE, so the
+# accelerator removes it from the secure PSA configuration (accelerator/renesas/sce9,
+# crypto_accelerator_config.h). NS builds cannot see that - they compile against the client
+# configuration - so it is exported explicitly. The psa-arch-tests Renesas target keys its
+# deterministic-ECDSA tests on this.
+#-------------------------------------------------------------------------------
+if(RA6M5_SPE_CRYPTO_HW_ACCELERATOR)
+    target_compile_definitions(platform_ns
+        PUBLIC
+            RENESAS_RA_NO_DETERMINISTIC_ECDSA
+    )
+endif()
+
+#-------------------------------------------------------------------------------
 # Linker script
 #
 # The NS image keeps FSP's own script, which INCLUDEs the solution's generated
