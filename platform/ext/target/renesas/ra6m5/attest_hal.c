@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Attestation HAL implementation for Renesas RA6M4
+ * Attestation HAL implementation for Renesas RA6M5
  * Based on RA8 TF-M port implementation
  */
 

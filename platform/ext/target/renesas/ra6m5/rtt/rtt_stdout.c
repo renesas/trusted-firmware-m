@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * SEGGER RTT stdout backend for TF-M on RA6M4.
+ * SEGGER RTT stdout backend for TF-M on RA6M5.
  *
  * This is a drop-in replacement for the common UART stdout backend
  * (platform/ext/common/uart_stdout.c). It implements the same stdio_*

@@ -38,12 +38,12 @@ void sau_and_idau_cfg(void)
     /* SAU configuration is handled by TF-M's common ARMv8-M isolation framework */
     /* The framework will configure SAU based on region_defs.h and memory_regions */
 
-    /* RA6M4 doesn't have IDAU - security attribution is done entirely via SAU */
+    /* RA6M5 doesn't have IDAU - security attribution is done entirely via SAU */
 }
 
 enum tfm_plat_err_t mpc_init_cfg(void)
 {
-    /* RA6M4 does not have MPC - memory protection is done via SAU/MPU */
+    /* RA6M5 does not have MPC - memory protection is done via SAU/MPU */
     return TFM_PLAT_ERR_SUCCESS;
 }
 

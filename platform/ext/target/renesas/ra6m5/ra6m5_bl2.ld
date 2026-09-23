@@ -27,7 +27,7 @@ MEMORY
     FLASH (rx)  : ORIGIN = BL2_CODE_START, LENGTH = BL2_CODE_SIZE
     RAM   (rwx) : ORIGIN = BL2_DATA_START, LENGTH = BL2_DATA_SIZE
 
-    /* RA6M4 option-setting memory - one DISCRETE region per register group, the
+    /* RA6M5 option-setting memory - one DISCRETE region per register group, the
      * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
      * region is sized to exactly its register group, so ld emits a separate
      * PT_LOAD per group and CANNOT zero-fill the FCU config bytes in between.
@@ -286,7 +286,7 @@ SECTIONS
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 
-    /* RA6M4 option-setting memory (OFS) - BL2 ONLY.
+    /* RA6M5 option-setting memory (OFS) - BL2 ONLY.
      *
      * Places the RASC-configured OFS words emitted by bl2_option_setting.c. Each
      * section goes to its OWN MEMORY region (see the MEMORY block above) - this is

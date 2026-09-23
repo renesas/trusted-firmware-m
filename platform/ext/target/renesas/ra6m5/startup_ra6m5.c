@@ -18,7 +18,7 @@
  */
 
 /*
- * TF-M startup code for Renesas RA6M4 (Cortex-M33)
+ * TF-M startup code for Renesas RA6M5 (Cortex-M33)
  * Based on ARM MPS2 AN521 startup implementation
  */
 

@@ -42,12 +42,12 @@ typedef uint32_t ppc_bank_t;
 void sau_and_idau_cfg(void);
 
 /**
- * \brief Configures the Memory Protection Controller (stub for RA6M4).
+ * \brief Configures the Memory Protection Controller (stub for RA6M5).
  */
 enum tfm_plat_err_t mpc_init_cfg(void);
 
 /**
- * \brief Configures the Peripheral Protection Controller (stub for RA6M4).
+ * \brief Configures the Peripheral Protection Controller (stub for RA6M5).
  */
 enum tfm_plat_err_t ppc_init_cfg(void);
 

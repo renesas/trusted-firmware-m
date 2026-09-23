@@ -4,8 +4,8 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Enhanced CMSIS Flash Driver for Renesas RA6M4 using FSP Flash HP
- * Based on RA8 TF-M port implementation with RA6M4-specific adaptations
+ * Enhanced CMSIS Flash Driver for Renesas RA6M5 using FSP Flash HP
+ * Based on RA8 TF-M port implementation with RA6M5-specific adaptations
  */
 
 #include "Driver_Flash.h"
@@ -26,7 +26,7 @@ extern const flash_cfg_t        g_flash0_cfg;
 #define ARG_UNUSED(arg)  (void)(arg)
 #endif
 
-/* RA6M4 Flash HP code-flash block size for the MCUboot-managed region.
+/* RA6M5 Flash HP code-flash block size for the MCUboot-managed region.
  * Region 0 (0x0-0xFFFF) uses 8KB blocks; region 1 (0x10000+) uses 32KB blocks.
  * All MCUboot slots are in region 1, so use the region-1 (32KB) block size -
  * this must match FLASH_AREA_IMAGE_SECTOR_SIZE so erases are full 32KB blocks. */
@@ -184,7 +184,7 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
     }
 
     /* Validate flash parameters match our configuration
-     * RA6M4 code flash: 1MB total, 8KB sector size */
+     * RA6M5 code flash: 2 MB total; 8 KB blocks in region 0, 32 KB in region 1 */
     uint32_t page_size = info.code_flash.p_block_array[info.code_flash.num_regions - 1U].block_size;
 
     /* Validate against configured values */
@@ -213,7 +213,7 @@ static int32_t ARM_Flash_PowerControl(ARM_POWER_STATE state)
 {
     switch (state) {
     case ARM_POWER_FULL:
-        /* Flash is always powered in RA6M4 */
+        /* Flash is always powered in RA6M5 */
         return ARM_DRIVER_OK;
     case ARM_POWER_OFF:
     case ARM_POWER_LOW:
