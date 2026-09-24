@@ -41,6 +41,9 @@
 #ifndef FLASH_AREA_IMAGE_SECTOR_SIZE
 #error "FLASH_AREA_IMAGE_SECTOR_SIZE must be defined by config.cmake"
 #endif
+#ifndef FLASH_PAGE_SIZE
+#error "FLASH_PAGE_SIZE must be defined by config.cmake"
+#endif
 #ifndef FLASH_PROGRAM_UNIT
 #error "FLASH_PROGRAM_UNIT must be defined by config.cmake"
 #endif
@@ -182,6 +185,67 @@
 
 #define NON_SECURE_IMAGE_OFFSET   (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
 #define NON_SECURE_IMAGE_MAX_SIZE FLASH_NS_PARTITION_SIZE
+
+/* Flash device name used by BL2
+ * Name is defined in flash driver file: Driver_Flash.c
+ */
+#define FLASH_DEV_NAME             Driver_Flash0
+/* Smallest flash programmable unit in bytes */
+#define TFM_HAL_FLASH_PROGRAM_UNIT (FLASH_PROGRAM_UNIT)
+
+/* Protected Storage (PS) Service definitions
+ * Note: Further documentation of these definitions can be found in the
+ * TF-M PS Integration Guide.
+ */
+#define TFM_HAL_PS_FLASH_DRIVER Driver_Flash0
+
+/* In this target the CMSIS driver requires only the offset from the base
+ * address instead of the full memory address.
+ */
+/* Base address of dedicated flash area for PS */
+#define TFM_HAL_PS_FLASH_AREA_ADDR   FLASH_PS_AREA_OFFSET
+/* Size of dedicated flash area for PS */
+#define TFM_HAL_PS_FLASH_AREA_SIZE   FLASH_PS_AREA_SIZE
+#define PS_RAM_FS_SIZE               TFM_HAL_PS_FLASH_AREA_SIZE
+/* Number of physical erase sectors per logical FS block */
+#define TFM_HAL_PS_SECTORS_PER_BLOCK (1)
+/* Smallest flash programmable unit in bytes */
+#define TFM_HAL_PS_PROGRAM_UNIT      (FLASH_PROGRAM_UNIT)
+
+/* Internal Trusted Storage (ITS) Service definitions
+ * Note: Further documentation of these definitions can be found in the
+ * TF-M ITS Integration Guide. The ITS should be in the internal flash, but is
+ * allocated in the external flash just for development platforms that don't
+ * have internal flash available.
+ */
+#define TFM_HAL_ITS_FLASH_DRIVER Driver_Flash0
+
+/* In this target the CMSIS driver requires only the offset from the base
+ * address instead of the full memory address.
+ */
+/* Base address of dedicated flash area for ITS */
+#define TFM_HAL_ITS_FLASH_AREA_ADDR   FLASH_ITS_AREA_OFFSET
+/* Size of dedicated flash area for ITS */
+#define TFM_HAL_ITS_FLASH_AREA_SIZE   FLASH_ITS_AREA_SIZE
+#define ITS_RAM_FS_SIZE               TFM_HAL_ITS_FLASH_AREA_SIZE
+/* Number of physical erase sectors per logical FS block */
+#define TFM_HAL_ITS_SECTORS_PER_BLOCK (1)
+/* Smallest flash programmable unit in bytes */
+#define TFM_HAL_ITS_PROGRAM_UNIT      (FLASH_PROGRAM_UNIT)
+
+/* NAND-style storage backend staging buffers (rp2350 pattern): a program unit
+ * above 16 bytes forces the NAND backend in its_flash.c/its_flash_ps.c, which
+ * #errors without these. 2 blocks is the smallest block-aligned staging size.
+ * Only compiled in when the ITS/PS partitions are enabled. */
+#define ITS_FLASH_NAND_BUF_SIZE (2 * FLASH_AREA_IMAGE_SECTOR_SIZE)
+#define PS_FLASH_NAND_BUF_SIZE  (2 * FLASH_AREA_IMAGE_SECTOR_SIZE)
+
+/* OTP / NV counter definitions */
+#define TFM_OTP_NV_COUNTERS_AREA_SIZE   (FLASH_OTP_NV_COUNTERS_AREA_SIZE / 2)
+#define TFM_OTP_NV_COUNTERS_AREA_ADDR   FLASH_OTP_NV_COUNTERS_AREA_OFFSET
+#define TFM_OTP_NV_COUNTERS_SECTOR_SIZE FLASH_OTP_NV_COUNTERS_SECTOR_SIZE
+#define TFM_OTP_NV_COUNTERS_BACKUP_AREA_ADDR                                                       \
+	(TFM_OTP_NV_COUNTERS_AREA_ADDR + TFM_OTP_NV_COUNTERS_AREA_SIZE)
 
 #define TOTAL_ROM_SIZE FLASH_TOTAL_SIZE
 

@@ -36,8 +36,12 @@ set(FLASH_TOTAL_SIZE             "0x100000"         CACHE STRING "MRAM user area
 # block size chosen to match the 8 KB MRAM block unit; it is also the OTP NV
 # counter sector size (see FLASH_OTP_NV_COUNTERS_AREA_SIZE below).
 set(FLASH_AREA_IMAGE_SECTOR_SIZE "0x2000"           CACHE STRING "FS block granularity (8 KB MRAM block unit)")
-# MRAM commits via a 32-byte program data buffer (units of programming: 1-32 B).
-set(FLASH_PROGRAM_UNIT           "0x20"             CACHE STRING "MRAM page buffer size in bytes")
+# MRAM programs data through a 32-byte page buffer. Erase operations are
+# implemented by programming 0xFF in page-sized (32-byte) units.
+set(FLASH_PAGE_SIZE              "0x20"             CACHE STRING "MRAM page buffer size in bytes")
+# MRAM supports programming 1-32 bytes at a time, but TF-M requires a fixed
+# power-of-two program unit.
+set(FLASH_PROGRAM_UNIT           "0x04"             CACHE STRING "MRAM minimum write size in bytes")
 
 # ---- Image partitions -------------------------------------------------------
 # BL2 is OFF: no MRAM-capable bootloader flash driver exists yet, so the
