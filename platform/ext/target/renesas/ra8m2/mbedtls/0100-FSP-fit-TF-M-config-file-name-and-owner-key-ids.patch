@@ -1,0 +1,102 @@
+Subject: [PATCH] FSP Mbed TLS: TF-M's config file name, and owner-encoded key ids
+
+Two places where FSP's tree assumes an FSP build. Applied to the overlay by
+platform/ext/target/renesas/ra8m2/cmake/fsp_mbedtls.cmake; numbered 0100 so it lands after
+the TF-M patch series.
+
+1. build_info.h defaults MBEDTLS_CONFIG_FILE to "mbedtls/config.h", the name FSP generates.
+   TF-M sets MBEDTLS_CONFIG_FILE for its own targets, but not for every target the Mbed TLS
+   CMake creates - 3rdparty/everest is built without it and then cannot find a config at all.
+   Restored to upstream's "mbedtls/mbedtls_config.h", which exists in the tree.
+
+2. psa_encapsulate()/psa_decapsulate() (ML-KEM) take psa_key_id_t. With
+   MBEDTLS_PSA_CRYPTO_KEY_ID_ENCODES_OWNER - which TF-M sets, so key ids carry the client's
+   partition id - the public API takes mbedtls_svc_key_id_t, and these two do not compile:
+   the key argument mismatches psa_get_and_lock_key_slot_with_policy(), and *output_key -
+   a key the library creates - is assigned from MBEDTLS_SVC_KEY_ID_INIT. Every other PSA entry point in the file already
+   uses mbedtls_svc_key_id_t. Not conditional on the PQC config: the functions are compiled
+   unconditionally, only their bodies are guarded.
+
+---
+ include/mbedtls/build_info.h |  2 +-
+ include/psa/crypto.h         |  4 ++--
+ library/psa_crypto.c         |  4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/mbedtls/build_info.h b/include/mbedtls/build_info.h
+index 58c8061..b5e8066 100644
+--- a/include/mbedtls/build_info.h
++++ b/include/mbedtls/build_info.h
+@@ -110,7 +110,7 @@
+ 
+ /* X.509, TLS and non-PSA crypto configuration */
+ #if !defined(MBEDTLS_CONFIG_FILE)
+-#include "mbedtls/config.h"
++#include "mbedtls/mbedtls_config.h"
+ #else
+ #include MBEDTLS_CONFIG_FILE
+ #endif
+diff --git a/include/psa/crypto.h b/include/psa/crypto.h
+index f9d86c6..a063833 100644
+--- a/include/psa/crypto.h
++++ b/include/psa/crypto.h
+@@ -4376,10 +4376,10 @@ psa_status_t psa_generate_key_ext(const psa_key_attributes_t *attributes,
+  *         It is implementation-dependent whether a failure to initialize
+  *         results in this error code.
+  */
+-psa_status_t psa_encapsulate(psa_key_id_t key,
++psa_status_t psa_encapsulate(mbedtls_svc_key_id_t key,
+                              psa_algorithm_t alg,
+                              const psa_key_attributes_t * attributes,
+-                             psa_key_id_t * output_key,
++                             mbedtls_svc_key_id_t * output_key,
+                              uint8_t * ciphertext,
+                              size_t ciphertext_size,
+                              size_t * ciphertext_length);
+@@ -4416,12 +4416,12 @@ psa_status_t psa_encapsulate(psa_key_id_t key,
+  *         It is implementation-dependent whether a failure to initialize
+  *         results in this error code.
+  */
+-psa_status_t psa_decapsulate(psa_key_id_t key,
++psa_status_t psa_decapsulate(mbedtls_svc_key_id_t key,
+                              psa_algorithm_t alg,
+                              const uint8_t * ciphertext,
+                              size_t ciphertext_length,
+                              const psa_key_attributes_t * attributes,
+-                             psa_key_id_t * output_key);
++                             mbedtls_svc_key_id_t * output_key);
+  
+ /**@}*/
+ 
+diff --git a/library/psa_crypto.c b/library/psa_crypto.c
+index 91584b6..43a283c 100644
+--- a/library/psa_crypto.c
++++ b/library/psa_crypto.c
+@@ -8573,10 +8573,10 @@ psa_status_t psa_generate_key(const psa_key_attributes_t *attributes,
+                                    key);
+ }
+ 
+-psa_status_t psa_encapsulate(psa_key_id_t key,
++psa_status_t psa_encapsulate(mbedtls_svc_key_id_t key,
+                              psa_algorithm_t alg,
+                              const psa_key_attributes_t * attributes,
+-                             psa_key_id_t * output_key,
++                             mbedtls_svc_key_id_t * output_key,
+                              uint8_t * ciphertext,
+                              size_t ciphertext_size,
+                              size_t * ciphertext_length)
+@@ -8647,12 +8647,12 @@ exit:
+     return status;
+ }
+ 
+-psa_status_t psa_decapsulate(psa_key_id_t key,
++psa_status_t psa_decapsulate(mbedtls_svc_key_id_t key,
+                              psa_algorithm_t alg,
+                              const uint8_t * ciphertext,
+                              size_t ciphertext_length,
+                              const psa_key_attributes_t * attributes,
+-                             psa_key_id_t * output_key)
++                             mbedtls_svc_key_id_t * output_key)
+ {
+     psa_status_t status = PSA_ERROR_NOT_SUPPORTED;
+     psa_key_slot_t *slot = NULL;

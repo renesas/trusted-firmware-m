@@ -1,0 +1,66 @@
+/*
+ * Copyright (c) 2026, Renesas Electronics Corporation. All rights reserved.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ */
+
+/*
+ * FSP sections for the IAR secure image.
+ *
+ * Included by platform/ext/common/iar/tfm_isolation_s.icf.template, once per hook, with a
+ * different TFM_ICF_HOOK_* defined each time - see the note there for why this is literal
+ * text in a file rather than a section-name macro (iccarm's preprocessor splits ".name"
+ * into ". name" on expansion, and ICF will not parse the result).
+ *
+ * On this part only ONE section needs handling: .ram_noinit. The GNU build reaches it through
+ * S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h. Keep the two in step: a section that
+ * matters under one toolchain matters under both.
+ *
+ * ---------------------------------------------------------------------------------------
+ * .ram_from_flash IS DELIBERATELY ABSENT, unlike the RA6E1/RA6M5 version of this file.
+ *
+ * Those parts place FSP's code-flash program/erase routines in RAM, because the FCU makes the
+ * whole code flash unreadable during a P/E and a routine fetching from flash would
+ * prefetch-abort mid-erase with the FCU still in P/E mode. RA8M2 has MRAM instead, and
+ * NOTHING in r_mram carries PLACE_IN_RAM_SECTION - r_mram.h defines the macro, copied from
+ * r_flash_hp.h, but r_mram.c never applies it, and the e2-built image shows the block empty.
+ * MRAM stays readable while being programmed.
+ *
+ * So there is no section to place, and region_defs.h consequently defines neither
+ * S_RAM_CODE_START nor S_RAM_CODE_SIZE - which means TF-M's template creates no ER_CODE_SRAM
+ * block at all. Naming .ram_from_flash in the members hook here would place it into a block
+ * that does not exist; the three have to agree, and they do by all three saying nothing.
+ *
+ * TO RESTORE IT (if a future MRAM revision needs RAM-resident P/E), all three change together:
+ *   1. region_defs.h        - define S_RAM_CODE_SIZE and S_RAM_CODE_START again
+ *   2. this file            - "rw section .ram_from_flash," in the MEMBERS hook, and
+ *                             "initialize manually { section .ram_from_flash };" in DIRECTIVES
+ *   3. tfm_hal_platform.c   - reinstate ra_ram_code_init() and call it first
+ * DECISIONS D029/D048 explain why the copy is ours rather than ILINK's: asked to copy-init the
+ * section, ILINK declined at isolation 3 and left the routines in flash while isolation 1
+ * relocated them correctly, with nothing in the build to say so.
+ * ---------------------------------------------------------------------------------------
+ */
+
+#if defined(TFM_ICF_HOOK_RAM_CODE_INIT)
+/* Nothing - see the .ram_from_flash note above. */
+
+#elif defined(TFM_ICF_HOOK_RAM_CODE_MEMBERS)
+/* Nothing - see the .ram_from_flash note above. */
+
+#elif defined(TFM_ICF_HOOK_DIRECTIVES)
+/*
+ * .ram_noinit must be neither initialised nor zeroed. Reset_Handler calls SystemInit()
+ * before the C runtime starts, and SystemInit() is what sets SystemCoreClock and the
+ * bsp_clocks state that lives here. Initialising or zeroing it afterwards discards clock
+ * state that was already established, which surfaces as FSP_ERR_FCLK.
+ */
+do not initialize { section .ram_noinit, section .ram_noinit* };
+
+#elif defined(TFM_ICF_HOOK_DATA_MEMBERS)
+/* Placed inside the secure DATA block so it lands in the secure RAM partition. */
+    section .ram_noinit,
+    section .ram_noinit*,
+
+#endif
