@@ -722,6 +722,7 @@ function(ra6m5_add_ofs_check target)
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6M5_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                --ra6-default --max-word 0xC
                 $<TARGET_FILE:${target}>
         DEPENDS $<TARGET_FILE:${target}>
         VERBATIM

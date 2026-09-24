@@ -18,7 +18,7 @@
  *    generated fsp_gen.icf does. That is the whole point: one region per group means the
  *    linker cannot merge them, so each word becomes its own small PT_LOAD.
  *
- *    DO NOT collapse these into one region spanning 0x0100A100..0x0100A2D0. Under GNU ld
+ *    DO NOT collapse these into one region spanning the whole OFS range. Under GNU ld
  *    that mistake produced a single PT_LOAD across the range and zero-filled the 368 bytes
  *    of FCU configuration in the gaps - including the FSPR permanence word - and flashing
  *    it permanently bricked two EK-RA6M4 boards on 2026-07-21. The zero fill is invisible
@@ -109,43 +109,22 @@ place at address BOOT_TFM_SHARED_DATA_BASE {block DATA};
  * Option-setting memory. See note 1. One region per group - never merge these.
  * --------------------------------------------------------------------------- */
 define region OPTION_SETTING_OFS0 = mem:[from OPTION_SETTING_OFS0_START size OPTION_SETTING_OFS0_LENGTH];
-define region OPTION_SETTING_DUALSEL = mem:[from OPTION_SETTING_DUALSEL_START size OPTION_SETTING_DUALSEL_LENGTH];
-define region OPTION_SETTING_OFS1 = mem:[from OPTION_SETTING_OFS1_START size OPTION_SETTING_OFS1_LENGTH];
-define region OPTION_SETTING_BANKSEL = mem:[from OPTION_SETTING_BANKSEL_START size OPTION_SETTING_BANKSEL_LENGTH];
-define region OPTION_SETTING_BPS = mem:[from OPTION_SETTING_BPS_START size OPTION_SETTING_BPS_LENGTH];
-define region OPTION_SETTING_PBPS = mem:[from OPTION_SETTING_PBPS_START size OPTION_SETTING_PBPS_LENGTH];
+define region OPTION_SETTING_OFS2 = mem:[from OPTION_SETTING_OFS2_START size OPTION_SETTING_OFS2_LENGTH];
 define region OPTION_SETTING_OFS1_SEC = mem:[from OPTION_SETTING_OFS1_SEC_START size OPTION_SETTING_OFS1_SEC_LENGTH];
-define region OPTION_SETTING_BANKSEL_SEC = mem:[from OPTION_SETTING_BANKSEL_SEC_START size OPTION_SETTING_BANKSEL_SEC_LENGTH];
-define region OPTION_SETTING_BPS_SEC = mem:[from OPTION_SETTING_BPS_SEC_START size OPTION_SETTING_BPS_SEC_LENGTH];
-define region OPTION_SETTING_PBPS_SEC = mem:[from OPTION_SETTING_PBPS_SEC_START size OPTION_SETTING_PBPS_SEC_LENGTH];
+define region OPTION_SETTING_OFS3_SEC = mem:[from OPTION_SETTING_OFS3_SEC_START size OPTION_SETTING_OFS3_SEC_LENGTH];
 define region OPTION_SETTING_OFS1_SEL = mem:[from OPTION_SETTING_OFS1_SEL_START size OPTION_SETTING_OFS1_SEL_LENGTH];
-define region OPTION_SETTING_BANKSEL_SEL = mem:[from OPTION_SETTING_BANKSEL_SEL_START size OPTION_SETTING_BANKSEL_SEL_LENGTH];
-define region OPTION_SETTING_BPS_SEL = mem:[from OPTION_SETTING_BPS_SEL_START size OPTION_SETTING_BPS_SEL_LENGTH];
+define region OPTION_SETTING_OFS3_SEL = mem:[from OPTION_SETTING_OFS3_SEL_START size OPTION_SETTING_OFS3_SEL_LENGTH];
 
 keep {section .option_setting_ofs0,
-      section .option_setting_dualsel,
-      section .option_setting_ofs1,
-      section .option_setting_banksel,
-      section .option_setting_bps,
-      section .option_setting_pbps,
+      section .option_setting_ofs2,
       section .option_setting_ofs1_sec,
-      section .option_setting_banksel_sec,
-      section .option_setting_bps_sec,
-      section .option_setting_pbps_sec,
+      section .option_setting_ofs3_sec,
       section .option_setting_ofs1_sel,
-      section .option_setting_banksel_sel,
-      section .option_setting_bps_sel };
+      section .option_setting_ofs3_sel };
 
 place in OPTION_SETTING_OFS0 { section .option_setting_ofs0 };
-place in OPTION_SETTING_DUALSEL { section .option_setting_dualsel };
-place in OPTION_SETTING_OFS1 { section .option_setting_ofs1 };
-place in OPTION_SETTING_BANKSEL { section .option_setting_banksel };
-place in OPTION_SETTING_BPS { section .option_setting_bps };
-place in OPTION_SETTING_PBPS { section .option_setting_pbps };
+place in OPTION_SETTING_OFS2 { section .option_setting_ofs2 };
 place in OPTION_SETTING_OFS1_SEC { section .option_setting_ofs1_sec };
-place in OPTION_SETTING_BANKSEL_SEC { section .option_setting_banksel_sec };
-place in OPTION_SETTING_BPS_SEC { section .option_setting_bps_sec };
-place in OPTION_SETTING_PBPS_SEC { section .option_setting_pbps_sec };
+place in OPTION_SETTING_OFS3_SEC { section .option_setting_ofs3_sec };
 place in OPTION_SETTING_OFS1_SEL { section .option_setting_ofs1_sel };
-place in OPTION_SETTING_BANKSEL_SEL { section .option_setting_banksel_sel };
-place in OPTION_SETTING_BPS_SEL { section .option_setting_bps_sel };
+place in OPTION_SETTING_OFS3_SEL { section .option_setting_ofs3_sel };

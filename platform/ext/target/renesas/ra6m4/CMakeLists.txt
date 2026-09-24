@@ -347,6 +347,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
             COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
                     ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                    --ra6-default --max-word 0xC
                     $<TARGET_FILE:${target}>
             DEPENDS $<TARGET_FILE:${target}>
             VERBATIM

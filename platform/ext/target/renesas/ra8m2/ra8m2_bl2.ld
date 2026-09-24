@@ -33,19 +33,29 @@ MEMORY
      * PT_LOAD per group and CANNOT zero-fill the FCU config bytes in between.
      * Merging these into one region/segment permanently bricks the part - see
      * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
+    /* Exactly the groups this solution emits - see bl2_option_setting.c. Addresses come
+     * from the generated option_settings.h, never from here.
+     *
+     * The device has 26 groups; the others are deliberately absent because a region with no
+     * section is noise and a section with no region is a hard ld error, which is how a
+     * carried-over script should announce itself. To add one: define BSP_CFG_OPTION_SETTING_*
+     * in e2, add the emission in bl2_option_setting.c, then a region HERE and a placement
+     * below - and the same three in ra8m2_bl2.icf for IAR. The unused ones are
+     *   OFS1        0x12c9f4c0   OFS3        0x12c9f4c4   SAS             0x02c9f074
+     *   BPS         0x12c9f600   BPS_SEC     0x02c9f200   (0x80 each, not RA6's 0x10)
+     *   OTP_FSBLCTRL0..2  0x02e07600/604/608   OTP_SAMR   0x02e07614
+     *   OTP_SACC00..03    0x02e07620..680      OTP_SACC10..13  0x02e07630..690
+     *   OTP_PBPS_SEC      0x02e17700   OTP_PBPS  0x12e17780   OTP_ZHUK  0x02e17920
+     * Note OFS1, OFS3 and OTP_PBPS are NON-SECURE alias addresses (0x12.../0x12e...);
+     * BL2 is built flat, so think before placing those from this image.
+     *
+     * RA6E1/RA6M5 have DUALSEL, BANKSEL and a non-OTP PBPS. THIS PART HAS NONE OF THEM. */
     OPTION_SETTING_OFS0        (r) : ORIGIN = OPTION_SETTING_OFS0_START,        LENGTH = OPTION_SETTING_OFS0_LENGTH
-    OPTION_SETTING_DUALSEL     (r) : ORIGIN = OPTION_SETTING_DUALSEL_START,     LENGTH = OPTION_SETTING_DUALSEL_LENGTH
-    OPTION_SETTING_OFS1        (r) : ORIGIN = OPTION_SETTING_OFS1_START,        LENGTH = OPTION_SETTING_OFS1_LENGTH
-    OPTION_SETTING_BANKSEL     (r) : ORIGIN = OPTION_SETTING_BANKSEL_START,     LENGTH = OPTION_SETTING_BANKSEL_LENGTH
-    OPTION_SETTING_BPS         (r) : ORIGIN = OPTION_SETTING_BPS_START,         LENGTH = OPTION_SETTING_BPS_LENGTH
-    OPTION_SETTING_PBPS        (r) : ORIGIN = OPTION_SETTING_PBPS_START,        LENGTH = OPTION_SETTING_PBPS_LENGTH
+    OPTION_SETTING_OFS2        (r) : ORIGIN = OPTION_SETTING_OFS2_START,        LENGTH = OPTION_SETTING_OFS2_LENGTH
     OPTION_SETTING_OFS1_SEC    (r) : ORIGIN = OPTION_SETTING_OFS1_SEC_START,    LENGTH = OPTION_SETTING_OFS1_SEC_LENGTH
-    OPTION_SETTING_BANKSEL_SEC (r) : ORIGIN = OPTION_SETTING_BANKSEL_SEC_START, LENGTH = OPTION_SETTING_BANKSEL_SEC_LENGTH
-    OPTION_SETTING_BPS_SEC     (r) : ORIGIN = OPTION_SETTING_BPS_SEC_START,     LENGTH = OPTION_SETTING_BPS_SEC_LENGTH
-    OPTION_SETTING_PBPS_SEC    (r) : ORIGIN = OPTION_SETTING_PBPS_SEC_START,    LENGTH = OPTION_SETTING_PBPS_SEC_LENGTH
+    OPTION_SETTING_OFS3_SEC    (r) : ORIGIN = OPTION_SETTING_OFS3_SEC_START,    LENGTH = OPTION_SETTING_OFS3_SEC_LENGTH
     OPTION_SETTING_OFS1_SEL    (r) : ORIGIN = OPTION_SETTING_OFS1_SEL_START,    LENGTH = OPTION_SETTING_OFS1_SEL_LENGTH
-    OPTION_SETTING_BANKSEL_SEL (r) : ORIGIN = OPTION_SETTING_BANKSEL_SEL_START, LENGTH = OPTION_SETTING_BANKSEL_SEL_LENGTH
-    OPTION_SETTING_BPS_SEL     (r) : ORIGIN = OPTION_SETTING_BPS_SEL_START,     LENGTH = OPTION_SETTING_BPS_SEL_LENGTH
+    OPTION_SETTING_OFS3_SEL    (r) : ORIGIN = OPTION_SETTING_OFS3_SEL_START,    LENGTH = OPTION_SETTING_OFS3_SEL_LENGTH
 }
 
 __heap_size__  = BL2_HEAP_SIZE;
@@ -307,27 +317,22 @@ SECTIONS
      * the whole point, and it mirrors FSP's generated fsp_gen.ld exactly.
      *
      * ⚠ DO NOT rewrite these as bare addressed sections:
-     *       .option_setting_ofs0 0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
-     *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
-     *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes of FCU config in the
-     *   gaps (including the FSPR permanence word). Flashing that from a debugger
-     *   permanently bricks the part - it cost two EK-RA6M4 boards on 2026-07-21.
+     *       .option_setting_ofs0 0x02c9f040 : { KEEP(*(.option_setting_ofs0)) }
+     *   With no '> REGION', ld coalesces them into ONE PT_LOAD spanning the whole
+     *   range and zero-fills the FCU configuration bytes in the gaps, including the
+     *   block-protect permanence word. Flashing that from a debugger permanently
+     *   bricks the part - it cost two EK-RA6M4 boards on 2026-07-21. The gaps are
+     *   wider here than on RA6: OFS0 is 0x02c9f040 and OFS3_SEL 0x02c9f124, with
+     *   BPS_SEC's 0x80 and the whole OTP block in between.
      *   The zero fill is invisible in the srec; check readelf -l. Full rationale
      *   and the verification command are in region_defs.h (OPTION_SETTING_* block).
      *
      * BL2-only: the secure/NS images are MCUboot-signed and imgtool needs a
      * contiguous payload, and two images programming OFS would collide. */
-    .option_setting_ofs0        : { KEEP(*(.option_setting_ofs0))        } > OPTION_SETTING_OFS0
-    .option_setting_dualsel     : { KEEP(*(.option_setting_dualsel))     } > OPTION_SETTING_DUALSEL
-    .option_setting_ofs1        : { KEEP(*(.option_setting_ofs1))        } > OPTION_SETTING_OFS1
-    .option_setting_banksel     : { KEEP(*(.option_setting_banksel))     } > OPTION_SETTING_BANKSEL
-    .option_setting_bps         : { KEEP(*(.option_setting_bps))         } > OPTION_SETTING_BPS
-    .option_setting_pbps        : { KEEP(*(.option_setting_pbps))        } > OPTION_SETTING_PBPS
-    .option_setting_ofs1_sec    : { KEEP(*(.option_setting_ofs1_sec))    } > OPTION_SETTING_OFS1_SEC
-    .option_setting_banksel_sec : { KEEP(*(.option_setting_banksel_sec)) } > OPTION_SETTING_BANKSEL_SEC
-    .option_setting_bps_sec     : { KEEP(*(.option_setting_bps_sec))     } > OPTION_SETTING_BPS_SEC
-    .option_setting_pbps_sec    : { KEEP(*(.option_setting_pbps_sec))    } > OPTION_SETTING_PBPS_SEC
-    .option_setting_ofs1_sel    : { KEEP(*(.option_setting_ofs1_sel))    } > OPTION_SETTING_OFS1_SEL
-    .option_setting_banksel_sel : { KEEP(*(.option_setting_banksel_sel)) } > OPTION_SETTING_BANKSEL_SEL
-    .option_setting_bps_sel     : { KEEP(*(.option_setting_bps_sel))     } > OPTION_SETTING_BPS_SEL
+    .option_setting_ofs0     : { KEEP(*(.option_setting_ofs0))     } > OPTION_SETTING_OFS0
+    .option_setting_ofs2     : { KEEP(*(.option_setting_ofs2))     } > OPTION_SETTING_OFS2
+    .option_setting_ofs1_sec : { KEEP(*(.option_setting_ofs1_sec)) } > OPTION_SETTING_OFS1_SEC
+    .option_setting_ofs3_sec : { KEEP(*(.option_setting_ofs3_sec)) } > OPTION_SETTING_OFS3_SEC
+    .option_setting_ofs1_sel : { KEEP(*(.option_setting_ofs1_sel)) } > OPTION_SETTING_OFS1_SEL
+    .option_setting_ofs3_sel : { KEEP(*(.option_setting_ofs3_sel)) } > OPTION_SETTING_OFS3_SEL
 }

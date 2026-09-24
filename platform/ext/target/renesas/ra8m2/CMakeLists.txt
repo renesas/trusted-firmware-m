@@ -357,6 +357,94 @@ ${_partition_body}
 ")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FSP_LINKER_INFO_SRC}")
 
+#-------------------------------------------------------------------------------
+# option_settings.h - the OFS addresses, extracted from the solution
+#
+# THE BRICK HAZARD LIVES HERE. Read DECISIONS D002 and DESIGN.md 8.4 before touching it.
+#
+# These were HAND-TRANSCRIBED into region_defs.h until 2026-09-24, and on RA8M2 they were
+# transcribed from RA6M5 - so .option_setting_ofs0 linked at 0x0100A100, RA6M5's OFS0, when
+# this part's is at 0x02c9f040. The image wrote option words to an address that is not this
+# device's option memory, and the real OFS/PBPS registers were never written. Verified in
+# bin/bl2.map before it was ever flashed.
+#
+# So they are no longer transcribed. bsp_linker_info.h does NOT carry them (unlike the
+# BSP_PARTITION_* values above), but the generated memory_regions.icf does, under exactly the
+# symbol names the linker scripts use. Translate that file's
+#     define symbol NAME = 0xVALUE;
+# into
+#     #define NAME 0xVALUE
+# at configure time, and both linker scripts follow the solution with no edits.
+#
+# RA8M2's set is NOT RA6's. It has 26 groups where RA6E1/RA6M5 have 13: OFS2 and OFS3
+# (+_SEC/_SEL) and SAS are new, there is a whole OTP block (FSBLCTRL0-2, SAMR, SACC00-13,
+# PBPS+_SEC, ZHUK), and DUALSEL, BANKSEL and the non-OTP PBPS do not exist at all. A linker
+# script naming a region whose symbol is absent is a hard error, which is the good outcome -
+# it is how a carried-over RA6 script announces itself rather than placing words at a wrong
+# address that happens to resolve.
+#-------------------------------------------------------------------------------
+set(FSP_OFS_HEADER "${FSP_PARTITION_HEADER_DIR}/option_settings.h")
+set(FSP_MEMREGIONS_SRC "${FSP_BL2_APP_DIR}/Debug/memory_regions.icf")
+
+if(NOT EXISTS "${FSP_MEMREGIONS_SRC}")
+    message(FATAL_ERROR
+        "RA8M2: ${FSP_MEMREGIONS_SRC} is missing.
+"
+        "It carries the option-setting (OFS) addresses, which must never be hand-written - "
+        "see the note above. The solution emits it during the e2 build; rebuild the "
+        "bootloader project there.")
+endif()
+
+file(STRINGS "${FSP_MEMREGIONS_SRC}" _ofs_lines
+     REGEX "^[ 	]*define[ 	]+symbol[ 	]+OPTION_SETTING_[A-Za-z0-9_]+[ 	]*=")
+if(NOT _ofs_lines)
+    message(FATAL_ERROR
+        "RA8M2: no OPTION_SETTING_* symbols in ${FSP_MEMREGIONS_SRC}. Without them the "
+        "linker cannot place the OFS sections at all - see the note above.")
+endif()
+
+# define symbol NAME = 0xVALUE;   ->   #define NAME 0xVALUE
+#
+# REGEX MATCH + CMAKE_MATCH_n rather than REGEX REPLACE with backreferences: a "" in a
+# quoted CMake argument is an escape sequence, not a backreference, and expands to nothing.
+# The first attempt here produced a header full of bare "#define" lines and a wall of Pe040
+# errors. CMAKE_MATCH_n needs no escaping at all.
+set(_ofs_body "")
+foreach(_line IN LISTS _ofs_lines)
+    if(_line MATCHES "define[ 	]+symbol[ 	]+([A-Za-z0-9_]+)[ 	]*=[ 	]*([^;]+);")
+        set(_ofs_name "${CMAKE_MATCH_1}")
+        string(STRIP "${CMAKE_MATCH_2}" _ofs_val)
+        string(APPEND _ofs_body "#define ${_ofs_name} ${_ofs_val}
+")
+    else()
+        message(FATAL_ERROR
+            "RA8M2: cannot parse an OPTION_SETTING line from ${FSP_MEMREGIONS_SRC}:
+"
+            "  ${_line}
+"
+            "The OFS addresses must come from the generated file, so a format change has to "
+            "stop the build rather than be worked around by hand - see the note above.")
+    endif()
+endforeach()
+
+file(CONFIGURE OUTPUT "${FSP_OFS_HEADER}" CONTENT
+"/* GENERATED - do not edit. Extracted by the ra8m2 platform CMakeLists from
+ * ${FSP_MEMREGIONS_SRC}
+ *
+ * Option-setting (OFS) addresses. NEVER hand-write these: a wrong address here writes
+ * option words - including block-protect and its permanence bit - somewhere they do not
+ * belong. Two EK-RA6M4 boards were destroyed that way on 2026-07-21 (DECISIONS D002).
+ *
+ * Macros only: this header is preprocessed into ra8m2_bl2.ld as well as compiled.
+ */
+#ifndef __OPTION_SETTINGS_H__
+#define __OPTION_SETTINGS_H__
+
+${_ofs_body}
+#endif /* __OPTION_SETTINGS_H__ */
+")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FSP_MEMREGIONS_SRC}")
+
 # platform_region_defs is what the scatter targets link, so these are the paths that make
 # region_defs.h and its includes resolvable when a linker script is preprocessed.
 #
@@ -707,8 +795,12 @@ endif()
 # The guard is not wired into the NSPE build; tfm_ns has no option-setting sections and
 # ns_app/ does not include this file.
 #
-# The script is shared with ra6m4 from renesas/common - the option-setting map is identical
-# on both parts, and divergent copies of this particular check are a hazard in themselves.
+# The script is shared from renesas/common - divergent copies of a brick guard are a hazard in
+# themselves - but the OFS MAP IS NOT SHARED. RA8M2's option memory is at 0x02c9f040+ with a
+# second OTP block at 0x02e07600+, where RA6E1/RA6M4/RA6M5 use 0x0100A100+. The guard used to
+# hardcode the RA6 window, and against an RA8M2 bl2.axf carrying six OFS segments it printed
+# "CLEAN (no OFS segments) ... safe to flash" - a false negative that reads as verification.
+# It now requires the region to be passed, so a new part cannot inherit a silent pass.
 #-------------------------------------------------------------------------------
 # NOT gated on the compiler. It was, on GNU, and that was wrong: the guard defends against
 # a LINKER SCRIPT mistake, so it is needed most precisely when the linker script is new and
@@ -732,10 +824,31 @@ if(NOT RA8M2_OFS_READELF)
 endif()
 
 function(ra8m2_add_ofs_check target)
+    # ARGN: extra guard flags, e.g. --require-segments for the image that carries the words.
     add_custom_target(ra8m2_ofs_check_${target} ALL
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA8M2_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                # RA8M2's option memory, in five disjoint windows. Addresses from the
+                # generated option_settings.h; kept as literals here only because a CMake
+                # custom command cannot read a generated header. If they ever disagree, the
+                # header is right.
+                #   secure OFS0/OFS2/SAS/OFS1_SEC/OFS3_SEC/OFS1_SEL/OFS3_SEL + BPS_SEC(0x80)
+                --region 0x02c9f040:0x02c9f280
+                #   non-secure alias OFS1/OFS3 + BPS(0x80)
+                --region 0x12c9f4c0:0x12c9f680
+                #   OTP FSBLCTRL0-2, SAMR, SACC00-03/10-13
+                --region 0x02e07600:0x02e07698
+                #   OTP PBPS_SEC(0x80) and ZHUK
+                --region 0x02e17700:0x02e17924
+                #   OTP PBPS, non-secure alias
+                --region 0x12e17780:0x12e17800
+                # This port places only 4-byte words (bl2_option_setting.c emits six), so
+                # ANY segment larger than that in these windows is a coalescing failure.
+                # Tighter than the 0x80 a BPS word would need - raise it if BPS/PBPS are
+                # ever placed, and not before.
+                --max-word 4
+                ${ARGN}
                 $<TARGET_FILE:${target}>
         DEPENDS $<TARGET_FILE:${target}>
         VERBATIM
@@ -743,9 +856,15 @@ function(ra8m2_add_ofs_check target)
     add_dependencies(ra8m2_ofs_check_${target} ${target})
 endfunction()
 
+# tfm_s must carry NO option words at all, so no --require-segments here: a CLEAN result is
+# the expected and correct outcome for the secure image.
 ra8m2_add_ofs_check(tfm_s)
 if(BL2)
-    ra8m2_add_ofs_check(bl2)
+    # --require-segments: BL2 is the image that carries the option words, so an empty result
+    # is a failure, not a pass. Without it, dropped sections or a wrong region window both
+    # print as CLEAN - which is exactly how this guard was silently inert on RA8M2 until
+    # 2026-09-24.
+    ra8m2_add_ofs_check(bl2 --require-segments)
 endif()
 
 #-------------------------------------------------------------------------------

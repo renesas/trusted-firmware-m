@@ -243,47 +243,33 @@
 /*
  * RA8M2 option-setting memory - DISCRETE regions, one per register group.
  *
- * Same thirteen groups and the same start addresses as RA6E1/RA6M4, but the block-protect
- * words are WIDER here: BPS/PBPS and their _SEC/_SEL mirrors are 0x10, not 0xC, because
- * the RA8M2 has 2 MB of code flash and therefore more protectable blocks. Values read off
- * the generated ra8m2_gcc_mcuboot/Debug/memory_regions.ld - do not carry the RA6E1 numbers
- * over. These MUST stay thirteen separate MEMORY regions in
- * ra8m2_bl2.ld, each section assigned with '> REGION'. Emitting them as one
- * coalesced PT_LOAD zero-fills the 368 bytes of FCU config in the gaps - including
- * the FSPR permanence word - and permanently bricks the part. That destroyed two
- * EK-RA6M4 boards on 2026-07-21.
+ * THE ADDRESSES ARE NOT HERE, AND MUST NOT BE PUT BACK. They come from
+ * option_settings.h, which the platform CMakeLists generates at configure time from the
+ * solution's own memory_regions.icf. Included below.
  *
- * The fill is invisible in the srec (it lives in the program header, and objcopy -O
- * srec emits from sections). Verify with:
+ * WHY. They were hand-written here until 2026-09-24, and because this port was seeded from
+ * RA6M5 the values were RA6M5's: .option_setting_ofs0 linked at 0x0100A100 when RA8M2's
+ * OFS0 is at 0x02c9f040. The image wrote option words to an address that is not this
+ * device's option memory, and the real OFS and block-protect registers were never written
+ * at all. The comment that sat here even asserted "the same start addresses as RA6E1/RA6M4"
+ * and "2 MB of code flash", both false. Caught by reading bin/bl2.map, before flashing.
+ *
+ * RA8M2's set is NOT RA6's: 26 groups against 13. OFS2, OFS3 (+_SEC/_SEL) and SAS are new;
+ * there is a separate OTP block (FSBLCTRL0-2, SAMR, SACC00-13, PBPS +_SEC, ZHUK); and
+ * DUALSEL, BANKSEL and the non-OTP PBPS do not exist here. BPS is 0x80, not 0x10.
+ *
+ * WHAT HAS NOT CHANGED - the placement rule, which is the actual brick hazard. These MUST
+ * stay SEPARATE regions in ra8m2_bl2.ld / .icf, each section assigned with '> REGION'.
+ * Emitting them as one coalesced PT_LOAD zero-fills the FCU configuration in the gaps,
+ * including the block-protect permanence word, and permanently bricks the part. That
+ * destroyed two EK-RA6M4 boards on 2026-07-21 (DECISIONS D002).
+ *
+ * The fill is INVISIBLE in the srec - it lives in the program header, and an srec is
+ * emitted from sections. Verify the segments, not the sections:
  *     arm-none-eabi-readelf -l bin/bl2.axf
- * Expect small separate LOAD segments in 0x0100Axxx, never one spanning 0x1CC.
- * Full rationale: DESIGN.md 8.4.
+ * Expect small separate LOAD segments in 0x02c9fxxx and 0x02e07xxx/0x02e17xxx, never one
+ * spanning them. Full rationale: DESIGN.md 8.4.
  */
-#define OPTION_SETTING_OFS0_START           0x0100A100
-#define OPTION_SETTING_OFS0_LENGTH          0x4
-#define OPTION_SETTING_DUALSEL_START        0x0100A110
-#define OPTION_SETTING_DUALSEL_LENGTH       0x4
-#define OPTION_SETTING_OFS1_START           0x0100A180
-#define OPTION_SETTING_OFS1_LENGTH          0x4
-#define OPTION_SETTING_BANKSEL_START        0x0100A190
-#define OPTION_SETTING_BANKSEL_LENGTH       0x4
-#define OPTION_SETTING_BPS_START            0x0100A1C0
-#define OPTION_SETTING_BPS_LENGTH           0x10
-#define OPTION_SETTING_PBPS_START           0x0100A1E0
-#define OPTION_SETTING_PBPS_LENGTH          0x10
-#define OPTION_SETTING_OFS1_SEC_START       0x0100A200
-#define OPTION_SETTING_OFS1_SEC_LENGTH      0x4
-#define OPTION_SETTING_BANKSEL_SEC_START    0x0100A210
-#define OPTION_SETTING_BANKSEL_SEC_LENGTH   0x4
-#define OPTION_SETTING_BPS_SEC_START        0x0100A240
-#define OPTION_SETTING_BPS_SEC_LENGTH       0x10
-#define OPTION_SETTING_PBPS_SEC_START       0x0100A260
-#define OPTION_SETTING_PBPS_SEC_LENGTH      0x10
-#define OPTION_SETTING_OFS1_SEL_START       0x0100A280
-#define OPTION_SETTING_OFS1_SEL_LENGTH      0x4
-#define OPTION_SETTING_BANKSEL_SEL_START    0x0100A290
-#define OPTION_SETTING_BANKSEL_SEL_LENGTH   0x4
-#define OPTION_SETTING_BPS_SEL_START        0x0100A2C0
-#define OPTION_SETTING_BPS_SEL_LENGTH       0x10
+#include "option_settings.h"
 
 #endif /* __REGION_DEFS_H__ */
