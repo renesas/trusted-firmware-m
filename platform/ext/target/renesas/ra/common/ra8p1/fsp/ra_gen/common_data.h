@@ -8,14 +8,20 @@
 #define COMMON_DATA_H_
 
 #include <stdint.h>
+#include <RTE_Device.h>
 #include "bsp_api.h"
+
+#if (RTE_FLASH0 == 1)
 #include "r_mram.h"
 #include "r_flash_api.h"
+#endif
 
 #include "r_ioport.h"
 #include "bsp_pin_cfg.h"
 
 FSP_HEADER
+
+#if (RTE_FLASH0 == 1)
 
 /* Flash on MRAM Instance */
 extern const flash_instance_t g_mram0;
@@ -28,6 +34,8 @@ extern const flash_cfg_t g_mram0_cfg;
 #ifndef NULL
 void NULL(flash_callback_args_t *p_args);
 #endif
+
+#endif /* end RTE_FLASH0 */
 
 #define IOPORT_CFG_NAME g_bsp_pin_cfg
 #define IOPORT_CFG_OPEN R_IOPORT_Open

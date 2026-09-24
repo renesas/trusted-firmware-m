@@ -6,6 +6,8 @@
 
 #include "common_data.h"
 
+#if (RTE_FLASH0 == 1)
+
 mram_instance_ctrl_t g_mram0_ctrl;
 
 const flash_cfg_t g_mram0_cfg = {
@@ -30,6 +32,8 @@ const flash_instance_t g_mram0 = {
 };
 
 flash_instance_t const *const gp_tfm_flash_instance = &g_mram0;
+
+#endif /* end RTE_FLASH0 */
 
 ioport_instance_ctrl_t g_ioport_ctrl;
 
