@@ -140,7 +140,7 @@ function(fetch_remote_library)
     file(GLOB PATCH_FILES ${ARG_LIB_PATCH_DIR}/*.patch LIST_DIRECTORIES true)
 
     if(PATCH_FILES)
-        set(PATCH_COMMAND PATCH_COMMAND ${GIT_EXECUTABLE} am --ignore-date ${PATCH_FILES})
+        set(PATCH_COMMAND PATCH_COMMAND ${GIT_EXECUTABLE} am --ignore-date --keep-cr ${PATCH_FILES})
     endif()
 
     # Content fetching
