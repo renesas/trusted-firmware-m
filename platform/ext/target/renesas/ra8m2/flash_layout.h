@@ -72,11 +72,24 @@
 #define TFM_MRAM_S_OFF(addr)            ((addr) - (FLASH_BASE_ADDRESS))
 #define TFM_MRAM_NS_OFF(addr)           ((addr) - (FLASH_NS_ALIAS_BASE))
 
-/* MRAM write unit, BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES. Advertised by
- * Driver_Flash.c as program_unit and returned to MCUboot as flash_area_align();
- * config.cmake must keep MCUBOOT_ALIGN_VAL equal to it, since the images are signed
- * with --align and the trailer geometry has to match at runtime. Named rather than
- * written as a literal so the coupling is greppable. */
+/* MCUboot's write unit: BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, 32.
+ *
+ * READ THE NEXT PARAGRAPH BEFORE REUSING THIS NUMBER. 32 is the size of the MRAM
+ * PROGRAMMING BUFFER, not a minimum write. MRAM's write granularity is ONE BYTE:
+ * r_mram.c's flash_info reports block_size 32 (the ERASE block) and
+ * block_size_write 1, mram_write_data() copies byte at a time and flushes a partial
+ * buffer through MRCFLR - the FSP comment there cites the hardware manual's
+ * "smaller than 32-bytes programming" procedure - and
+ * r_mram_write_erase_parameter_checking() enforces no alignment or multiple at all.
+ *
+ * It is 32 HERE because FSP says so for MCUboot specifically: its generated
+ * mcuboot_config.h sets MCUBOOT_BOOT_MAX_ALIGN from the same BSP feature. Driver_Flash.c
+ * advertises it as FLASH0's program_unit and bl2/src/flash_map.c returns it as
+ * flash_area_align(); config.cmake must keep MCUBOOT_ALIGN_VAL equal to it, since the
+ * images are signed with --align and the trailer geometry has to match at runtime.
+ * Consume FSP's choice rather than second-guessing it.
+ *
+ * The ITS/PS side is NOT 32 - see TFM_HAL_DATA_FLASH_PROGRAM_UNIT below. */
 #define TFM_HAL_FLASH_PROGRAM_UNIT      (32)
 #define TFM_HAL_CODE_FLASH_PROGRAM_UNIT (32)
 
@@ -230,13 +243,35 @@
  * slot, so storage placed inside one would be destroyed by the first image upgrade -
  * which is also why it cannot simply be carved out of the slack in a slot.
  *
- * The sizes below are RA6M5's unchanged, because the region size is the same 0x2000:
- * NV counters 2048 B, PS 3072 B, ITS 3072 B. What changes is the program unit - 32 B of
- * MRAM against 4 B of data flash - so every write the backends make is 8x coarser. The
- * 64 B logical sector still works, being a multiple of 32.
+ * The split follows RA6M5's proportions: NV counters 2048 B, then PS and ITS take half the
+ * remainder each. At DF_EMULATION 0x10000 that is PS and ITS 31,744 B apiece, about 10x what
+ * the RA6 parts get from 8 KB of data flash. The program unit is the SAME 4 as theirs - MRAM
+ * writes single bytes - so the backends behave identically; only the capacity differs.
  * ============================================================================== */
 #define FLASH_DEV_NAME_DATA             Driver_FLASH1
-#define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (32)             /* MRAM, not data flash's 4 */
+
+/* 4, NOT the 32 that MCUboot uses - and this is load-bearing, not cosmetic.
+ *
+ * MRAM writes single bytes (see TFM_HAL_FLASH_PROGRAM_UNIT above), so any small value is
+ * honest. 4 matches what RA6E1/RA6M5 advertise for their data flash, which keeps the ITS and
+ * PS backends on the same code path across all three ports.
+ *
+ * WHY IT MATTERS: its_flash.c selects its backend on this number.
+ *
+ *     #elif (TFM_HAL_ITS_PROGRAM_UNIT > 16)
+ *     #ifndef ITS_FLASH_NAND_BUF_SIZE
+ *     #error "ITS_FLASH_NAND_BUF_SIZE must be defined by the target in flash_layout.h"
+ *
+ * Above 16 it switches to the NAND emulation, which needs ITS_FLASH_NAND_BUF_SIZE and
+ * PS_FLASH_NAND_BUF_SIZE and allocates TWO static buffers of that size for each of ITS and
+ * PS. At this port's block size that is 4 x 15,872 = about 62 KB of secure RAM bought for
+ * nothing, since the hardware never needed the coarse unit. Setting 32 here is what first
+ * revealed the distinction - the build stopped on exactly that #error.
+ *
+ * Both backends also CHECK this at run time against the driver's advertised program_unit
+ * (tfm_internal_trusted_storage.c:210 and :246, returning PSA_ERROR_PROGRAMMER_ERROR), so
+ * Driver_Flash.c's DataFlashInfo must derive from this macro and not carry its own literal. */
+#define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (4)
 
 /* DF_EMULATION geometry, as cmsis_drivers/Driver_Flash.c names it.
  *

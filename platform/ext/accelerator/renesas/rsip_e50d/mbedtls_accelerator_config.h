@@ -55,7 +55,6 @@
  * NOTE the divergence from FSP: the e2 solution enables MBEDTLS_CCM_ALT for E50D. It stays
  * off here until the associated-data limit is measured on THIS engine. The SCE9 reasoning
  * below is why, and whether E50D formats B-blocks into the same 128 B buffer is unverified.
- */
  *
  * FSP's SCE9 CCM formats the whole B-block sequence into one 128 B hardware buffer
  * (HW_SCE_AES_CCM_B_FORMAT_BYTE_SIZE), so it accepts at most 110 B of associated data:

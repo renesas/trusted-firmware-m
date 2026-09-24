@@ -260,13 +260,13 @@ _Static_assert(BSP_PARTITION_DF_EMULATION_START >= FLASH_BASE_ADDRESS &&
  *
  * Sizes are from the flash FS and PS structs (its_flash_fs_mblock.h, ps_object_defs.h,
  * ps_object_table.c) at this port's settings: PS_ENCRYPTION on, PS_ROLLBACK_PROTECTION on,
- * PS_AES_KEY_USAGE_LIMIT 0. They are struct sizes, so they do not move with the program
- * unit - but the flash FS ALIGNS ITS WRITES to it, and this part's is 32 B of MRAM against
- * RA6M5's 4 B of data flash. The per-object rounding that implies is NOT modelled below and
- * has not been measured on hardware, so treat the margin as thinner than it reads: at
- * PS_NUM_ASSETS 5 the slack is 672 - 584 = 88 bytes, under three 32 B write units. If PS
- * returns PSA_ERROR_INSUFFICIENT_STORAGE on this part despite these assertions passing,
- * alignment overhead is the first thing to suspect (DECISIONS D051).
+ * PS_AES_KEY_USAGE_LIMIT 0, 4-byte program unit - the SAME as RA6M5's, because MRAM writes
+ * single bytes and TFM_HAL_PS_PROGRAM_UNIT is 4 here too (flash_layout.h). So the
+ * write-alignment overhead is identical to the validated port, not coarser, and an earlier
+ * revision of this comment warning about 32-byte rounding was wrong on both counts.
+ *
+ * The margin is also far wider here than on RA6M5: DF_EMULATION gives PS 31,744 B against
+ * 3,072, so the assertion below clears by about 15,000 bytes rather than 88.
  * --------------------------------------------------------------------------------- */
 #define RA8M2_PS_BLOCK_SIZE     (TFM_HAL_PS_SECTOR_SIZE * TFM_HAL_PS_SECTORS_PER_BLOCK)
 #define RA8M2_PS_NUM_BLOCKS     (TFM_HAL_PS_FLASH_AREA_SIZE / RA8M2_PS_BLOCK_SIZE)

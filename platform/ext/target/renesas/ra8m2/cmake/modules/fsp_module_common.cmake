@@ -39,10 +39,36 @@ macro(fsp_module_library _out _base)
     # which is flat like the e2 bootloader. See the note in the platform CMakeLists.
     target_compile_definitions(${${_out}} PUBLIC ${FSP_COMPILE_DEFS} ${FSP_MODULE_TZ_DEFS})
 
+    # The FP/ABI flag, PER ROLE. Not optional, and the reason is worth stating.
+    #
+    # TF-M applies COMPILER_CP_FLAG per TARGET - platform/CMakeLists.txt and
+    # secure_fw/CMakeLists.txt each add it to the targets they create - not globally through
+    # CMAKE_C_FLAGS. The FSP module libraries are created here, so nothing was giving it to
+    # them and they compiled with the compiler's DEFAULT FPU for the -mcpu/--cpu in use.
+    #
+    # On Cortex-M33 that was invisible: iccarm's default FPU there is none, which happens to
+    # match the --fpu=none the link uses at CONFIG_TFM_FLOAT_ABI=soft. Cortex-M85 defaults to
+    # a present FPU, so the FSP objects carried VFP while the link did not, and ILINK refused
+    # the image outright:
+    #
+    #     Error[Lt006]: Incompatible object(s): system.o(libfsp_bsp_s.a) and 195 other
+    #       objects ... use VFP instructions incompatible with No vfp (provided as FPU option)
+    #
+    # Taken from the same variables the rest of the build uses rather than hardcoding
+    # --fpu=none, so this follows CONFIG_TFM_FLOAT_ABI / CONFIG_TFM_ENABLE_FP if the port ever
+    # enables hardware FP. BL2 has its own variable because TF-M builds the bootloader
+    # soft-float regardless of what the secure image does.
+    if(FSP_MODULE_ROLE STREQUAL "bl2")
+        set(_fsp_cp_flag ${BL2_COMPILER_CP_FLAG})
+    else()
+        set(_fsp_cp_flag ${COMPILER_CP_FLAG})
+    endif()
+
     # -mcmse: every module here is linked into a secure-side image (S or BL2).
     target_compile_options(${${_out}}
         PRIVATE
             ${COMPILER_CMSE_FLAG}
+            ${_fsp_cp_flag}
             ${FSP_COMPILE_OPTIONS}
     )
 endmacro()

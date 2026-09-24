@@ -73,11 +73,15 @@ extern const flash_cfg_t    g_mram0_cfg;
  * block_size. So an erase of one MCUboot sector is 0x8000 / 32 = 1024 blocks, and one
  * DF_EMULATION sector is 64 / 32 = 2.
  *
- * This is the same trap as the sector size in flash_layout.h from the other side: 32 is the
- * write granularity, 0x8000 is the MCUboot sector, and MRAM has no erase granularity of its
- * own - its "erase" is a normal programming pass writing the erased value. The RA6M5 driver
- * this came from computed its data-flash block count as SECTOR_SIZE / SECTOR_SIZE, which is
- * 1 and was right only because a data-flash block happened to equal its sector. */
+ * Three different numbers live in this area and none of them is the write granularity, which
+ * is ONE BYTE (mram_write_data() copies byte at a time - see flash_layout.h):
+ *   32      - the programming buffer / "erase" block, what R_MRAM_Erase counts
+ *   0x8000  - the MCUboot sector, FSP's RM_MCUBOOT_MRAM_BLOCK_SIZE
+ *   64      - DF_EMULATION's logical FS sector
+ * MRAM has no erase granularity in the flash sense at all; its "erase" is a normal
+ * programming pass writing the erased value. The RA6M5 driver this came from computed its
+ * data-flash block count as SECTOR_SIZE / SECTOR_SIZE, which is 1 and was right only because
+ * a data-flash block happened to equal its sector. */
 #define MRAM_ERASE_BLOCK_SIZE    (BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES)
 #define MRAM_BLOCKS_PER(sector)  ((sector) / MRAM_ERASE_BLOCK_SIZE)
 
@@ -104,9 +108,10 @@ static const ARM_DRIVER_VERSION DriverVersion = {
  * initialised and the repair path then wrote at quarter size too. Kept at 0 here for the
  * same reason, not by inheritance.
  *
- * Honest as well as convenient: MRAM is memory-mapped and byte-readable. Write granularity
- * is a separate concern, carried by the *_PROGRAM_UNIT macros in flash_layout.h (32 for
- * both instances on this part), not by data_width.
+ * Honest as well as convenient: MRAM is memory-mapped and byte-readable. Write granularity is
+ * a separate concern, carried by the *_PROGRAM_UNIT macros in flash_layout.h - 32 for FLASH0
+ * because FSP fixes MCUboot's alignment there, 4 for FLASH1 so ITS/PS stay off the NAND path -
+ * not by data_width.
  */
 static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0, /* event_ready */
@@ -157,10 +162,15 @@ static ARM_FLASH_INFO FlashInfo = {
  * PSA_ERROR_PROGRAMMER_ERROR (-129) out of init_its_fs_cfg(). On RA6M5 this said 1 while
  * flash_layout.h said 4, and ITS failed at spm_init_function() with PS to follow.
  *
- * 32 is the MRAM write size - the same as FLASH0's, because it is the same array. The
- * 64-byte figure is the LOGICAL sector the flash filesystem rotates on, which is
- * sector_size; MRAM imposes no erase block of its own, so 64 is a choice carried over from
- * RA6M5's data flash and must stay a multiple of 32.
+ * 4, not FLASH0's 32, even though it is the same array - because MRAM writes single bytes
+ * and the two consumers want different things from the number. MCUboot takes 32 because FSP's
+ * generated mcuboot_config.h says so; ITS and PS take 4 because above 16 its_flash.c switches
+ * to a NAND emulation that would allocate about 62 KB of RAM buffers for no benefit. See
+ * TFM_HAL_DATA_FLASH_PROGRAM_UNIT in flash_layout.h for the whole argument.
+ *
+ * The 64-byte figure is the LOGICAL sector the flash filesystem rotates on, which is
+ * sector_size; MRAM imposes no erase granularity of its own, so 64 is a choice carried over
+ * from RA6M5's data flash and must stay a multiple of the program unit.
  *
  * erased_value 0xFF matches mram_erase_blocks(), which writes UINT8_MAX bytes.
  */
