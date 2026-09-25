@@ -243,7 +243,6 @@ static int32_t ARM_Flash_Uninitialize(void)
         return ARM_DRIVER_ERROR;
     }
     FLASH0_DEV->instance->p_api->close(FLASH0_DEV->instance->p_ctrl);
-    FLASH0_DEV->instance = NULL;
 
     return ARM_DRIVER_OK;
 }
