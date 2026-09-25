@@ -42,6 +42,27 @@ target_sources(${FSP_BSP_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/../../bsp_init_stub.c"
 )
 
+# ra8m2_ddsc.c is here for the SAME archive-ordering reason as bsp_init_stub.c above, and it
+# is worth stating twice because the file was first put in platform_s and IAR accepted it.
+#
+# bsp_security.c (in THIS library) references gp_ddsc_{I,D}TCM_START/END for the M85 TCM
+# attribution. GNU ld searches archives left to right and does not revisit: with the
+# definitions in libplatform_s.a, which precedes libfsp_bsp_s.a on the link line, the
+# reference introduced later by bsp_security.o goes unresolved -
+#     undefined reference to `gp_ddsc_ITCM_END'
+# ILINK resolves iteratively and linked it anyway, so this was invisible until the first
+# GNUARM build. Same archive as its only consumer is the fix.
+#
+# SECURE ROLE ONLY: R_BSP_SecurityInit sits inside #if BSP_TZ_SECURE_BUILD, and BL2 is built
+# flat (FSP_TZ_DEFS_BL2 is empty), so the bootloader compiles none of it and must not link
+# these definitions.
+if(FSP_MODULE_ROLE STREQUAL "s")
+    target_sources(${FSP_BSP_TARGET}
+        PRIVATE
+            "${CMAKE_CURRENT_LIST_DIR}/../../ra8m2_ddsc.c"
+    )
+endif()
+
 #-------------------------------------------------------------------------------
 # Include paths for modules TF-M does NOT build
 #

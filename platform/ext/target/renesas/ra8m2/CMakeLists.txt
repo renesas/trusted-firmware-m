@@ -384,26 +384,41 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FSP_LINKER_INF
 # address that happens to resolve.
 #-------------------------------------------------------------------------------
 set(FSP_OFS_HEADER "${FSP_PARTITION_HEADER_DIR}/option_settings.h")
-set(FSP_MEMREGIONS_SRC "${FSP_BL2_APP_DIR}/Debug/memory_regions.icf")
 
-if(NOT EXISTS "${FSP_MEMREGIONS_SRC}")
+# The generated memory-regions file, whose NAME AND SYNTAX depend on the project's toolchain:
+#   IAR  Debug/memory_regions.icf   "define symbol NAME = 0xVALUE;"
+#   GNU  Debug/memory_regions.ld    "NAME = 0xVALUE;"
+# Both carry the same OPTION_SETTING_* addresses. Hardcoding the .icf name worked until the
+# first GNUARM project set existed and then failed configure outright, which is the good
+# failure - but there is no reason to prefer one toolchain here, so accept either.
+set(FSP_MEMREGIONS_SRC "")
+foreach(_cand "memory_regions.icf" "memory_regions.ld")
+    if(EXISTS "${FSP_BL2_APP_DIR}/Debug/${_cand}")
+        set(FSP_MEMREGIONS_SRC "${FSP_BL2_APP_DIR}/Debug/${_cand}")
+        break()
+    endif()
+endforeach()
+
+if(NOT FSP_MEMREGIONS_SRC)
     message(FATAL_ERROR
-        "RA8M2: ${FSP_MEMREGIONS_SRC} is missing.
+        "RA8M2: neither Debug/memory_regions.icf nor Debug/memory_regions.ld is in
 "
-        "It carries the option-setting (OFS) addresses, which must never be hand-written - "
-        "see the note above. The solution emits it during the e2 build; rebuild the "
-        "bootloader project there.")
+        "  ${FSP_BL2_APP_DIR}
+"
+        "One of them carries the option-setting (OFS) addresses, which must never be "
+        "hand-written - see the note above. The solution emits it during the e2 build; "
+        "rebuild the bootloader project there.")
 endif()
 
 file(STRINGS "${FSP_MEMREGIONS_SRC}" _ofs_lines
-     REGEX "^[ 	]*define[ 	]+symbol[ 	]+OPTION_SETTING_[A-Za-z0-9_]+[ 	]*=")
+     REGEX "^[ 	]*(define[ 	]+symbol[ 	]+)?OPTION_SETTING_[A-Za-z0-9_]+[ 	]*=")
 if(NOT _ofs_lines)
     message(FATAL_ERROR
         "RA8M2: no OPTION_SETTING_* symbols in ${FSP_MEMREGIONS_SRC}. Without them the "
         "linker cannot place the OFS sections at all - see the note above.")
 endif()
 
-# define symbol NAME = 0xVALUE;   ->   #define NAME 0xVALUE
+# NAME = 0xVALUE;  ->  #define NAME 0xVALUE, with the IAR "define symbol" prefix optional.
 #
 # REGEX MATCH + CMAKE_MATCH_n rather than REGEX REPLACE with backreferences: a "" in a
 # quoted CMake argument is an escape sequence, not a backreference, and expands to nothing.
@@ -411,7 +426,7 @@ endif()
 # errors. CMAKE_MATCH_n needs no escaping at all.
 set(_ofs_body "")
 foreach(_line IN LISTS _ofs_lines)
-    if(_line MATCHES "define[ 	]+symbol[ 	]+([A-Za-z0-9_]+)[ 	]*=[ 	]*([^;]+);")
+    if(_line MATCHES "(OPTION_SETTING_[A-Za-z0-9_]+)[ 	]*=[ 	]*([^;]+);")
         set(_ofs_name "${CMAKE_MATCH_1}")
         string(STRIP "${CMAKE_MATCH_2}" _ofs_val)
         string(APPEND _ofs_body "#define ${_ofs_name} ${_ofs_val}
@@ -472,12 +487,9 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tfm_peripherals_def.c
     ${CMAKE_CURRENT_SOURCE_DIR}/attest_hal.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers/Driver_Flash.c
-    # gp_ddsc_{I,D}TCM_START/END for FSP's bsp_security.c, which programs the SAU on this
-    # port. SECURE ROLE ONLY: R_BSP_SecurityInit sits inside #if BSP_TZ_SECURE_BUILD and BL2
-    # is built flat, so platform_bl2 must NOT list this. RA6E1/RA6M5 need no equivalent -
-    # their M33 has no TCM, so the blocks that reference these compile out entirely. See the
-    # file for the whole reasoning.
-    ${CMAKE_CURRENT_SOURCE_DIR}/ra8m2_ddsc.c
+    # ra8m2_ddsc.c is NOT here - it lives in the fsp_bsp module, in the same archive as the
+    # bsp_security.c that references it. GNU ld does not revisit archives, and platform_s
+    # precedes fsp_bsp_s on the link line. See the note in cmake/modules/fsp_bsp.cmake.
     # Static assertions only, no code. Catches an OTP area too small for the backend's
     # region struct, which otherwise folds init_otp_nv_counters_flash() into an
     # unconditional error return with no diagnostic. See the file for the detail.

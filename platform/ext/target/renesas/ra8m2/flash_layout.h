@@ -43,8 +43,10 @@
  *      and the NV counters come out of a reserved MRAM region, DF_EMULATION.
  *   3. BSP_PARTITION_*_START values are ABSOLUTE addresses in their own security
  *      alias, not offsets - see TFM_MRAM_S_OFF / TFM_MRAM_NS_OFF.
- *   4. The two PRIMARY slots are no longer adjacent; the secure secondary sits between
- *      them. See the combined-image note near the bottom.
+ *   4. The secure SECONDARY slot sits BELOW the primary, so the primary is the topmost
+ *      secure slot and its NSC region ends exactly at the secure/non-secure boundary. RDPM
+ *      only expresses a contiguous Secure|NSC|NS triple, not the split the SAU supports.
+ *      RA6E1/RA6M5 order them the same way for the same reason.
  * ----------------------------------------------------------------------------------
  */
 
@@ -145,9 +147,11 @@
  * Both ends are in the same security alias, so the alias base cancels and this needs no
  * TFM_MRAM_*_OFF conversion - it is a difference, not an address.
  *
- * Unlike RA6E1 and RA6M5, this solution gives the trailers a real size (0x100) rather
- * than using a zero-size end marker. The arithmetic is identical either way; the marker
- * convention just puts the whole slot in the image region.
+ * The trailers are ZERO-SIZE END MARKERS, as on RA6E1 and RA6M5 - the solution used real
+ * 0x100 trailers until the 2026-09-24 repartition. The arithmetic is identical either way,
+ * but the marker convention is required here: a real trailer after FLASH_CPU0_C would put
+ * 256 secure bytes between the NSC and the non-secure boundary, and RDPM cannot describe
+ * that. MCUboot takes its trailer from the slot end backwards, out of the image region.
  *
  * ra8m2_layout_checks.c asserts contiguity and whole-sector sizing at build time. */
 #define TFM_SLOT_SPAN(h, t)             (((t##_START) + (t##_SIZE)) - (h##_START))
@@ -192,23 +196,21 @@
 /*
  * Combined S+NS image, for assemble.py.
  *
- * WARNING - on RA8M2 these describe a CONCATENATION, NOT THE FLASH. The two primary
- * slots are NOT adjacent: the secure primary ends at 0x61000, the secure SECONDARY
- * occupies 0x61000-0xB0000, and the non-secure primary starts at 0xB0000. So a file
- * built from these offsets is not a valid image of the device at any single address,
- * whereas on RA6M5 - where the primaries were adjacent - it was.
+ * The two primary slots ARE adjacent - the secure slot ends exactly where the non-secure slot
+ * begins - so a plain concatenation describes the flash correctly, with these as the offsets
+ * relative to the start of the combined image. That was NOT true before the 2026-09-24
+ * repartition, when the secure secondary sat between them; both this note and the assertion in
+ * ra8m2_layout_checks.c said so, and both have been corrected. Adjacency is a consequence of
+ * putting the primary slot topmost so its NSC touches the boundary, not a goal in itself, so
+ * the assertion stays: it is a property of the current partitioning, not a rule.
  *
- * That is tolerable only because nothing on this port flashes it: ns_app excludes the
- * target, since as an extra row in the debug session's program list it carries no
- * address of its own and is silently destructive at the wrong one. The macros stay
- * because TF-M's NSPE rules build tfm_s_ns_signed.bin for any NS application that does
- * not exclude it - tf-m-tests' regression app does not - and without them assemble.py
- * dies with "NameError: name 'SECURE_IMAGE_OFFSET' is not defined".
- *
- * DO NOT FLASH tfm_s_ns_signed.bin on this part. Flash tfm_s_signed.bin and
- * tfm_ns_signed.bin at their own addresses. ra8m2_layout_checks.c's adjacency assertion
- * is replaced by one that records this deliberately, so that a future layout which does
- * make them adjacent is noticed rather than silently relied upon.
+ * Nothing on this port FLASHES the combined image: ns_app excludes the target, because as an
+ * extra row in the debug session's program list it carries no address of its own and is
+ * silently destructive at the wrong one. But the macros stay, because TF-M's NSPE rules build
+ * tfm_s_ns_signed.bin for any NS application that does not exclude it - tf-m-tests' regression
+ * app does not - and without them assemble.py dies with
+ * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined". Removing them once already broke
+ * that build.
  */
 #define SECURE_IMAGE_OFFSET             (0x0)
 #define SECURE_IMAGE_MAX_SIZE           FLASH_AREA_0_SIZE

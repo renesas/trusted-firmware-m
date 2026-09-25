@@ -152,30 +152,48 @@ _Static_assert((TFM_OTP_NV_COUNTERS_AREA_SIZE % TFM_OTP_NV_COUNTERS_SECTOR_SIZE)
 /*
  * The combined S+NS image (tfm_s_ns_signed.bin, built by TF-M's NSPE rules for any NS
  * application that does not exclude the target) is a plain concatenation, with
- * NON_SECURE_IMAGE_OFFSET saying where the second half begins. That only describes the
- * flash correctly while the two PRIMARY slots are adjacent.
+ * NON_SECURE_IMAGE_OFFSET saying where the second half begins. That only describes the flash
+ * correctly while the two PRIMARY slots are adjacent.
  *
- * ON RA8M2 THEY ARE NOT. The secure primary ends at 0x61000, the secure SECONDARY occupies
- * 0x61000-0xB0000, and the non-secure primary starts at 0xB0000. RA6M5 - which this port
- * was derived from - had them adjacent and asserted it; here the inverted assertion is the
- * correct one, so that the SAME file stays honest if a future repartition makes them
- * adjacent again and the combined image silently becomes flashable.
+ * THEY ARE, as of the 2026-09-24 repartition. Both this assertion and the one in
+ * flash_layout.h previously said the opposite, because the secure SECONDARY slot sat between
+ * them. It was moved below the primary so the NSC region could end exactly at the
+ * secure/non-secure boundary - RDPM only expresses a contiguous Secure|NSC|NS triple, not the
+ * split arrangement the SAU itself supports. Adjacency is a side effect of that, not a goal.
  *
- * Nothing on this port flashes it (ns_app excludes the target), and flash_layout.h says so
- * at NON_SECURE_IMAGE_OFFSET. Flash tfm_s_signed.bin and tfm_ns_signed.bin separately.
+ * So the combined image is now a valid description of flash and could be programmed at
+ * FLASH_AREA_0_OFFSET. ns_app still excludes the target - as an extra row in the debug
+ * session's program list it carries no address of its own and is silently destructive at the
+ * wrong one - but it is no longer WRONG, merely unused.
  */
-_Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE != FLASH_AREA_1_OFFSET,
-               "RA8M2: the secure and non-secure PRIMARY slots have become adjacent. That is "
-               "not a problem in itself - it means a concatenated tfm_s_ns_signed.bin would "
-               "now describe the flash correctly - but flash_layout.h and this check both "
-               "document the opposite. Update both, and reconsider whether ns_app should "
-               "still exclude the combined-image target.");
+_Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE == FLASH_AREA_1_OFFSET,
+               "RA8M2: the secure and non-secure PRIMARY slots are no longer adjacent, so a "
+               "concatenated tfm_s_ns_signed.bin would place the non-secure image at the wrong "
+               "address. Either restore adjacency, or update flash_layout.h's "
+               "NON_SECURE_IMAGE_OFFSET note and this check together.");
 
-/* The two SECURE areas are what sit between them; assert the actual adjacency this layout
- * does have, so a repartition that introduces a gap is caught. A gap would be wasted MRAM
- * on a device that is currently allocated to the last byte. */
-_Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE == FLASH_AREA_2_OFFSET,
-               "RA8M2: the secure primary and secondary slots are no longer contiguous.");
+/*
+ * Slot ordering: SECONDARY below PRIMARY on the secure side.
+ *
+ * Not cosmetic. The primary slot has to be the topmost secure region so that FLASH_CPU0_C,
+ * which lives at its top, ends exactly at the secure/non-secure boundary. Putting the
+ * secondary above the primary puts 288 KB of secure flash between the NSC and the boundary,
+ * and RDPM cannot describe that. RA6E1 and RA6M5 order them the same way for the same reason.
+ */
+_Static_assert(FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE == FLASH_AREA_0_OFFSET,
+               "RA8M2: the secure secondary slot no longer sits immediately below the primary. "
+               "The primary must be the topmost secure slot so its NSC region touches the "
+               "secure/non-secure boundary - see the note above.");
+
+/* The NSC must END exactly at the non-secure boundary, or RDPM cannot express the
+ * partitioning even though the SAU could. This is the assertion that would have caught the
+ * original layout, where the NSC sat mid-secure at 0x67C00. */
+_Static_assert(TFM_MRAM_S_OFF(BSP_PARTITION_FLASH_CPU0_C_START) +
+                   BSP_PARTITION_FLASH_CPU0_C_SIZE == FLASH_AREA_1_OFFSET,
+               "RA8M2: the NSC region does not end at the secure/non-secure boundary. RDPM "
+               "only expresses a contiguous Secure|NSC|NS triple, so the NSC must be the last "
+               "thing in secure space.");
+
 _Static_assert(FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE == FLASH_AREA_3_OFFSET,
                "RA8M2: the non-secure primary and secondary slots are no longer contiguous.");
 
