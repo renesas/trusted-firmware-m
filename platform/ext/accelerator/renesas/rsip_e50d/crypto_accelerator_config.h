@@ -18,12 +18,29 @@
 #ifndef CRYPTO_ACCELERATOR_CONFIG_H
 #define CRYPTO_ACCELERATOR_CONFIG_H
 
-/* P-521 and Curve25519 are NOT removed here, unlike the SCE9 configuration: E50D has
- * hardware procedures for both. ecp_can_do_sce() returns 1 for MBEDTLS_ECP_DP_SECP521R1 and
- * MBEDTLS_ECP_DP_CURVE25519 under BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED, which bsp_feature.h
- * defines as 1 for R7KA8M2. Neither has been exercised on hardware yet - the PSA Arch crypto
- * suite at profile_large is what will say - so if either misbehaves, #undef it here rather
- * than editing the ALT sources. */
+/* P-521 and Curve25519: REMOVED FOR NOW, on flash grounds, not capability grounds.
+ *
+ * E50D genuinely has hardware procedures for both - ecp_can_do_sce() returns 1 for
+ * MBEDTLS_ECP_DP_SECP521R1 and MBEDTLS_ECP_DP_CURVE25519 under
+ * BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED, which bsp_feature.h defines as 1 for R7KA8M2 - and
+ * an earlier revision of this file kept both on exactly that reasoning.
+ *
+ * What that missed is what the procedures COST. Each HW procedure is a large constant
+ * instruction table, and enabling these two curves drags in their transitive closure of
+ * hw_sce_p_func###.o members. Measured on tfm_s: the HW_SCE_* tables are 127,542 bytes on
+ * E50D against 8,124 on SCE9, and the secure image sat at 293,564 of 294,400 bytes - 99.72%
+ * of its slot, 836 bytes spare. There was no room to enable isolation 2, the IPC backend, or
+ * to build Debug at all.
+ *
+ * So this matches the SCE9 configuration for now. The engine keeps secp256r1, secp256k1,
+ * brainpoolP256r1, secp384r1 and brainpoolP384r1, which is the same curve set the validated
+ * RA6M5/RA6E1 ports advertise, and nothing in TF-M itself needs more.
+ *
+ * TO BE RESTORED after the TF-M 2.3 migration, once the layout has room - it is a capability
+ * this part has and the port should eventually expose. Deleting these two #undefs is the
+ * whole change. DECISIONS D059. */
+#undef PSA_WANT_ECC_SECP_R1_521
+#undef PSA_WANT_ECC_MONTGOMERY_255
 
 /* Deterministic ECDSA (RFC 6979). Not supported by FSP on the SCE - the FSP configurator does
  * not allow it - so this only brings TF-M's default configuration in line with FSP. The SCE

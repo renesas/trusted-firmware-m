@@ -74,12 +74,15 @@
 /* ECC. FSP's ECDSA ALT reads its patched group struct (grp->vendor_ctx), so it comes with
  * MBEDTLS_ECP_ALT - ecp_alt.c / ecp_curves_alt.c replace Mbed TLS's ECP module whole.
  *
- * Curves: E50D signs and verifies secp256r1, secp256k1, brainpoolP256r1, secp384r1,
- * brainpoolP384r1 and - unlike SCE9 - secp521r1 and Curve25519. ecp_can_do_sce() in
- * ecdsa_alt.c gates the last two on BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED, which is 1 on this
- * part. So crypto_accelerator_config.h does NOT undefine PSA_WANT_ECC_SECP_R1_521 or
- * PSA_WANT_ECC_MONTGOMERY_255 the way the SCE9 one does; that is the one PSA-visible
- * capability difference between the two engines.
+ * Curves: E50D can sign and verify secp256r1, secp256k1, brainpoolP256r1, secp384r1,
+ * brainpoolP384r1 and - unlike SCE9 - secp521r1 and Curve25519, the last two gated by
+ * ecp_can_do_sce() on BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED, which is 1 on this part.
+ *
+ * The port currently ADVERTISES only the first five. crypto_accelerator_config.h undefines
+ * PSA_WANT_ECC_SECP_R1_521 and PSA_WANT_ECC_MONTGOMERY_255 exactly as the SCE9 one does, for
+ * flash: those two curves pull in ~120 KB of HW procedure tables and left the secure image
+ * at 99.72% of its slot. To be restored after the TF-M 2.3 migration. Read that file before
+ * assuming this port cannot do P-521 - it can; it is not configured to. DECISIONS D059.
  *
  * There is still NO software fallback - any curve outside that set returns
  * MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE. Curve448 stays: ECP scalar multiplication falls back
