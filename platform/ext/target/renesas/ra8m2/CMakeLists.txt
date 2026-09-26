@@ -868,6 +868,33 @@ function(ra8m2_add_ofs_check target)
     add_dependencies(ra8m2_ofs_check_${target} ${target})
 endfunction()
 
+# The ELF is only half of it. `objcopy -O binary` lays the flat image out from the lowest
+# load address to the highest and ZERO-FILLS everything between, so a bl2.axf with perfect
+# discrete OFS segments still yields a 13,234,472-byte bl2.bin spanning 0x02000000-0x02c9f128
+# whose fill lands squarely on the option memory. That is the RA6M4 brick again, reached from
+# a build that passed every check. The .hex and .srec are record-based and skip the gaps; only
+# the flat binary coalesces.
+#
+# add_convert_to_bin_target() is generic upstream code shared by every platform, and
+# add_custom_command(TARGET) only works on a target created in the SAME directory - bl2_bin
+# is made in bl2/. So this is its own target here, sequenced after bl2_bin, which re-emits
+# the binary without the option sections.
+function(ra8m2_strip_ofs_from_bin target)
+    if(NOT TARGET ${target}_bin)
+        message(FATAL_ERROR
+            "ra8m2_strip_ofs_from_bin(${target}): no ${target}_bin target. The flat binary "
+            "would keep its zero fill across the option memory and nothing would catch it.")
+    endif()
+    get_target_property(_bindir ${target} RUNTIME_OUTPUT_DIRECTORY)
+    add_custom_target(ra8m2_safe_bin_${target} ALL
+        COMMAND ${CMAKE_OBJCOPY} -O binary --wildcard
+                --remove-section=.option_setting*
+                $<TARGET_FILE:${target}> ${_bindir}/${target}.bin
+        VERBATIM
+        COMMENT "RA8M2 [${target}]: re-emit flat .bin without the option sections")
+    add_dependencies(ra8m2_safe_bin_${target} ${target}_bin)
+endfunction()
+
 # tfm_s must carry NO option words at all, so no --require-segments here: a CLEAN result is
 # the expected and correct outcome for the secure image.
 ra8m2_add_ofs_check(tfm_s)
@@ -876,7 +903,12 @@ if(BL2)
     # is a failure, not a pass. Without it, dropped sections or a wrong region window both
     # print as CLEAN - which is exactly how this guard was silently inert on RA8M2 until
     # 2026-09-24.
-    ra8m2_add_ofs_check(bl2 --require-segments)
+    #
+    # --check-flat-bin: verifies the stripped binary above is what actually landed on disk.
+    # Checks the FILE, so the guard has to wait for it.
+    ra8m2_strip_ofs_from_bin(bl2)
+    ra8m2_add_ofs_check(bl2 --require-segments --check-flat-bin)
+    add_dependencies(ra8m2_ofs_check_bl2 ra8m2_safe_bin_bl2)
 endif()
 
 #-------------------------------------------------------------------------------
