@@ -897,6 +897,14 @@ install(FILES       ${CMAKE_CURRENT_SOURCE_DIR}/flash_layout.h
 install(FILES       ${CMAKE_BINARY_DIR}/platform/target/generated/bsp_partitions.h
         DESTINATION ${INSTALL_PLATFORM_NS_DIR})
 
+# Install the test-capability configs. tf-m-tests reads these from the INSTALLED tree -
+# tests_reg/CMakeLists.txt:38 includes ${CONFIG_SPE_PATH}/platform/tests/tfm_tests_config.cmake
+# and tests_psa_arch/CMakeLists.txt:29 the psa_arch one, both OPTIONAL. Without this install
+# rule the files under tests/ are never seen and the OPTIONAL include silently finds nothing,
+# which is exactly why PSA_API_TEST_TARGET had to be passed by hand. DECISIONS D062.
+install(DIRECTORY   ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR})
+
 # ns/syscalls_ns.c is compiled into platform_ns by the installed platform/CMakeLists.txt -
 # it supplies the newlib _close/_lseek/_read/_write stubs, and NS links with
 # -Wl,-fatal-warnings so nosys.specs' versions are not an option. Its _write() is also the

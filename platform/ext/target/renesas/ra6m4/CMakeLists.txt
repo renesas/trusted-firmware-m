@@ -380,3 +380,15 @@ install(FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/device_cfg.h
     DESTINATION ${TFM_INSTALL_PATH}/interface/include
 )
+
+# Install the test-capability configs. tf-m-tests reads these from the INSTALLED tree -
+# tests_reg/CMakeLists.txt:38 includes ${CONFIG_SPE_PATH}/platform/tests/tfm_tests_config.cmake
+# and tests_psa_arch/CMakeLists.txt:29 the psa_arch one, both OPTIONAL, so without this rule
+# they are silently never seen. DECISIONS D062.
+#
+# INSTALL_PLATFORM_NS_DIR is the global from config/config_base.cmake:28
+# (${CMAKE_INSTALL_PREFIX}/platform); this port's other installs predate that convention and
+# still target ${TFM_INSTALL_PATH}/interface/include. The tests configs must use the global
+# one, because that is where tf-m-tests looks.
+install(DIRECTORY   ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR})
