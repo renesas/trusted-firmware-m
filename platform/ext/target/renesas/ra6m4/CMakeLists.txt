@@ -69,7 +69,16 @@ target_sources(platform_s
         ${CMAKE_CURRENT_SOURCE_DIR}/attest_hal.c
         # Use common ARMv8-M isolation implementation
         ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
-        $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_interrupts.c>
+        # tfm_hal_irq_enable/_disable/_clear_pending, required once any partition
+        # manifest declares an "irqs" entry. The common file is the whole HAL - the
+        # four RA ports each carried a byte-identical private copy of it plus an
+        # invented tfm_hal_irq_set_priority() that is in no header and called by
+        # nothing. Deleted; this is the real one.
+        #
+        # NOT ext/common/tfm_interrupts.c - that is Arm's TIMER0 test fixture. It
+        # defines TFM_TIMER0_IRQ_Handler and none of the HAL, and references
+        # TFM_TIMER0_IRQ, which no RA port defines. See DECISIONS D061.
+        $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_hal_nvic.c>
         # SEGGER RTT stdout backend (replaces common uart_stdout.c when RA6M4_STDOUT_RTT=ON)
         $<$<BOOL:${RA6M4_STDOUT_RTT}>:${CMAKE_CURRENT_SOURCE_DIR}/rtt/rtt_stdout.c>
         $<$<BOOL:${RA6M4_STDOUT_RTT}>:${CMAKE_CURRENT_SOURCE_DIR}/rtt/SEGGER_RTT.c>

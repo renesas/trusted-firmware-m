@@ -379,6 +379,17 @@ target_sources(platform_s PRIVATE
     # tfm_hal_bind_boundary, tfm_hal_memory_check. Nothing else provides them, and the
     # port has no reason to fork it - attribution here is IDAU/SAU, which this handles.
     ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
+
+    # tfm_hal_irq_enable/_disable/_clear_pending, required once any partition
+    # manifest declares an "irqs" entry. The common file IS the whole HAL - all four
+    # RA ports each carried a byte-identical private copy of it plus an invented
+    # tfm_hal_irq_set_priority() that is in no header and called by nothing. Deleted;
+    # this is the real one.
+    #
+    # NOT ext/common/tfm_interrupts.c - that is Arm's TIMER0 test fixture. It defines
+    # TFM_TIMER0_IRQ_Handler and none of the HAL, and references TFM_TIMER0_IRQ, which
+    # no RA port defines. Wiring that file in is what ra6m4 used to do. DECISIONS D061.
+    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_hal_nvic.c>
 )
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
