@@ -164,7 +164,7 @@ static ARM_FLASH_STATUS FlashStatus = {
 extern flash_instance_t const * gp_tfm_flash_instance;
 
 static struct arm_flash_dev_t arm_flash0_dev = {
-    .instance = gp_tfm_flash_instance,
+    .instance = NULL,
     .info   = &FlashInfo,
     .status = &FlashStatus,
 };
@@ -201,11 +201,13 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
     uint32_t flash_size;
     flash_info_t info;
 
-    if ((FLASH0_DEV->instance == NULL) ||
-        (FLASH0_DEV->instance->p_ctrl == NULL) ||
-        (FLASH0_DEV->instance->p_cfg == NULL)) {
+    if ((gp_tfm_flash_instance == NULL) ||
+        (gp_tfm_flash_instance->p_ctrl == NULL) ||
+        (gp_tfm_flash_instance->p_cfg == NULL)) {
         return ARM_DRIVER_ERROR;
     }
+
+    FLASH0_DEV->instance = gp_tfm_flash_instance;
 
     err = FLASH0_DEV->instance->p_api->open(FLASH0_DEV->instance->p_ctrl, FLASH0_DEV->instance->p_cfg);
 
@@ -243,6 +245,7 @@ static int32_t ARM_Flash_Uninitialize(void)
         return ARM_DRIVER_ERROR;
     }
     FLASH0_DEV->instance->p_api->close(FLASH0_DEV->instance->p_ctrl);
+    FLASH0_DEV->instance = NULL;
 
     return ARM_DRIVER_OK;
 }
