@@ -187,6 +187,23 @@
 #endif
 
 /*
+ * Give the veneers their own MEMORY region in TF-M's generated secure linker script.
+ *
+ * TFM_LINKER_VENEERS_START above is ABSOLUTE - the solution fixes the NSC window at the
+ * top of the secure partition - and `.gnu.sgstubs <abs> : ... > FLASH` drags the FLASH
+ * region's allocation pointer up there. Every `AT > FLASH` section after it (.TFM_DATA and
+ * the rest of the RAM-init load images) then gets an LMA above the veneers, in the handful
+ * of spare bytes before the slot end, while the flash below the veneers goes unused.
+ *
+ * It fits today by luck: the app build lands ~200 bytes of load images in that gap. Link
+ * the regression tests and it fails by a few hundred bytes with hundreds of KB free.
+ * DECISIONS D063.
+ */
+#ifndef TFM_LINKER_VENEERS_OWN_REGION
+#define TFM_LINKER_VENEERS_OWN_REGION
+#endif
+
+/*
  * BL2. It is the bootloader: it lives at the base of flash. Deriving this from the
  * secure image base put the ra6m4 BL2 in the secure slot, so nothing was at the reset
  * vector and the device never ran it (DESIGN.md 8.3).

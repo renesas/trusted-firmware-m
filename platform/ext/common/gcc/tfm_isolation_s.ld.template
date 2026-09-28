@@ -40,12 +40,54 @@
 
 MEMORY
 {
+#if defined(TFM_LINKER_VENEERS_OWN_REGION)
+/*
+ * The veneers get their OWN region, and FLASH stops where they start.
+ *
+ * Only for a platform that pins the veneers at an ABSOLUTE address at the top of the
+ * secure code region - on Arm v8-M that means the device NSC partition is fixed there, so
+ * .gnu.sgstubs has nowhere else to go. Opt in with TFM_LINKER_VENEERS_OWN_REGION alongside
+ * an absolute TFM_LINKER_VENEERS_START and a TFM_LINKER_VENEERS_SIZE.
+ *
+ * WHY: `.gnu.sgstubs TFM_LINKER_VENEERS_START : ... > FLASH` advances the FLASH region's
+ * allocation pointer to the end of the veneers. Every `AT > FLASH` section emitted after
+ * it then takes its LOAD address from there - the top of the secure partition, where only
+ * the few spare bytes of the NSC window remain. The code sits far below and the flash
+ * between is unreachable.
+ *
+ * Measured on renesas/ra6m5 with the regression tests linked in: code ended at 0x000E4144,
+ * veneers pinned at 0x0011F800, RAM-init load images allocated above them and off the end
+ * of the MCUboot slot - failing by 177 bytes while 243,388 bytes (238 KB) sat unused below
+ * the veneers. renesas/ra8m2 failed identically with ".TFM_DATA will not fit in region
+ * FLASH", over by 528 bytes.
+ *
+ * .ER_CODE_SRAM was hoisted above VENEERS() earlier for this same reason (see the comment
+ * there and the ra6e1 case it records). That fixed one section; this fixes the cause.
+ *
+ * Platforms with a RELATIVE TFM_LINKER_VENEERS_START must NOT set this - Nordic
+ * nrf5340/nrf91 and Laird bl5340 compute it from `.` so the veneers float to just above
+ * the code. Their start is not a constant, so it cannot be a MEMORY origin, and they do
+ * not have the problem.
+ */
+  FLASH    (rx)  : ORIGIN = S_CODE_START,
+                   LENGTH = TFM_LINKER_VENEERS_START - S_CODE_START
+  VENEER   (rx)  : ORIGIN = TFM_LINKER_VENEERS_START,
+                   LENGTH = TFM_LINKER_VENEERS_SIZE
+#else
   FLASH    (rx)  : ORIGIN = S_CODE_START, LENGTH = S_CODE_SIZE
+#endif
   RAM      (rw)  : ORIGIN = S_DATA_START, LENGTH = S_DATA_SIZE
 #ifdef S_RAM_CODE_START
   CODE_RAM (rwx) : ORIGIN = S_RAM_CODE_START, LENGTH = S_RAM_CODE_SIZE
 #endif
 }
+
+/* Which region .gnu.sgstubs lands in - see the MEMORY block above. */
+#if defined(TFM_LINKER_VENEERS_OWN_REGION)
+#define TFM_VENEER_MEM_REGION VENEER
+#else
+#define TFM_VENEER_MEM_REGION FLASH
+#endif
 
 #ifndef TFM_LINKER_VENEERS_START
 #define TFM_LINKER_VENEERS_START ALIGN(TFM_LINKER_VENEERS_ALIGNMENT)
@@ -64,13 +106,13 @@ MEMORY
 .gnu.sgstubs TFM_LINKER_VENEERS_START : \
 { \
     *(.gnu.sgstubs*) \
-} > FLASH \
+} > TFM_VENEER_MEM_REGION \
 /* GCC always places veneers at the end of .gnu.sgstubs section, so the only \
  * way to align the end of .gnu.sgstubs section is to align start of the \
  * next section */ \
 .sgstubs_end : TFM_LINKER_VENEERS_END \
 { \
-} > FLASH
+} > TFM_VENEER_MEM_REGION
 
 __msp_stack_size__ = S_MSP_STACK_SIZE;
 
