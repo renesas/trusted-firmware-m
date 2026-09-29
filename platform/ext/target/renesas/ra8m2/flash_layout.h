@@ -156,7 +156,8 @@
  * ra8m2_layout_checks.c asserts contiguity and whole-sector sizing at build time. */
 #define TFM_SLOT_SPAN(h, t)             (((t##_START) + (t##_SIZE)) - (h##_START))
 
-/* Image 0 = secure. Primary 0x12000, secondary 0x61000, 0x4F000 each. */
+/* Image 0 = secure. Secondary 0x20000, primary 0x68000, 0x48000 each - the SECONDARY
+ * slot is the lower one on this part. */
 #define FLASH_AREA_0_ID                 (1)
 #define FLASH_AREA_0_OFFSET             TFM_MRAM_S_OFF(BSP_PARTITION___BL_0_P_H_START)
 #define FLASH_AREA_0_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_0_P_H, \
@@ -180,7 +181,7 @@
 /* The solution is configured overwrite-only, so there is no scratch area.
  *
  * Unlike RA6M5, NO block is reserved for one: the 1 MB device is fully allocated
- * (64 K BL2 + 8 K DF_EMULATION + 2 x 316 K secure + 2 x 160 K non-secure = 1024 K
+ * (64 K BL2 + 64 K DF_EMULATION + 2 x 288 K secure + 2 x 160 K non-secure = 1024 K
  * exactly). Switching to swap-using-scratch therefore needs the partitioning changed in
  * the solution first, not just these three macros repointed - something has to give up
  * the space. A scratch area must be SECURE when it exists: during a swap it holds
@@ -238,8 +239,11 @@
  *
  * RA8M2 HAS NO DATA FLASH. BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE is 0, and the rzone
  * gives the whole DATA_FLASH region size 0. On RA6E1 and RA6M5 these three services
- * shared 0x2000 of secure data flash; here they share DF_EMULATION, an 0x2000 region
- * of SECURE MRAM at 0x02010000, between BL2 and the secure primary slot.
+ * shared 0x2000 of secure data flash; here they share DF_EMULATION, an 0x10000 region
+ * of SECURE MRAM at 0x02010000, between BL2 and the secure secondary slot.
+ *
+ * ra8m2_layout_checks.c asserts DF_EMULATION is a whole number of 0x8000 MRAM sectors,
+ * so this size cannot drift from the solution without failing the build.
  *
  * DF_EMULATION is deliberately OUTSIDE every MCUboot area. An update overwrites a whole
  * slot, so storage placed inside one would be destroyed by the first image upgrade -

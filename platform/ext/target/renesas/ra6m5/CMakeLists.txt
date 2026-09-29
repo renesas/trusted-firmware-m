@@ -729,11 +729,14 @@ if(NOT RA6M5_OFS_READELF)
 endif()
 
 function(ra6m5_add_ofs_check target)
+    # ARGN: extra guard flags, e.g. --require-segments for the image that carries
+    # the words. See the bl2 call site below.
     add_custom_target(ra6m5_ofs_check_${target} ALL
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6M5_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
                 --ra6-default --max-word 0xC
+                ${ARGN}
                 $<TARGET_FILE:${target}>
         DEPENDS $<TARGET_FILE:${target}>
         VERBATIM
@@ -741,9 +744,56 @@ function(ra6m5_add_ofs_check target)
     add_dependencies(ra6m5_ofs_check_${target} ${target})
 endfunction()
 
+# ------------------------------------------------------------------------------------------
+# THE FLAT .bin IS THE SECOND WAY TO BRICK THE PART, AND THE GUARD ABOVE CANNOT SEE IT.
+#
+# The ELF can be entirely CORRECT - discrete per-word OFS PT_LOADs, the check above PASSing
+# - and `objcopy -O binary` still yields a lethal image. objcopy flattens from the lowest
+# load address to the highest and ZERO-FILLS everything between, so a bl2 whose last option
+# word sits at 0x0100A280 produces a ~16 MB .bin spanning 0x00000000-0x0100A284 over a few
+# tens of KB of real content. Measured 2026-09-28: 16,818,820 bytes of .bin for 26,912
+# bytes of real content.
+#
+# That fill covers PBPS at 0x0100A1E0 - the one-time Permanent Block Protect word, and the
+# exact word that destroyed two EK-RA6M4 boards on 2026-07-21. Flashing such a .bin at 0
+# reconstitutes the original brick from a build that passed every check.
+#
+# .hex and .srec are record-based and skip the gaps, so they are safe. ONLY the flat binary
+# coalesces. Re-emit it here without the option sections, and let --check-flat-bin below
+# verify that what is on disk is what this target wrote.
+#
+# add_convert_to_bin_target() is generic upstream code shared by every platform, and
+# add_custom_command(TARGET) only works on a target created in the SAME directory - bl2_bin
+# is made in bl2/. So this is its own target, sequenced after bl2_bin.
+# ------------------------------------------------------------------------------------------
+function(ra6m5_strip_ofs_from_bin target)
+    if(NOT TARGET ${target}_bin)
+        message(FATAL_ERROR
+            "ra6m5_strip_ofs_from_bin(${target}): no ${target}_bin target. The flat binary "
+            "would keep its zero fill across the option memory and nothing would catch it.")
+    endif()
+    get_target_property(_bindir ${target} RUNTIME_OUTPUT_DIRECTORY)
+    add_custom_target(ra6m5_safe_bin_${target} ALL
+        COMMAND ${CMAKE_OBJCOPY} -O binary --wildcard
+                --remove-section=.option_setting*
+                $<TARGET_FILE:${target}> ${_bindir}/${target}.bin
+        VERBATIM
+        COMMENT "RA6M5 [${target}]: re-emit flat .bin without the option sections")
+    add_dependencies(ra6m5_safe_bin_${target} ${target}_bin)
+endfunction()
+
 ra6m5_add_ofs_check(tfm_s)
 if(BL2)
-    ra6m5_add_ofs_check(bl2)
+    # --require-segments: BL2 is the image that carries the option words, so an empty
+    # result is a failure, not a pass. Without it, a dropped section or a wrong region
+    # window both print as CLEAN - the false negative that read as verification on RA8M2
+    # until 2026-09-24.
+    #
+    # --check-flat-bin: verifies the stripped binary above is what actually landed on
+    # disk. It checks the FILE, so the guard has to be sequenced after the strip.
+    ra6m5_strip_ofs_from_bin(bl2)
+    ra6m5_add_ofs_check(bl2 --require-segments --check-flat-bin)
+    add_dependencies(ra6m5_ofs_check_bl2 ra6m5_safe_bin_bl2)
 endif()
 
 #-------------------------------------------------------------------------------

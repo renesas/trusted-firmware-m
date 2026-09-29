@@ -157,10 +157,24 @@
 /*
  * Non-secure callable / CMSE veneers.
  *
- * The solution owns this window (FLASH_CPU0_C), 0x800 at 0x11F800, ending exactly on the
- * 32 KB NS boundary at 0x120000. The Partition Manager takes the SECURE size in KB (1150)
- * and the NSC size in KB (2) - it does not take these addresses. Do NOT derive an IDAU
- * boundary from these macros without reading DESIGN.md 7.1 first.
+ * The solution owns this window (FLASH_CPU0_C), 0x400 at 0x020AFC00, ending exactly on
+ * the 32 KB secure/non-secure boundary at 0x020B0000 (0xB0000 = 22 x 32 KB).
+ *
+ * THESE ARE NOT RA6M5's NUMBERS. This paragraph was a verbatim copy of
+ * ra6m5/region_defs.h and named that part's window (0x800 at 0x11F800) and its KB
+ * values (1150 + 2). Corrected 2026-09-29.
+ *
+ * The partition tool takes SIZES IN KB, not these addresses, and NSC is counted
+ * separately from secure:
+ *
+ *   code flash   secure 703 KB + NSC 1 KB   (= 0xB0000, the whole secure MRAM span)
+ *   SRAM         secure 935 KB + NSC 1 KB   (= 0xEA000)
+ *
+ * On this part the tool is RDPM, not the e2 Partition Manager: BSP_FEATURE_TZ_HAS_DLM is
+ * 1, so FSP's runtime PSCU monitor writes are compiled out and the partition is a
+ * provisioned, non-volatile device property. Getting these KB values wrong mis-provisions
+ * the device, and provisioning does not come back. Do NOT derive an IDAU boundary from
+ * these macros without reading DESIGN.md 7.1 first.
  */
 #define CMSE_VENEER_REGION_START        (BSP_PARTITION_FLASH_CPU0_C_START)
 #define CMSE_VENEER_REGION_SIZE         (BSP_PARTITION_FLASH_CPU0_C_SIZE)
