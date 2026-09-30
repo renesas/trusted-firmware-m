@@ -25,12 +25,28 @@ struct platform_data_t tfm_peripheral_std_uart = {
 };
 
 /*
+ * AGT0 (R_AGT0) is at 0x400E8000 on RA6M5, 0x100 of register space - AGT1 starts at
+ * 0x400E8100. The block is a union of a 32-bit (AGTW) and 16-bit (AGT) register view
+ * over the same addresses, so the region is the same either way; the secure project
+ * selects the 16-bit view.
+ *
+ * Claimed by tf-m-tests' FLIH and SLIH test services as TFM_PERIPHERAL_TIMER0.
+ */
+struct platform_data_t tfm_peripheral_timer0 = {
+    .periph_start     = 0x400E8000,
+    .periph_limit     = 0x400E80FF,
+    .periph_ppc_bank  = PPC_SP_DO_NOT_CONFIGURE,
+    .periph_ppc_mask  = 0,
+};
+
+/*
  * Allow-list of named MMIO a partition may claim. A partition asking for anything not in
  * here fails tfm_hal_bind_boundary() with TFM_HAL_ERROR_GENERIC, which the SPM turns into
  * a panic during partition init - so an addition to a manifest needs an addition here.
  */
 const uintptr_t partition_named_mmio_list[] = {
     (uintptr_t)TFM_PERIPHERAL_STD_UART,
+    (uintptr_t)TFM_PERIPHERAL_TIMER0,
 };
 
 const size_t partition_named_mmio_list_size =

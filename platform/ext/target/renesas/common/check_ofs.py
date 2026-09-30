@@ -77,6 +77,7 @@ def parse_args(argv):
     max_word = 0x80
     require = False
     flat = False
+    emit = None
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -95,6 +96,11 @@ def parse_args(argv):
             require = True
         elif a == "--check-flat-bin":
             flat = True
+        elif a == "--emit-safe-bin":
+            i += 1
+            if i >= len(argv):
+                sys.exit("ERROR: --emit-safe-bin needs an output path")
+            emit = argv[i]
         elif a == "--max-word":
             i += 1
             max_word = int(argv[i], 0)
@@ -114,11 +120,11 @@ def parse_args(argv):
     for s, e in regions:
         if e <= s:
             sys.exit(f"ERROR: region 0x{s:X}:0x{e:X} is empty or reversed")
-    return regions, images, max_word, require, flat
+    return regions, images, max_word, require, flat, emit
 
 
 def all_load_segments(elf):
-    """Every PT_LOAD with filesz > 0, as (vaddr, paddr, filesz).
+    """Every PT_LOAD with filesz > 0, as (file_offset, vaddr, paddr, filesz).
 
     objcopy -O binary lays the flat image out by PHYSICAL address, so the flat-binary
     check below must use paddr. The OFS check uses vaddr, which is what the option words
@@ -132,13 +138,13 @@ def all_load_segments(elf):
         sys.exit(f"ERROR: readelf failed on {elf}: {e}")
     segs = []
     for m in re.finditer(
-            r"LOAD\s+0x[0-9a-fA-F]+\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)"
+            r"LOAD\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)"
             r"\s+0x([0-9a-fA-F]+)",
             out):
-        vaddr, paddr, filesz = (int(m.group(1), 16), int(m.group(2), 16),
-                                int(m.group(3), 16))
+        offset, vaddr, paddr, filesz = (int(m.group(1), 16), int(m.group(2), 16),
+                                        int(m.group(3), 16), int(m.group(4), 16))
         if filesz:
-            segs.append((vaddr, paddr, filesz))
+            segs.append((offset, vaddr, paddr, filesz))
     return segs
 
 
@@ -148,8 +154,47 @@ def in_regions(addr, size, regions):
 
 def load_segments(elf, regions):
     """PT_LOAD segments (vaddr, filesz) overlapping any region."""
-    return [(v, f) for (v, _p, f) in all_load_segments(elf)
+    return [(v, f) for (_o, v, _p, f) in all_load_segments(elf)
             if in_regions(v, f, regions)]
+
+
+def emit_safe_bin(elf, regions, outpath):
+    """Write a flat binary from the ELF's PT_LOAD segments, EXCLUDING the OFS ones.
+
+    THIS IS ADDRESS-DRIVEN ON PURPOSE. The obvious implementation is
+    `objcopy -O binary --remove-section=.option_setting*`, and it works only on GNU
+    output. IAR's ILINK renames sections to opaque positional names taken from the .icf
+    block order - the RA6M5 bl2 comes out with the three option words in sections called
+    P1, P7 and P11 - so a name pattern matches nothing, objcopy copies everything, and the
+    result is the full multi-megabyte brick with no error reported. Those names also move
+    whenever the .icf block order changes, so hardcoding them is no better.
+
+    Addresses do not move: they come from the device's option memory map, which is what
+    --region already describes for the check. So the safe binary is emitted here from the
+    program headers directly, and no objcopy is involved on either toolchain.
+    """
+    segs = all_load_segments(elf)
+    keep = [(o, p, f) for (o, v, p, f) in segs if not in_regions(v, f, regions)]
+    if not keep:
+        sys.exit(f"ERROR: {elf} has no loadable content outside the OFS regions")
+
+    lo = min(p for (_o, p, _f) in keep)
+    hi = max(p + f for (_o, p, f) in keep)
+    image = bytearray(hi - lo)
+    with open(elf, "rb") as fh:
+        for (off, paddr, filesz) in keep:
+            fh.seek(off)
+            chunk = fh.read(filesz)
+            if len(chunk) != filesz:
+                sys.exit(f"ERROR: {elf} truncated reading segment at offset 0x{off:X}")
+            image[paddr - lo:paddr - lo + filesz] = chunk
+
+    with open(outpath, "wb") as fh:
+        fh.write(image)
+
+    dropped = len(segs) - len(keep)
+    print(f"  {os.path.basename(outpath):<14} {len(image)} bytes, "
+          f"0x{lo:08X}-0x{hi:08X}, {dropped} OFS segment(s) excluded")
 
 
 def flat_bin_verdict(elf, regions):
@@ -170,13 +215,14 @@ def flat_bin_verdict(elf, regions):
     """
     binpath = os.path.splitext(elf)[0] + ".bin"
     segs = all_load_segments(elf)
-    ofs = [(v, p, f) for (v, p, f) in segs if in_regions(v, f, regions)]
+    ofs = [(v, p, f) for (_o, v, p, f) in segs if in_regions(v, f, regions)]
     if not segs or not ofs:
         return "n/a", (binpath, None, None)
 
-    lo = min(p for (_v, p, _f) in segs)
-    hi_all = max(p + f for (_v, p, f) in segs)
-    hi_other = max([p + f for (v, p, f) in segs if not in_regions(v, f, regions)] or [lo])
+    lo = min(p for (_o, _v, p, _f) in segs)
+    hi_all = max(p + f for (_o, _v, p, f) in segs)
+    hi_other = max([p + f for (_o, v, p, f) in segs
+                    if not in_regions(v, f, regions)] or [lo])
     safe_size = hi_other - lo
     if hi_all <= hi_other:
         return "n/a", (binpath, None, None)
@@ -193,7 +239,15 @@ def flat_bin_verdict(elf, regions):
 def main():
     if not shutil.which(READELF):
         sys.exit(f"ERROR: readelf '{READELF}' not on PATH (set $READELF)")
-    regions, images, max_word, require, flat = parse_args(sys.argv[1:])
+    regions, images, max_word, require, flat, emit = parse_args(sys.argv[1:])
+
+    # Emit first, then check what was emitted. Doing both in one invocation is what makes
+    # --check-flat-bin meaningful: it verifies the file this run just wrote, rather than
+    # whatever a separate target left on disk.
+    if emit:
+        if len(images) != 1:
+            sys.exit("ERROR: --emit-safe-bin takes exactly one image")
+        emit_safe_bin(images[0], regions, emit)
 
     where = ", ".join(f"{hex(s)}-{hex(e - 1)}" for s, e in regions)
     print(f"OFS brick guard: no PT_LOAD segment across {where} may exceed {max_word} bytes")

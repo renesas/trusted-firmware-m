@@ -703,8 +703,15 @@ find_package(Python3 COMPONENTS Interpreter)
 # that cannot run this check must not produce a flashable bl2.
 set(RA6E1_OFS_READELF "${CMAKE_READELF}")
 if(NOT RA6E1_OFS_READELF)
+    # unset() first. The set() above created an empty NORMAL variable, and a normal
+    # variable SHADOWS the cache entry find_program writes - so without this the
+    # fallback silently does nothing and the variable stays empty. That is how the
+    # readelf fallback was dead under IAR, where CMAKE_* tool vars are unset.
+    unset(RA6E1_OFS_READELF)
     find_program(RA6E1_OFS_READELF NAMES arm-none-eabi-readelf readelf)
 endif()
+
+
 
 function(ra6e1_add_ofs_check target)
     # ARGN: extra guard flags, e.g. --require-segments for the image that carries
@@ -741,7 +748,8 @@ endfunction()
 #
 # add_convert_to_bin_target() is generic upstream code shared by every platform, and
 # add_custom_command(TARGET) only works on a target created in the SAME directory - bl2_bin
-# is made in bl2/. So this is its own target, sequenced after bl2_bin.
+# is made in bl2/. So this is its own target, sequenced after bl2_bin, and it
+# REWRITES the .bin that target just produced.
 # ------------------------------------------------------------------------------------------
 function(ra6e1_strip_ofs_from_bin target)
     if(NOT TARGET ${target}_bin)
@@ -751,9 +759,12 @@ function(ra6e1_strip_ofs_from_bin target)
     endif()
     get_target_property(_bindir ${target} RUNTIME_OUTPUT_DIRECTORY)
     add_custom_target(ra6e1_safe_bin_${target} ALL
-        COMMAND ${CMAKE_OBJCOPY} -O binary --wildcard
-                --remove-section=.option_setting*
-                $<TARGET_FILE:${target}> ${_bindir}/${target}.bin
+        COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6E1_OFS_READELF}
+                ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                --ra6-default --max-word 0xC
+                --emit-safe-bin ${_bindir}/${target}.bin
+                $<TARGET_FILE:${target}>
         VERBATIM
         COMMENT "RA6E1 [${target}]: re-emit flat .bin without the option sections")
     add_dependencies(ra6e1_safe_bin_${target} ${target}_bin)

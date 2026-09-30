@@ -351,6 +351,8 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
 
     # A custom TARGET, not add_custom_command(TARGET ... POST_BUILD): that form is
     # directory-scoped, and tfm_s and bl2 are created in secure_fw/ and bl2/, not here.
+
+
     function(ra6m4_add_ofs_check target)
         # ARGN: extra guard flags, e.g. --require-segments for the image that carries
         # the words. See the bl2 call site below.
@@ -386,7 +388,8 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     #
     # add_convert_to_bin_target() is generic upstream code shared by every platform, and
     # add_custom_command(TARGET) only works on a target created in the SAME directory - bl2_bin
-    # is made in bl2/. So this is its own target, sequenced after bl2_bin.
+    # is made in bl2/. So this is its own target, sequenced after bl2_bin, and it
+    # REWRITES the .bin that target just produced.
     # ------------------------------------------------------------------------------------------
     function(ra6m4_strip_ofs_from_bin target)
         if(NOT TARGET ${target}_bin)
@@ -396,9 +399,12 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         endif()
         get_target_property(_bindir ${target} RUNTIME_OUTPUT_DIRECTORY)
         add_custom_target(ra6m4_safe_bin_${target} ALL
-            COMMAND ${CMAKE_OBJCOPY} -O binary --wildcard
-                    --remove-section=.option_setting*
-                    $<TARGET_FILE:${target}> ${_bindir}/${target}.bin
+            COMMAND ${CMAKE_COMMAND} -E env READELF=${CMAKE_READELF}
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                    --ra6-default --max-word 0xC
+                    --emit-safe-bin ${_bindir}/${target}.bin
+                    $<TARGET_FILE:${target}>
             VERBATIM
             COMMENT "RA6M4 [${target}]: re-emit flat .bin without the option sections")
         add_dependencies(ra6m4_safe_bin_${target} ${target}_bin)

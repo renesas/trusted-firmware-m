@@ -39,6 +39,29 @@ extern struct platform_data_t tfm_peripheral_std_uart;
 
 #define TFM_PERIPHERAL_STD_UART  (&tfm_peripheral_std_uart)
 
+/*
+ * AGT0, the secure test timer for the FLIH/SLIH interrupt suites.
+ *
+ * tf-m-tests' tfm_{flih,slih}_test_service.yaml name TFM_PERIPHERAL_TIMER0 as an
+ * mmio_region and TFM_TIMER0_IRQ as an irq source, both verbatim, so neither may be
+ * renamed. They are defined unconditionally: the struct is 16 bytes and an unclaimed
+ * allow-list entry costs nothing, whereas making them conditional would need the
+ * PLATFORM_*_IRQ_TEST_SUPPORT flags plumbed through as compile definitions.
+ *
+ * TFM_TIMER0_IRQ IS A LITERAL HERE, AND THAT IS A HAZARD. The real number lives in the
+ * generated ra_gen/vector_data.h as VECTOR_NUMBER_AGT0_INT, but this header is included
+ * from translation units that do not have that header on their include path. plat_test.c
+ * includes both and #errors if they disagree, so a RASC renumbering breaks the build
+ * loudly instead of routing the interrupt to Default_Handler.
+ *
+ * RASC assigns ICU slots densely in the order interrupts were added to the project, so
+ * adding any interrupt ahead of the AGT renumbers this one.
+ */
+extern struct platform_data_t tfm_peripheral_timer0;
+
+#define TFM_PERIPHERAL_TIMER0    (&tfm_peripheral_timer0)
+#define TFM_TIMER0_IRQ           ((IRQn_Type) 0)
+
 #ifdef __cplusplus
 }
 #endif

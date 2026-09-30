@@ -397,6 +397,13 @@ target_sources(platform_s PRIVATE
     # TFM_TIMER0_IRQ_Handler and none of the HAL, and references TFM_TIMER0_IRQ, which
     # no RA port defines. Wiring that file in is what ra6m4 used to do. DECISIONS D061.
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_hal_nvic.c>
+
+    # The TIMER0 fixture the FLIH/SLIH suites need: the handler and the SPM registration
+    # hook (tfm_timer0_irq.c), and the AGT0 start/stop/ack the test services call
+    # (plat_test.c). Both are RA-specific - see the header of tfm_timer0_irq.c for why
+    # ext/common/tfm_interrupts.c cannot be used on this family. DECISIONS D061.
+    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/tfm_timer0_irq.c>
+    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
 )
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -725,8 +732,15 @@ find_package(Python3 COMPONENTS Interpreter)
 # that cannot run this check must not produce a flashable bl2.
 set(RA6M5_OFS_READELF "${CMAKE_READELF}")
 if(NOT RA6M5_OFS_READELF)
+    # unset() first. The set() above created an empty NORMAL variable, and a normal
+    # variable SHADOWS the cache entry find_program writes - so without this the
+    # fallback silently does nothing and the variable stays empty. That is how the
+    # readelf fallback was dead under IAR, where CMAKE_* tool vars are unset.
+    unset(RA6M5_OFS_READELF)
     find_program(RA6M5_OFS_READELF NAMES arm-none-eabi-readelf readelf)
 endif()
+
+
 
 function(ra6m5_add_ofs_check target)
     # ARGN: extra guard flags, e.g. --require-segments for the image that carries
@@ -764,7 +778,8 @@ endfunction()
 #
 # add_convert_to_bin_target() is generic upstream code shared by every platform, and
 # add_custom_command(TARGET) only works on a target created in the SAME directory - bl2_bin
-# is made in bl2/. So this is its own target, sequenced after bl2_bin.
+# is made in bl2/. So this is its own target, sequenced after bl2_bin, and it
+# REWRITES the .bin that target just produced.
 # ------------------------------------------------------------------------------------------
 function(ra6m5_strip_ofs_from_bin target)
     if(NOT TARGET ${target}_bin)
@@ -774,9 +789,12 @@ function(ra6m5_strip_ofs_from_bin target)
     endif()
     get_target_property(_bindir ${target} RUNTIME_OUTPUT_DIRECTORY)
     add_custom_target(ra6m5_safe_bin_${target} ALL
-        COMMAND ${CMAKE_OBJCOPY} -O binary --wildcard
-                --remove-section=.option_setting*
-                $<TARGET_FILE:${target}> ${_bindir}/${target}.bin
+        COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6M5_OFS_READELF}
+                ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
+                --ra6-default --max-word 0xC
+                --emit-safe-bin ${_bindir}/${target}.bin
+                $<TARGET_FILE:${target}>
         VERBATIM
         COMMENT "RA6M5 [${target}]: re-emit flat .bin without the option sections")
     add_dependencies(ra6m5_safe_bin_${target} ${target}_bin)
