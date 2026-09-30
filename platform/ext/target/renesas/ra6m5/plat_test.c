@@ -15,25 +15,35 @@
  * so those are absent here rather than stubbed.
  *
  * --------------------------------------------------------------------------------------
- * WHY THIS DRIVES AGT REGISTERS DIRECTLY INSTEAD OF CALLING R_AGT_*
+ * THIS USES THE FSP DRIVER, DELIBERATELY.
  *
- * The secure e2 project configures AGT0 as g_timer0, and that configuration is what makes
- * the interrupt secure on RA (DECISIONS D061) - but the FSP driver is deliberately not
- * used for the register work:
+ * An earlier revision drove the AGT registers directly, on the reasoning that R_AGT_Open()
+ * installs a callback that can never fire (TF-M owns the vector) and that tracking the
+ * open state was not worth it. That was wrong twice over: the hand-rolled sequence missed
+ * the AGTMR2-before-AGTMR1 ordering and the compare-match parking R_AGT_Open() does, and
+ * the driver's register work is proven on this silicon in a way a re-derivation is not.
+ * The unfireable callback costs nothing.
  *
- *   - R_AGT_Open() installs an FSP callback and expects agt_int_isr() to be the handler.
- *     TF-M owns this vector (__VECTOR_TABLE in startup_ra6m5.c), so the FSP callback can
- *     never fire and R_AGT_Open()'s IRQ plumbing would be dead weight.
- *   - The test HAL starts and stops the timer repeatedly across test cases. Tracking
- *     whether g_timer0_ctrl is currently open, from code the SPM calls in interrupt
- *     context, is more state than three register writes deserve.
+ * What the driver does NOT do, and this file therefore must:
  *
- * The FSP driver is still linked (flash_on_flash_hp and timer_on_agt are both configured)
- * and g_timer0 still exists; it is simply not this file's path to the hardware.
+ *   - Clear the ICU's latched request. On RA the peripheral event does not reach the NVIC
+ *     directly; it latches in R_ICU->IELSR[n].IR and stays asserted until cleared. FSP
+ *     does this at the top of every ISR via R_BSP_IrqStatusClear(), including
+ *     agt_int_isr() - which TF-M replaces with TFM_TIMER0_IRQ_Handler, so the obligation
+ *     moves here. Without it the interrupt fires exactly once and the FLIH test hangs
+ *     waiting for the tenth.
+ *
+ * The ICU event link itself (IELSR) is programmed once by FSP's bsp_irq_cfg() from the
+ * generated event-link table - see the anchor note in target_cfg.c for why getting that
+ * table linked at all took some doing.
  * --------------------------------------------------------------------------------------
  */
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "bsp_api.h"
+#include "hal_data.h"
 #include "tfm_hal_device_header.h"
 #include "tfm_peripherals_def.h"
 #include "tfm_plat_test.h"
@@ -46,10 +56,7 @@
  * (it is included where vector_data.h is not), so the two are tied together here.
  */
 #if !defined(VECTOR_NUMBER_AGT0_INT)
-  #error "RA6M5: AGT0 has no interrupt in the secure e2 project, so the FLIH/SLIH suites \
-cannot raise one. In the SECURE project set the AGT (g_timer0) 'Interrupt Priority' to a \
-real priority instead of Disabled, regenerate, and rebuild. Configuring it in the secure \
-project is also what makes the interrupt secure - see DECISIONS D061."
+  #error "RA6M5: AGT0 has no interrupt in the secure e2 project, so the FLIH/SLIH suites cannot raise one. In the SECURE project set the AGT (g_timer0) Interrupt Priority to a real priority instead of Disabled, regenerate, and rebuild. Configuring it in the secure project is also what makes the interrupt secure - see DECISIONS D061."
 #endif
 
 /*
@@ -64,80 +71,73 @@ _Static_assert((int)TFM_TIMER0_IRQ == (int)VECTOR_NUMBER_AGT0_INT,
                "ra_gen/vector_data.h, and the vector slot in startup_ra6m5.c with it.");
 
 /*
- * 16-bit AGT at PCLKB with no prescaler. At 100 MHz PCLKB a full 0xFFFF reload underflows
- * in ~655 us, which is long enough that the SLIH path reaches its test assertions before
- * the interrupt lands and short enough that no test waits on it noticeably.
+ * R_AGT_Open() returns FSP_ERR_ALREADY_OPEN on a second call, and the test HAL starts and
+ * stops the timer once per test case, so the open is done once and latched here.
  *
- * The project configures the same period (0x10000 raw counts, PCLKB); this file does not
- * read that configuration because it does not use the driver, so the value is repeated.
- * They do not have to agree - only this one is programmed.
+ * Not a re-entrancy hazard: the SPM calls these from the owning partition's context, one
+ * at a time.
  */
-#define PLAT_TEST_AGT_RELOAD    (0xFFFFU)
-
-/* R_AGT0 is an R_AGTX0_Type on this part: a union of a 32-bit (AGTW) and a 16-bit (AGT)
- * register view over the same block at 0x400E8000. The project selects 16-bit. */
-#define PLAT_TEST_AGT           (R_AGT0->AGT16)
+static bool plat_test_timer_opened = false;
 
 /*
- * Stop the counter and wait for it to actually stop.
+ * Clear the ICU's latched request for this vector.
  *
- * AGT is on PCLKB and its control writes are synchronised into that domain, so TSTART
- * clearing is not observable until TCSTF follows. AGT and AGTMR1 must not be written while
- * TCSTF is set, which is why every reconfiguration goes through here first.
+ * The register read-back inside R_BSP_IrqStatusClear() is required, not defensive - see
+ * "Operations During an Interrupt" in the ICU section of the hardware manual. The barrier
+ * before touching the NVIC is FSP's, for the same reason its R_BSP_IrqClearPending() has
+ * one: the IR clear must land before the pending clear, or the request re-asserts.
  */
-static void plat_test_agt_stop(void)
+static void plat_test_icu_status_clear(void)
 {
-    PLAT_TEST_AGT.CTRL.AGTCR_b.TSTOP = 1;
-    while (0U != PLAT_TEST_AGT.CTRL.AGTCR_b.TCSTF) {
-        /* wait for the count to stop */
-    }
+    R_BSP_IrqStatusClear(TFM_TIMER0_IRQ);
+    __DMB();
+    NVIC_ClearPendingIRQ(TFM_TIMER0_IRQ);
 }
 
 void tfm_plat_test_secure_timer_start(void)
 {
-    /* Idempotent: releasing an already-running module is a no-op. Needed because nothing
-     * else in the secure image opens AGT0 - R_AGT_Open() would normally do this. */
-    R_BSP_MODULE_START(FSP_IP_AGT, 0);
-
-    plat_test_agt_stop();
-
-    /* TMOD = 000 (timer mode), TEDGPL = 0, TCK = 000 (PCLKB). */
-    PLAT_TEST_AGT.CTRL.AGTMR1 = 0U;
-    /* CKS ignored for PCLKB, LPM off. */
-    PLAT_TEST_AGT.CTRL.AGTMR2 = 0U;
-
-    PLAT_TEST_AGT.AGT = PLAT_TEST_AGT_RELOAD;
-
-    /* Whole-byte write while stopped: clears TEDGF/TUNDF/TCMAF/TCMBF together and leaves
-     * TSTART clear. Flags are cleared by writing 0, so this must not be a read-modify-
-     * write - reading a set flag and writing it back would leave it set. */
-    PLAT_TEST_AGT.CTRL.AGTCR = 0U;
-
-    PLAT_TEST_AGT.CTRL.AGTCR_b.TSTART = 1;
-    while (0U == PLAT_TEST_AGT.CTRL.AGTCR_b.TCSTF) {
-        /* wait for the count to start */
+    if (!plat_test_timer_opened) {
+        /* g_timer0_ctrl / g_timer0_cfg are the generated instance from the secure e2
+         * project (ra_gen/hal_data.c): AGT0, 16-bit, periodic, PCLKB. Nothing else in the
+         * secure image opens it - TF-M never calls g_hal_init(). */
+        if (FSP_SUCCESS != R_AGT_Open(&g_timer0_ctrl, &g_timer0_cfg)) {
+            /* Leave the timer shut. The test then fails rather than running against a
+             * timer in an unknown state, and a failure is diagnosable where a hang is not. */
+            return;
+        }
+        plat_test_timer_opened = true;
     }
+
+    /* A request may already be latched in the ICU from a previous test case. Clear it
+     * before the count starts, or the first underflow appears to arrive instantly. */
+    plat_test_icu_status_clear();
+
+    (void)R_AGT_Start(&g_timer0_ctrl);
 }
 
 void tfm_plat_test_secure_timer_clear_intr(void)
 {
     /*
-     * Read-modify-write of AGTCR, which is correct HERE and wrong in _start(): the timer
-     * is running, so TSTART must be preserved, and any other flag that happens to be set
-     * is read back and rewritten as 1, i.e. left alone. Only TUNDF is cleared. TSTOP is
-     * write-only and reads as 0, so the RMW does not stop the counter.
+     * ICU latch first, then the peripheral flag - the order agt_int_isr() uses
+     * (R_BSP_IrqStatusClear() at entry, AGTCR flags at exit). Clearing only the peripheral
+     * flag is why this interrupt fired exactly once.
      */
-    PLAT_TEST_AGT.CTRL.AGTCR_b.TUNDF = 0;
+    plat_test_icu_status_clear();
 
-    /* The NVIC pending bit latches independently of the peripheral flag. Leaving it set
-     * re-enters the handler the moment the partition re-enables the IRQ, which presents
-     * as a spurious second interrupt in the FLIH tests. */
-    NVIC_ClearPendingIRQ(TFM_TIMER0_IRQ);
+    /*
+     * There is no FSP API for "clear the underflow flag" - agt_int_isr() does it inline,
+     * and that ISR is not in the vector here. Read-modify-write is correct: the timer is
+     * running, so TSTART must be preserved, and a flag that reads as 1 is written back as
+     * 1, i.e. left alone. These flags clear by writing 0. TSTOP is write-only and reads as
+     * 0, so the RMW does not stop the counter.
+     */
+    R_AGT0->AGT16.CTRL.AGTCR_b.TUNDF = 0;
 }
 
 void tfm_plat_test_secure_timer_stop(void)
 {
-    plat_test_agt_stop();
-    PLAT_TEST_AGT.CTRL.AGTCR = 0U;
-    NVIC_ClearPendingIRQ(TFM_TIMER0_IRQ);
+    if (plat_test_timer_opened) {
+        (void)R_AGT_Stop(&g_timer0_ctrl);
+    }
+    plat_test_icu_status_clear();
 }

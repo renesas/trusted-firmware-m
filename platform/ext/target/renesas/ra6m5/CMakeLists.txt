@@ -221,7 +221,10 @@ set(FSP_TZ_DEFS_BL2 )
 # The NS image is not built this way: it is a whole FSP application, keeps FSP's own
 # startup and linker script, and is still collected by fsp_collect_sources() below.
 #-------------------------------------------------------------------------------
-set(FSP_MODULES_S    bsp flash sce)   # sce: SCE9 TRNG backs the PSA external RNG
+set(FSP_MODULES_S    bsp flash sce agt)
+#                    sce: SCE9 TRNG backs the PSA external RNG
+#                    agt: the FLIH/SLIH test timer, and agt_int_isr() which the
+#                         generated vector table names - see fsp_agt.cmake
 set(FSP_MODULES_BL2  bsp flash)
 # BL2 needs no randomness, but with the SCE9 accelerator on its image hash (SHA-256) runs on
 # the engine - platform/ext/accelerator/renesas/sce9. See fsp_sce.cmake.
@@ -234,6 +237,7 @@ endif()
 set(FSP_MODULE_DIRS_bsp    bsp r_ioport)
 set(FSP_MODULE_DIRS_flash  r_flash_hp)
 set(FSP_MODULE_DIRS_sce    r_sce)
+set(FSP_MODULE_DIRS_agt    r_agt)
 
 # Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
 # HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
@@ -404,6 +408,7 @@ target_sources(platform_s PRIVATE
     # ext/common/tfm_interrupts.c cannot be used on this family. DECISIONS D061.
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/tfm_timer0_irq.c>
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
+
 )
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

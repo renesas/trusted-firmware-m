@@ -23,6 +23,24 @@ set(_src ${_bsp_src} ${_ioport_src} ${_ra_gen_src} ${_board_src})
 #                          signed image (DESIGN.md 8.4). It also defines g_init_info and
 #                          g_main_stack, which bsp_init_stub.c replaces below.
 list(REMOVE_ITEM _src "${FSP_MODULE_BASE_DIR}/ra_gen/main.c")
+
+# ra_gen/vector_data.c STAYS here, but see target_cfg.c: it has to be forced out of this
+# archive by an explicit reference, or the weak-symbol trap below silently wins.
+#
+# vector_data.c carries the STRONG definition of g_interrupt_event_link_select[], the array
+# bsp_irq_cfg() reads to program R_ICU->IELSR and the ITNS/ICUSARG security attribution.
+# bsp_irq.c carries a BSP_WEAK_REFERENCE fallback of the same array, all zeros, and both
+# land in this library. The linker pulls in bsp_irq.o because something calls
+# bsp_irq_cfg(); its weak definition then SATISFIES the reference, so the member holding
+# the strong one is never extracted - nothing else refers to it, because the secure image
+# uses TF-M's own __VECTOR_TABLE rather than FSP's g_vector_table.
+#
+# The consequences are not subtle. bsp_irq_cfg() guards both writes on a non-zero entry,
+# so with the zeros IELSR is never programmed - the peripheral event never reaches the NVIC
+# at all - and the "this is a secure vector" branch never runs, leaving ITNS and ICUSARG at
+# 1, non-secure. That is why the FLIH timer interrupt appeared never to fire on
+# 2026-09-30. Moving the file to platform_s does NOT help: that is a static library too.
+# DECISIONS D069.
 list(REMOVE_ITEM _src "${FSP_MODULE_BASE_DIR}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c")
 list(FILTER _src EXCLUDE REGEX "/ra/fsp/src/bsp/mcu/[^/]+/bsp_linker\\.c$")
 
