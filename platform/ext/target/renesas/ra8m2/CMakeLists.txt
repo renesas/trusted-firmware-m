@@ -227,7 +227,10 @@ set(FSP_TZ_DEFS_BL2 )
 # The NS image is not built this way: it is a whole FSP application, keeps FSP's own
 # startup and linker script, and is still collected by fsp_collect_sources() below.
 #-------------------------------------------------------------------------------
-set(FSP_MODULES_S    bsp flash sce)   # sce: RSIP-E50D TRNG backs the PSA external RNG
+set(FSP_MODULES_S    bsp flash sce agt)
+#                    sce: RSIP-E50D TRNG backs the PSA external RNG
+#                    agt: the FLIH/SLIH test timer, and agt_int_isr() which the
+#                         generated vector table names - see fsp_agt.cmake
 set(FSP_MODULES_BL2  bsp flash)
 # BL2 needs no randomness, but with the accelerator on, its image hash (SHA-256) runs on the
 # engine - platform/ext/accelerator/renesas/rsip_e50d. The module directory is still r_sce:
@@ -242,6 +245,7 @@ endif()
 set(FSP_MODULE_DIRS_bsp    bsp r_ioport)
 set(FSP_MODULE_DIRS_flash  r_mram)      # MRAM, not r_flash_hp - see fsp_flash.cmake
 set(FSP_MODULE_DIRS_sce    r_sce)
+set(FSP_MODULE_DIRS_agt    r_agt)
 
 # Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
 # HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
@@ -511,6 +515,13 @@ target_sources(platform_s PRIVATE
     # TFM_TIMER0_IRQ_Handler and none of the HAL, and references TFM_TIMER0_IRQ, which
     # no RA port defines. Wiring that file in is what ra6m4 used to do. DECISIONS D061.
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_hal_nvic.c>
+
+    # The TIMER0 fixture the FLIH/SLIH suites need: the handler and the SPM registration
+    # hook (tfm_timer0_irq.c), and the AGT0 start/stop/ack the test services call
+    # (plat_test.c). Both are RA-specific - see the header of tfm_timer0_irq.c for why
+    # ext/common/tfm_interrupts.c cannot be used on this family. DECISIONS D061, D069.
+    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/tfm_timer0_irq.c>
+    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
 )
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

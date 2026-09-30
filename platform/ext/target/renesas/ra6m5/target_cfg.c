@@ -203,16 +203,25 @@ enum tfm_plat_err_t init_debug(void)
  *
  * With the zeros, bsp_irq_cfg()'s two guarded writes both skip: IELSR is never programmed,
  * so a configured peripheral interrupt never reaches the NVIC at all, and the vector is
- * left attributed NON-SECURE. Both silently. That is what made the FLIH timer interrupt
- * appear dead on 2026-09-30.
+ * left attributed NON-SECURE. Both silently, with no diagnostic from any tool - the only
+ * tell is the symbol binding (V vs T) and the array contents in the linked image. That cost
+ * two hardware runs and two rewrites of the RA6M5 timer code before it was found.
  *
  * g_vector_table is defined ONLY in vector_data.c, so referencing it is what pulls the
  * member in. A file-scope non-static const pointer emits a real relocation, which is what
  * archive extraction keys on; moving the file into platform_s does NOT work, because that
- * is a static library too. DECISIONS D069.
+ * is a static library too.
+ *
+ * THE GUARD MIRRORS THE GENERATED FILE'S OWN. vector_data.c wraps both symbols in
+ * "#if VECTOR_DATA_IRQ_COUNT > 0", so with no interrupt configured in the secure e2 project
+ * neither exists and an unconditional anchor is an undefined reference. That case needs no
+ * anchor anyway: with nothing configured the weak all-zero table is the correct answer.
+ * DECISIONS D069.
  */
+#if VECTOR_DATA_IRQ_COUNT > 0
 extern const fsp_vector_t g_vector_table[];
 const fsp_vector_t * const ra6m5_icu_vector_data_anchor = g_vector_table;
+#endif
 
 enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void)
 {

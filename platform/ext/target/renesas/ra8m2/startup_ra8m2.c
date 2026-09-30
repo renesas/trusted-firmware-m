@@ -68,6 +68,15 @@ void PendSV_Handler(void)                   __attribute__((weak, alias("Default_
 void SysTick_Handler(void)                  __attribute__((weak, alias("Default_Handler")));
 
 /*
+ * TIMER0 test fixture for the FLIH/SLIH suites, defined in tfm_timer0_irq.c, which is
+ * only compiled when CONFIG_TFM_FLIH_API or CONFIG_TFM_SLIH_API is set. Weak-aliased to
+ * Default_Handler so the vector table below can reference it unconditionally: in an
+ * application build the slot resolves to the spin loop, which is the correct outcome for
+ * an interrupt no partition has claimed.
+ */
+void TFM_TIMER0_IRQ_Handler(void)           __attribute__((weak, alias("Default_Handler")));
+
+/*
  * No named external-interrupt handlers.
  *
  * On RA the ICU slots are EVENT-LINKED: which peripheral event reaches NVIC slot N is
@@ -125,6 +134,18 @@ extern const VECTOR_TABLE_Type __VECTOR_TABLE[RA8M2_VECTOR_TABLE_ENTRIES];
 
     /* ICU slots 0..95 - event-linked, see the note above the declarations */
     [16 ... (RA8M2_VECTOR_TABLE_ENTRIES - 1)] = Default_Handler,
+
+    /*
+     * TIMER0 test fixture. MUST stay after the range initializer above: for a repeated
+     * index the LAST initializer wins, so putting this first would leave the slot at
+     * Default_Handler and the interrupt would hang in the spin loop instead of reaching
+     * the SPM.
+     *
+     * 16 + VECTOR_NUMBER_AGT0_INT, which is 16 + 0. Written out rather than included from
+     * the generated vector_data.h because this file deliberately keeps to CMSIS headers;
+     * plat_test.c #errors if the generated number is no longer 0.
+     */
+    [16 + 0] = TFM_TIMER0_IRQ_Handler,
 };
 
 #if defined ( __GNUC__ )
