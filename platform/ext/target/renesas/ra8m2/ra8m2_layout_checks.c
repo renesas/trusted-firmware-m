@@ -197,6 +197,24 @@ _Static_assert(TFM_MRAM_S_OFF(BSP_PARTITION_FLASH_CPU0_C_START) +
 _Static_assert(FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE == FLASH_AREA_3_OFFSET,
                "RA8M2: the non-secure primary and secondary slots are no longer contiguous.");
 
+/* Driver_Flash.c's MRAM_ADDR() picks the secure or the non-secure MRAM alias with a single
+ * comparison against FLASH_AREA_1_OFFSET. That is only sound while every secure area lies
+ * below it and every non-secure area at or above it, which these four assert. Break the
+ * ordering and the driver forms an address in an alias that does not answer for that byte:
+ * a HardFault inside memcpy(), and only on a part RDPM has already partitioned. */
+_Static_assert(FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE <= FLASH_AREA_1_OFFSET,
+               "RA8M2: BL2 is not below the non-secure boundary - MRAM_ADDR() would use the "
+               "wrong alias for it.");
+_Static_assert(FLASH_AREA_0_OFFSET + FLASH_AREA_0_SIZE <= FLASH_AREA_1_OFFSET,
+               "RA8M2: the secure primary slot is not below the non-secure boundary - "
+               "MRAM_ADDR() would use the wrong alias for it.");
+_Static_assert(FLASH_AREA_2_OFFSET + FLASH_AREA_2_SIZE <= FLASH_AREA_1_OFFSET,
+               "RA8M2: the secure secondary slot is not below the non-secure boundary - "
+               "MRAM_ADDR() would use the wrong alias for it.");
+_Static_assert(FLASH_AREA_3_OFFSET >= FLASH_AREA_1_OFFSET,
+               "RA8M2: the non-secure secondary slot is below the non-secure boundary - "
+               "MRAM_ADDR() would use the wrong alias for it.");
+
 /*
  * DF_EMULATION must not overlap any MCUboot area.
  *

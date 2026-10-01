@@ -38,8 +38,9 @@
  *     those from BSP_PARTITION_DF_EMULATION_START, which is 0x02010000.
  *     => FLASH1 uses the value as given.
  *
- * Getting FLASH0 wrong is not a fault, it is a wild access: offset 0x20000 without the base
- * lands in CPU0's secure DTCM.
+ * Getting FLASH0 wrong is a wild access, not a diagnostic: offset 0x20000 with no base at
+ * all lands in CPU0's secure DTCM. Getting the BASE right but the ALIAS wrong is a
+ * HardFault instead, and only on a partitioned part - see MRAM_ADDR() below.
  * ==================================================================================
  */
 
@@ -64,8 +65,43 @@ extern const flash_cfg_t    g_mram0_cfg;
 #define ARG_UNUSED(arg)  (void)(arg)
 #endif
 
-/* Offset -> address, for FLASH0 only. See THE OFFSET / ADDRESS TRAP above. */
-#define MRAM_ADDR(off)   ((uint32_t)(FLASH_BASE_ADDRESS) + (uint32_t)(off))
+/* Offset -> address, for FLASH0 only. See THE OFFSET / ADDRESS TRAP above.
+ *
+ * THE ALIAS IS PART OF THE ADDRESS, AND IT IS NOT CONSTANT ACROSS THE DEVICE.
+ *
+ * MRAM answers at two bases - 0x02000000 secure, 0x12000000 non-secure, which is
+ * BSP_FEATURE_TZ_NS_OFFSET apart. Which one reaches a given byte is decided by the
+ * TrustZone boundary burned in with the Device Partition Manager: below it the cells
+ * respond on the secure alias only, at or above it on the non-secure alias only. Both
+ * aliases do NOT reach every byte. Only the OFFSET is alias-independent, which is what
+ * lets one Driver_FLASH0 serve all four slots - the address formed from it is not.
+ *
+ * An earlier revision added FLASH_BASE_ADDRESS unconditionally. That is correct for the
+ * three secure areas and wrong for the two non-secure ones, and it cost a full debug
+ * session because the failure needs a PARTITIONED part to appear: on a virgin device the
+ * whole of MRAM is secure, the secure alias reaches everything, and the bug is invisible.
+ * Once RDPM is programmed, BL2 reads the secure primary slot at 0x02068000 fine, then
+ * takes a HardFault inside memcpy() on the first access at or above 0x020B0000 - the NS
+ * primary slot, written by the programmer at 0x120B0000 and read back through an alias
+ * that does not answer there.
+ *
+ * RA6M5 has BSP_FEATURE_TZ_NS_OFFSET = 0 and genuinely has one alias, so its driver adds
+ * a single base and is right to. This file was derived from it.
+ *
+ * FLASH_AREA_1_OFFSET is the boundary: it is the NS primary slot's header, the lowest
+ * non-secure offset, and flash_layout.h derives it from BSP_PARTITION___BL_1_P_H_START.
+ * Taking it from there rather than a literal means a repartition in e2 moves this with it.
+ * ra8m2_layout_checks.c asserts that the two non-secure areas are the two highest and are
+ * contiguous above it, which is what makes a single threshold sufficient.
+ *
+ * Safe for the write path too: R_MRAM_Write() and R_MRAM_Erase() mask the address with
+ * ~BSP_FEATURE_TZ_NS_OFFSET before range-checking it (r_mram.c), i.e. FSP accepts either
+ * alias by design, and passes the unmasked address on to the program/erase sequence. */
+#define MRAM_ADDR(off)                                                   \
+    ((uint32_t)(off) +                                                   \
+     ((uint32_t)(off) >= (uint32_t)(FLASH_AREA_1_OFFSET)                 \
+      ? (uint32_t)(FLASH_NS_ALIAS_BASE)                                  \
+      : (uint32_t)(FLASH_BASE_ADDRESS)))
 
 /* R_MRAM_Erase() counts blocks of BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, i.e. 32 bytes -
  * NOT of FLASH_AREA_IMAGE_SECTOR_SIZE. mram_erase_blocks() writes 0xFF over

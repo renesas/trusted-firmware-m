@@ -60,8 +60,14 @@
  * partition's start as an absolute address in whichever alias its security attribute
  * selects, so the secure partitions come out as 0x020xxxxx and the non-secure ones as
  * 0x120xxxxx. MCUboot wants a single flat offset into one device, so each start is
- * converted below by subtracting its own alias base. Both aliases give the same
- * physical offset, which is what makes one Driver_FLASH0 able to serve all four slots.
+ * converted below by subtracting its own alias base, so one Driver_FLASH0 can serve all
+ * four slots from a single flat offset space.
+ *
+ * THE REVERSE IS NOT TRUE. An offset is alias-independent; the ADDRESS formed from it is
+ * not. Once RDPM has partitioned the part, the cells below the boundary answer on the
+ * secure alias only and those at or above it on the non-secure alias only, so a driver
+ * cannot add one fixed base to every offset. Driver_Flash.c's MRAM_ADDR() chooses the
+ * alias per offset - see the comment there, which is where this cost a debug session.
  *
  * RA6M5 needed none of this: its code flash is based at 0x00000000, so the generated
  * starts doubled as offsets and were used directly.
