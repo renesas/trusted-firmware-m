@@ -681,13 +681,22 @@ if(BL2)
         ${CMAKE_CURRENT_SOURCE_DIR}/bl2_option_setting.c
     )
 
-    # RSIP-E50D accelerator: BL2's SHA-256 runs on the engine, so BL2 brings it up itself in
-    # boot_platform_post_init(), before MCUboot hashes the first slot.
+    # BL2's boot_platform_post_init() override. ALWAYS built, not only with the accelerator:
+    # its first job is enabling the SAU, without which BL2 cannot read the non-secure image
+    # headers at all on a partitioned part - the access would go out secure and be refused.
+    # See the comment in bl2_boot_hal.c. The weak default does nothing without
+    # CRYPTO_HW_ACCELERATOR, so overriding it unconditionally loses nothing.
+    target_sources(bl2 PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/bl2_boot_hal.c
+    )
+
+    # RSIP-E50D accelerator: BL2's SHA-256 runs on the engine, so the same hook brings it up
+    # before MCUboot hashes the first slot.
     if(CRYPTO_HW_ACCELERATOR)
         target_sources(bl2 PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/ra_sce_init.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/bl2_boot_hal.c
         )
+        target_compile_definitions(bl2 PRIVATE RA8M2_BL2_SCE_INIT)
     endif()
 
     # MCUboot's bl2_main.c calls stdio_init/stdio_uninit, so BL2 needs a stdout backend
