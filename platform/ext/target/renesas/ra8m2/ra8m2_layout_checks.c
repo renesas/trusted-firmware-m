@@ -197,11 +197,20 @@ _Static_assert(TFM_MRAM_S_OFF(BSP_PARTITION_FLASH_CPU0_C_START) +
 _Static_assert(FLASH_AREA_1_OFFSET + FLASH_AREA_1_SIZE == FLASH_AREA_3_OFFSET,
                "RA8M2: the non-secure primary and secondary slots are no longer contiguous.");
 
+/* flash_layout.h spells the non-secure alias base as a literal because it is preprocessed
+ * into ra8m2_bl2.ld and cannot reach bsp_feature.h. Driver_Flash.c derives the same base
+ * from the BSP. This is what keeps the literal honest. */
+_Static_assert(FLASH_NS_ALIAS_BASE == FLASH_BASE_ADDRESS + BSP_FEATURE_TZ_NS_OFFSET,
+               "RA8M2: FLASH_NS_ALIAS_BASE in flash_layout.h no longer matches "
+               "FLASH_BASE_ADDRESS + BSP_FEATURE_TZ_NS_OFFSET. The literal exists only "
+               "because that header feeds the linker script; FSP's value is authoritative.");
+
 /* Driver_Flash.c's MRAM_ADDR() picks the secure or the non-secure MRAM alias with a single
- * comparison against FLASH_AREA_1_OFFSET. That is only sound while every secure area lies
- * below it and every non-secure area at or above it, which these four assert. Break the
- * ordering and the driver forms an address in an alias that does not answer for that byte:
- * a HardFault inside memcpy(), and only on a part RDPM has already partitioned. */
+ * comparison against the end of the NSC region. That is only sound while every secure area
+ * lies below it and every non-secure area at or above it, which these four assert - note
+ * the NSC end is already asserted equal to FLASH_AREA_1_OFFSET above. Break the ordering
+ * and the driver forms an address in an alias that does not answer for that byte: a
+ * HardFault inside memcpy(), and only on a part RDPM has already partitioned. */
 _Static_assert(FLASH_AREA_BL2_OFFSET + FLASH_AREA_BL2_SIZE <= FLASH_AREA_1_OFFSET,
                "RA8M2: BL2 is not below the non-secure boundary - MRAM_ADDR() would use the "
                "wrong alias for it.");

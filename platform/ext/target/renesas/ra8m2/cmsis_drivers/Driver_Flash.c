@@ -88,20 +88,35 @@ extern const flash_cfg_t    g_mram0_cfg;
  * RA6M5 has BSP_FEATURE_TZ_NS_OFFSET = 0 and genuinely has one alias, so its driver adds
  * a single base and is right to. This file was derived from it.
  *
- * FLASH_AREA_1_OFFSET is the boundary: it is the NS primary slot's header, the lowest
- * non-secure offset, and flash_layout.h derives it from BSP_PARTITION___BL_1_P_H_START.
- * Taking it from there rather than a literal means a repartition in e2 moves this with it.
- * ra8m2_layout_checks.c asserts that the two non-secure areas are the two highest and are
- * contiguous above it, which is what makes a single threshold sufficient.
+ * TWO CONSTANTS, FROM TWO DIFFERENT PLACES, AND NEITHER SUBSTITUTES FOR THE OTHER:
  *
- * Safe for the write path too: R_MRAM_Write() and R_MRAM_Erase() mask the address with
- * ~BSP_FEATURE_TZ_NS_OFFSET before range-checking it (r_mram.c), i.e. FSP accepts either
- * alias by design, and passes the unmasked address on to the program/erase sequence. */
+ *   The DELTA between the aliases is BSP_FEATURE_TZ_NS_OFFSET, 0x10000000. It is a property
+ *   of the device family, FSP states it, and it is taken from there rather than restated.
+ *   flash_layout.h has to spell it as the literal FLASH_NS_ALIAS_BASE because that header is
+ *   preprocessed into ra8m2_bl2.ld and cannot reach bsp_feature.h; ra8m2_layout_checks.c
+ *   asserts the two agree, so the literal cannot drift.
+ *
+ *   The BOUNDARY is where secure MRAM ends, and that is a property of THIS partitioning, not
+ *   of the family - it is whatever was programmed into CFSAMONA with RDPM. It has to move
+ *   when the layout moves, or the driver picks the wrong alias again. Taken as the end of
+ *   the NSC region, which is the boundary by definition here: RDPM can only express a
+ *   contiguous Secure|NSC|NS triple, so the NSC is always the last secure thing.
+ *   ra8m2_layout_checks.c asserts that, and that no secure area sits above it.
+ *
+ *   Deriving the boundary from FLASH_AREA_1_OFFSET instead would give the same number today
+ *   but name the wrong thing - it is where the first non-secure SLOT starts, which coincides
+ *   with the boundary only as long as nobody reorders the areas. */
+#define MRAM_NS_BASE                                                     \
+    ((uint32_t)(FLASH_BASE_ADDRESS) + (uint32_t)(BSP_FEATURE_TZ_NS_OFFSET))
+
+#define MRAM_NS_BOUNDARY                                                 \
+    ((uint32_t)(TFM_MRAM_S_OFF(BSP_PARTITION_FLASH_CPU0_C_START)) +      \
+     (uint32_t)(BSP_PARTITION_FLASH_CPU0_C_SIZE))
+
 #define MRAM_ADDR(off)                                                   \
     ((uint32_t)(off) +                                                   \
-     ((uint32_t)(off) >= (uint32_t)(FLASH_AREA_1_OFFSET)                 \
-      ? (uint32_t)(FLASH_NS_ALIAS_BASE)                                  \
-      : (uint32_t)(FLASH_BASE_ADDRESS)))
+     ((uint32_t)(off) >= MRAM_NS_BOUNDARY ? MRAM_NS_BASE                 \
+                                          : (uint32_t)(FLASH_BASE_ADDRESS)))
 
 /* R_MRAM_Erase() counts blocks of BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, i.e. 32 bytes -
  * NOT of FLASH_AREA_IMAGE_SECTOR_SIZE. mram_erase_blocks() writes 0xFF over
