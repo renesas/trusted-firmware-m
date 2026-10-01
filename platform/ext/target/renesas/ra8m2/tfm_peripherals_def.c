@@ -14,12 +14,21 @@
  * sentinel and tfm_hal_bind_boundary() skips the peripheral-programming branch entirely.
  * See target_cfg.h for why the type exists at all.
  *
- * SCI0 base is 0x40118000 on RA8M2 (R_SCI0), 0x100 of register space. Taken as the "std
- * UART" because TFM_DRIVER_STDIO names Driver_USART0 (device_cfg.h).
+ * SCI0 base is 0x40358000 on RA8M2 - the device header defines R_SCI0_BASE as
+ * (0x40358000UL + BASE_NS_OFFSET), and R_SCI1_BASE is 0x40358100, so the block is 0x100.
+ * Taken as the "std UART" because TFM_DRIVER_STDIO names Driver_USART0 (device_cfg.h).
+ *
+ * This read 0x40118000 until 2026-10-01. That is RA6M5's SCI0, carried over wholesale when
+ * this file was derived from ra6m5/tfm_peripherals_def.c, with only the comment's part name
+ * edited. It appears nowhere in R7KA8M2JF_core0.h. It was latent because the port defaults
+ * to RA8M2_STDOUT_RTT and isolation 1, where no MPU region is created from this entry - at
+ * isolation 2 or 3 tfm_hal_bind_boundary() would have mapped 0x40118000, which decodes to
+ * nothing, and left the real SCI0 unmapped. The sibling AGT0 entry below was checked against
+ * the device header when it was added and is correct; this one never was.
  */
 struct platform_data_t tfm_peripheral_std_uart = {
-    .periph_start     = 0x40118000,
-    .periph_limit     = 0x401180FF,
+    .periph_start     = 0x40358000,
+    .periph_limit     = 0x403580FF,
     .periph_ppc_bank  = PPC_SP_DO_NOT_CONFIGURE,
     .periph_ppc_mask  = 0,
 };
