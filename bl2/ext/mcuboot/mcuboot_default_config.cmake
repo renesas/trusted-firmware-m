@@ -11,6 +11,7 @@ set(TEST_BL2                            OFF         CACHE BOOL      "Whether to 
 
 set(DEFAULT_MCUBOOT_SECURITY_COUNTERS   ON          CACHE BOOL      "Whether to use the default security counter configuration defined by TF-M project")
 set(DEFAULT_MCUBOOT_FLASH_MAP           ON          CACHE BOOL      "Whether to use the default flash map defined by TF-M project")
+set(DEFAULT_MCUBOOT_FLASH_BACKEND       ON          CACHE BOOL      "Whether to use the default flash_map_backend implementation defined by TF-M project")
 
 set(MCUBOOT_S_IMAGE_FLASH_AREA_NUM      0           CACHE STRING    "ID of the flash area containing the primary Secure image")
 set(MCUBOOT_NS_IMAGE_FLASH_AREA_NUM     1           CACHE STRING    "ID of the flash area containing the primary Non-Secure image")

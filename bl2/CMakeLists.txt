@@ -120,7 +120,11 @@ endif()
 ############################### BL2 ############################################
 
 add_executable(bl2
-    src/flash_map.c
+    # Upstream: overridable, as the map below it already is. A platform whose vendor SDK
+    # already implements flash_map_backend - Renesas FSP's rm_mcuboot_port, and the
+    # NXP/ST/Nordic equivalents - cannot use it while this is unconditional, because the
+    # two sets of flash_area_* definitions collide at link time.
+    $<$<BOOL:${DEFAULT_MCUBOOT_FLASH_BACKEND}>:src/flash_map.c>
     $<$<C_COMPILER_ID:Clang>:src/crt_exit.c>
     $<$<BOOL:${DEFAULT_MCUBOOT_SECURITY_COUNTERS}>:src/security_cnt.c>
     $<$<BOOL:${DEFAULT_MCUBOOT_FLASH_MAP}>:src/default_flash_map.c>

@@ -21,6 +21,39 @@
 #include "fih.h"
 #include "ra_sce_init.h"
 
+/*
+ * MCUboot's flash_area_* offsets are ABSOLUTE ADDRESSES on this port, so the base to add to
+ * them is zero.
+ *
+ * bl2_main.c computes the next image's vector table as
+ *
+ *     vt = flash_base + rsp->br_image_off + rsp->br_hdr->ih_hdr_size
+ *
+ * where flash_base comes from here and br_image_off is the slot's fa_off. TF-M's own
+ * flash_map carries fa_off as a flat offset into the device and its __WEAK implementation of
+ * this returns FLASH_DEVICE_BASE to make up the difference. FSP's flash_map[], generated into
+ * bsp_linker_info.h, carries the full address instead - 0x02068000 for the secure primary
+ * slot, 0x120B0000 for the non-secure one, alias included - which is exactly what makes
+ * MRAM's two aliases a non-problem for the backend. Adding a base on top of that would land
+ * the jump 32 MB past the image.
+ *
+ * Not __WEAK: this REPLACES TF-M's version, which is in flash_map_extended.c and is no longer
+ * linked (DEFAULT_MCUBOOT_FLASH_BACKEND=OFF). It is here rather than in the mcuboot_port
+ * module because it is TF-M's contract, not FSP's - FSP's standalone bootloader never calls
+ * it.
+ */
+int flash_device_base(uint8_t fd_id, uintptr_t *ret)
+{
+    (void)fd_id;
+
+    if (ret == NULL) {
+        return -1;
+    }
+
+    *ret = 0u;
+    return 0;
+}
+
 int32_t boot_platform_post_init(void)
 {
     if (FSP_SUCCESS != ra_sce_init()) {
