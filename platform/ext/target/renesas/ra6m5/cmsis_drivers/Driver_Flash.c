@@ -200,6 +200,42 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
     return ARM_DRIVER_OK;
 }
 
+#ifdef RA6M5_BUILDING_BL2
+
+/*
+ * ===================== HANDING THE FLASH CONTROLLER TO MCUboot =====================
+ *
+ * BL2 ONLY, and only because BL2 now uses FSP's flash_map_backend instead of TF-M's.
+ *
+ * Two things open the SAME FSP controller, g_flash0_ctrl:
+ *
+ *   1. TF-M's weak boot_platform_init() calls FLASH_DEV_NAME.Initialize(), which lands in
+ *      ARM_Flash_Initialize() above.
+ *   2. FSP's rm_mcuboot_port/flash_map.c opens it itself, at the top of flash_area_open().
+ *
+ * boot_platform_init() always runs first, so by the time MCUboot calls flash_area_open()
+ * the controller is already open - and FSP's version returns -1 on ANY non-SUCCESS,
+ * FSP_ERR_ALREADY_OPEN included. MCUboot then cannot open a single area and panics in the
+ * bootloader. Observed on RA6M5 hardware; RA8M2 had the same bug latent, never having run.
+ *
+ * ARM_Flash_Initialize() above copes with the reverse order - it closes and reopens on
+ * ALREADY_OPEN - but FSP's does not, and FSP's source is consumed, not forked (DESIGN.md 1).
+ * So the port hands ownership over instead: boot_platform_post_init() calls this after
+ * boot_platform_init() has validated the geometry, and before boot_go_for_image_id().
+ *
+ * flash_state.initialized is deliberately LEFT SET. The data-flash instance shares this one
+ * controller (ra6m5 has a single FSP flash instance for code and data), and the NV counter
+ * reads that follow need the Driver_FLASH1 entry points to stay live. FSP reopens the same
+ * controller with the same cfg inside the first flash_area_open(), which happens before any
+ * NV counter access in boot_go_for_image_id().
+ * ===================================================================================
+ */
+void ra6m5_flash_release_for_mcuboot(void)
+{
+    R_FLASH_HP_Close(&g_flash0_ctrl);
+}
+#endif
+
 static int32_t ARM_Flash_Uninitialize(void)
 {
     if (flash_state.initialized) {

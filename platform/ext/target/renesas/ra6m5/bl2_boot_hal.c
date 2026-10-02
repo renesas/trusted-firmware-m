@@ -18,6 +18,8 @@
 #include <stdint.h>
 
 #include "boot_hal.h"
+
+void ra6m5_flash_release_for_mcuboot(void);   /* cmsis_drivers/Driver_Flash.c, BL2 only */
 #include "fih.h"
 #ifdef RA6M5_BL2_SCE_INIT
 #include "ra_sce_init.h"
@@ -51,6 +53,12 @@ int flash_device_base(uint8_t fd_id, uintptr_t *ret)
 
 int32_t boot_platform_post_init(void)
 {
+    /* Hand the flash controller to FSP's flash_map_backend before MCUboot touches a
+     * slot. boot_platform_init() has just opened it, and FSP's flash_area_open()
+     * fails on FSP_ERR_ALREADY_OPEN - see the long note in cmsis_drivers/Driver_Flash.c.
+     * DECISIONS D085. */
+    ra6m5_flash_release_for_mcuboot();
+
 #ifdef RA6M5_BL2_SCE_INIT
     if (FSP_SUCCESS != ra_sce_init()) {
         return 1;
