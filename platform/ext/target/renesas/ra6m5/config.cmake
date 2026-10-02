@@ -97,8 +97,25 @@ set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the
 # Reflash every slot rather than mixing.
 set(MCUBOOT_ALIGN_VAL                   128         CACHE STRING    "RA6M5 code flash write unit; needs the 2 KB NSC layout")
 set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
-set(MCUBOOT_MEASURED_BOOT               OFF         CACHE BOOL      "Disabled in the solution")
-set(MCUBOOT_DATA_SHARING                OFF         CACHE BOOL      "Disabled in the solution")
+# MEASURED BOOT. DATA_SHARING is the one that does the work: without it BL2 writes no boot
+# record and MEASURED_BOOT has nothing to carry.
+#
+# Both were OFF until 2026-10-02 and the PSA Arch attestation suite passed anyway - on this
+# part and on RA6E1, under both toolchains. That is not evidence it was working. With no boot
+# record, attest_add_all_sw_components() (attest_core.c:120) sees component_cnt == 0 and under
+# ATTEST_TOKEN_PROFILE_PSA_IOT_1 - the default, config_base.h:165 - is ALLOWED to emit
+# IAT_NO_SW_COMPONENTS and return success. The token is then well-formed and correctly signed
+# while attesting nothing about the firmware running, and the suite passes it. Under any other
+# profile the same state fails with PSA_ATTEST_ERR_CLAIM_UNAVAILABLE. DECISIONS D080.
+#
+# The platform side was already in place: BOOT_TFM_SHARED_DATA_BASE = S_DATA_START, size 0x400,
+# with SHARED_BOOT_MEASUREMENT_* aliased onto it (region_defs.h). Nothing in the e2 solution
+# needs to change - unlike RA8M2, this port takes TF-M's generated mcuboot_config.h, not FSP's.
+#
+# A PASSING ATTESTATION SUITE DOES NOT VERIFY THIS. It passes either way. Read the token and
+# confirm IAT_SW_COMPONENTS rather than IAT_NO_SW_COMPONENTS.
+set(MCUBOOT_MEASURED_BOOT               ON          CACHE BOOL      "Boot record of each image")
+set(MCUBOOT_DATA_SHARING                ON          CACHE BOOL      "BL2 -> secure boot record")
 
 # SCE9 cipher acceleration: platform/ext/accelerator/renesas/sce9. FSP's rm_psa_crypto
 # *_ALT sources (AES, AES-GCM, SHA-256, ECDSA/ECDH P-256, plaintext keys) compiled into
