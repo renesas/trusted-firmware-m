@@ -19,16 +19,47 @@
 
 #include "boot_hal.h"
 #include "fih.h"
+#ifdef RA6M5_BL2_SCE_INIT
 #include "ra_sce_init.h"
+#endif
+
+/*
+ * The base to add to a flash_area offset. Zero here - twice over.
+ *
+ * bl2_main.c computes the next image's vector table as
+ *     vt = flash_base + rsp->br_image_off + rsp->br_hdr->ih_hdr_size
+ * TF-M's own __WEAK version returns FLASH_DEVICE_BASE to compensate for its flat fa_off; it
+ * lives in flash_map_extended.c, which is no longer linked (DEFAULT_MCUBOOT_FLASH_BACKEND
+ * OFF), so the port must supply one.
+ *
+ * FSP's flash_map[] carries absolute addresses in fa_off. On RA6M5 that is the same number
+ * as the offset, because code flash is based at 0x00000000 - so zero is correct whichever
+ * convention you read it under. On RA8M2 the two differ by 32 MB and only the FSP reading
+ * gives zero; keeping the implementations identical across the two ports is deliberate.
+ */
+int flash_device_base(uint8_t fd_id, uintptr_t *ret)
+{
+    (void)fd_id;
+
+    if (ret == NULL) {
+        return -1;
+    }
+
+    *ret = 0u;
+    return 0;
+}
 
 int32_t boot_platform_post_init(void)
 {
+#ifdef RA6M5_BL2_SCE_INIT
     if (FSP_SUCCESS != ra_sce_init()) {
         return 1;
     }
 
     /* As the weak default does under CRYPTO_HW_ACCELERATOR. */
     fih_delay_init();
+
+#endif
 
     return 0;
 }

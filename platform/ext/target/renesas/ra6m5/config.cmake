@@ -96,6 +96,15 @@ set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the
 # (image.py:189-202), so images signed at align 1 are NOT accepted by a BL2 built at 128.
 # Reflash every slot rather than mixing.
 set(MCUBOOT_ALIGN_VAL                   128         CACHE STRING    "RA6M5 code flash write unit; needs the 2 KB NSC layout")
+# FSP supplies the MCUboot flash map AND backend, as on RA8M2 (DECISIONS D079). OFF empties
+# TF-M's sysflash.h and drops bl2/src/default_flash_map.c + flash_map_{extended,legacy}.c, so
+# the generated bsp_linker_info.h provides flash_map[] and FLASH_AREA_IMAGE_PRIMARY/SECONDARY
+# with FSP's own area IDs. That is fine: nothing in bootutil uses a raw numeric ID.
+# The two cannot coexist - TF-M defines the accessors as function-like macros, FSP as static
+# inline functions of the same name - so turning either back on alone fails to compile.
+set(DEFAULT_MCUBOOT_FLASH_MAP           OFF         CACHE BOOL      "FSP's bsp_linker_info.h supplies it")
+set(DEFAULT_MCUBOOT_FLASH_BACKEND       OFF         CACHE BOOL      "FSP's rm_mcuboot_port supplies it")
+
 set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
 # MEASURED BOOT. DATA_SHARING is the one that does the work: without it BL2 writes no boot
 # record and MEASURED_BOOT has nothing to carry.

@@ -92,11 +92,11 @@ function(fsp_collect_sources out_var dir role)
     #       mbedTLS. TF-M uses its own mbedcrypto with CRYPTO_HW_ACCELERATOR OFF; FSP's
     #       mbedTLS is entangled with the FSP MCUboot config and was never grafted
     #       (DESIGN.md 6). Re-enabling the hardware path is the future HW-crypto switch.
-    #   rm_mcuboot_port - FSP's flash_map/MCUboot glue. It carries FSP's whole flash
-    #       identity (its own FLASH_AREA_*_ID, single-image assumptions) out of
-    #       bsp_linker_info.h and conflicts with TF-M's dual-image flash_map. Grafting
-    #       it is what failed on ra6m4 (DESIGN.md 4, 5); TF-M's own Driver_Flash.c
-    #       carries the RA 32 KB region-1 geometry instead.
+    #   rm_mcuboot_port - BL2 DOES use this now, through the mcuboot_port module; it is
+    #       excluded only from this NS whole-tree glob, where MCUboot has no business. The
+    #       old reason - FSP's own FLASH_AREA_*_ID colliding with TF-M's flash_map - was
+    #       retired once DEFAULT_MCUBOOT_FLASH_MAP=OFF made the map a platform choice.
+    #       See cmake/modules/fsp_mcuboot_port.cmake and DECISIONS D079.
     # Their HEADERS stay on the include path - the generated ra_gen/common_data.h and
     # hal_data.h include them unconditionally. Nothing is linked from them.
     set(FSP_EXCLUDED_MODULES r_sce rm_psa_crypto rm_mcuboot_port)
@@ -225,7 +225,11 @@ set(FSP_MODULES_S    bsp flash sce agt)
 #                    sce: SCE9 TRNG backs the PSA external RNG
 #                    agt: the FLIH/SLIH test timer, and agt_int_isr() which the
 #                         generated vector table names - see fsp_agt.cmake
-set(FSP_MODULES_BL2  bsp flash)
+set(FSP_MODULES_BL2  bsp flash mcuboot_port)
+#                    mcuboot_port: FSP's flash_map_backend, in place of bl2/src/flash_map.c.
+#                         Unlike RA8M2 this is not about the SAU (RA6M5 has none) - it is so
+#                         FSP's erase/write/sector logic and its generated flash_map[] are the
+#                         ones in the image. See fsp_mcuboot_port.cmake.
 # BL2 needs no randomness, but with the SCE9 accelerator on its image hash (SHA-256) runs on
 # the engine - platform/ext/accelerator/renesas/sce9. See fsp_sce.cmake.
 if(CRYPTO_HW_ACCELERATOR)
@@ -238,6 +242,7 @@ set(FSP_MODULE_DIRS_bsp    bsp r_ioport)
 set(FSP_MODULE_DIRS_flash  r_flash_hp)
 set(FSP_MODULE_DIRS_sce    r_sce)
 set(FSP_MODULE_DIRS_agt    r_agt)
+set(FSP_MODULE_DIRS_mcuboot_port rm_mcuboot_port)
 
 # Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
 # HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
@@ -249,7 +254,9 @@ set(FSP_MODULE_DIRS_agt    r_agt)
 #   rm_mcuboot_port - FSP's flash_map/MCUboot glue, carrying FSP's own FLASH_AREA_*_ID and
 #       single-image assumptions out of bsp_linker_info.h. Conflicts with TF-M's dual-image
 #       flash_map; grafting it is what failed on ra6m4 (DESIGN.md 4, 5).
-set(FSP_MODULES_NEVER_BUILT r_sce rm_psa_crypto rm_mcuboot_port)
+# rm_mcuboot_port is NOT in this list any more: BL2 claims it through the mcuboot_port
+# module, so a missing one should warn rather than drop silently.
+set(FSP_MODULES_NEVER_BUILT r_sce rm_psa_crypto)
 
 # Declare this role's module libraries. Returns their target names in out_targets.
 function(fsp_add_modules role dir includes out_targets)
@@ -534,6 +541,48 @@ if(BL2)
     # FSP module libraries for the bootloader. Its e2 project also contains r_sce,
     # rm_psa_crypto and rm_mcuboot_port for the standalone build; none of them are
     # declared here, so none reach the image.
+    # ============ WHOSE MCUboot HEADERS BL2 USES - the same split as RA8M2 ============
+    #
+    # Prepended with BEFORE, so the first match wins:
+    #
+    #   mcuboot_config.h -> TF-M's (generated, ${CMAKE_BINARY_DIR}/bl2/ext/mcuboot)
+    #       MCUboot's security policy: MCUBOOT_HW_ROLLBACK_PROT, MCUBOOT_MEASURED_BOOT,
+    #       MCUBOOT_VALIDATE_PRIMARY_SLOT, MCUBOOT_BOOT_MAX_ALIGN, the signature type. It
+    #       stays TF-M's because TF-M's config.cmake is also what drives imgtool at signing
+    #       time, and FSP's does not define MCUBOOT_HW_ROLLBACK_PROT at all - taking it would
+    #       compile the NV counter check out silently. DECISIONS D079.
+    #
+    #   sysflash.h -> FSP's (${FSP_BL2_APP_DIR}/ra_cfg/mcu-tools/include)
+    #       The flash identity: FLASH_DEVICE_INTERNAL_FLASH/EXTERNAL_FLASH and the include of
+    #       bsp_linker_info.h that supplies flash_map[] and FLASH_AREA_IMAGE_PRIMARY/SECONDARY.
+    #       TF-M's is empty here because DEFAULT_MCUBOOT_FLASH_MAP is OFF. FSP's defines
+    #       __SYSFLASH_H__ as well as its own guard, so it shadows TF-M's.
+    #
+    # ORDER IS LOAD-BEARING: the generated mcuboot_config.h directory must precede FSP's
+    # mcu-tools, because FSP's sysflash.h opens with
+    # #include "mcuboot_config/mcuboot_config.h" and that is the line that would otherwise
+    # pull FSP's policy in through the side door.
+    #
+    # bootutil as well as bl2: loader.c calls FLASH_AREA_IMAGE_PRIMARY/SECONDARY, which with
+    # the map option OFF exist only as the static inlines FSP's sysflash.h pulls in.
+    foreach(_tgt bl2 bootutil)
+        target_include_directories(${_tgt} BEFORE PRIVATE
+            ${CMAKE_BINARY_DIR}/bl2/ext/mcuboot             # TF-M's mcuboot_config.h, first
+            ${FSP_BL2_APP_DIR}/ra_cfg/mcu-tools/include     # FSP's sysflash.h
+            ${FSP_PARTITION_HEADER_DIR}                     # generated bsp_partitions.h
+            ${CMAKE_CURRENT_SOURCE_DIR})                    # flash_layout.h
+    endforeach()
+
+    # The module compiles flash_map.c, so it needs the same view plus bootutil's own headers.
+    set(FSP_MCUBOOT_PORT_INCLUDES
+        ${CMAKE_BINARY_DIR}/bl2/ext/mcuboot
+        ${FSP_BL2_APP_DIR}/ra_cfg/mcu-tools/include
+        ${CMAKE_SOURCE_DIR}/bl2/ext/mcuboot/include         # flash_map/, flash_map_backend/
+        ${MCUBOOT_PATH}/boot/bootutil/include
+        ${MCUBOOT_PATH}/boot/bootutil/src
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${FSP_PARTITION_HEADER_DIR})
+
     fsp_add_modules(bl2 "${FSP_BL2_APP_DIR}" "${FSP_BL2_INCLUDES}" FSP_BL2_MODULES)
     target_link_libraries(platform_bl2 PUBLIC ${FSP_BL2_MODULES})
 
@@ -570,11 +619,20 @@ if(BL2)
 
     # SCE9 accelerator: BL2's SHA-256 runs on the engine, so BL2 brings it up itself in
     # boot_platform_post_init(), before MCUboot hashes the first slot.
+    # ALWAYS built, not only with the accelerator: it supplies flash_device_base(), whose
+    # only other definition is the __WEAK one in flash_map_extended.c - dropped along with the
+    # rest of TF-M's backend. Without it BL2 fails to link. The weak boot_platform_post_init()
+    # does nothing without CRYPTO_HW_ACCELERATOR, so overriding it unconditionally costs
+    # nothing. See cmake/modules/fsp_mcuboot_port.cmake.
+    target_sources(bl2 PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/bl2_boot_hal.c
+    )
+
     if(CRYPTO_HW_ACCELERATOR)
         target_sources(bl2 PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/ra_sce_init.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/bl2_boot_hal.c
         )
+        target_compile_definitions(bl2 PRIVATE RA6M5_BL2_SCE_INIT)
     endif()
 
     # MCUboot's bl2_main.c calls stdio_init/stdio_uninit, so BL2 needs a stdout backend
