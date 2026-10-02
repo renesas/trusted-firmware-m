@@ -119,8 +119,28 @@ set(DEFAULT_MCUBOOT_FLASH_MAP           OFF         CACHE BOOL      "FSP's bsp_l
 set(DEFAULT_MCUBOOT_FLASH_BACKEND       OFF         CACHE BOOL      "FSP's rm_mcuboot_port supplies it")
 
 set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
-set(MCUBOOT_MEASURED_BOOT               OFF         CACHE BOOL      "Disabled in the solution")
-set(MCUBOOT_DATA_SHARING                OFF         CACHE BOOL      "Disabled in the solution")
+# MEASURED BOOT. Both ON - DATA_SHARING is the one that actually matters, because without it
+# BL2 writes no boot record at all and MEASURED_BOOT has nothing to carry.
+#
+# These were OFF until 2026-10-02, described as "disabled in the solution", and the PSA Arch
+# attestation suite passed anyway. That is not evidence it was fine. With no boot record,
+# attest_add_all_sw_components() (attest_core.c:120) finds component_cnt == 0, and under
+# ATTEST_TOKEN_PROFILE_PSA_IOT_1 - the default, config_base.h:165 - it is ALLOWED to emit
+# IAT_NO_SW_COMPONENTS instead and return success. The token is then structurally valid and
+# correctly signed, so the suite passes it, while attesting nothing about the firmware that
+# is running. Under any other profile the same state returns PSA_ATTEST_ERR_CLAIM_UNAVAILABLE
+# and fails loudly. The quiet path is why this went unnoticed.
+#
+# The platform side was already in place and now agrees with the e2 solution:
+#   BOOT_TFM_SHARED_DATA_BASE  0x22000000 (S_DATA_START)   region_defs.h
+#   BOOT_TFM_SHARED_DATA_SIZE  0x400
+#   SHARED_BOOT_MEASUREMENT_*  aliased onto the same region
+#   FSP's MCUBOOT_SHARED_DATA_BASE/SIZE  0x22000000 / 0x380, inside it
+#
+# VERIFY BY INSPECTING THE TOKEN, not by the suite result: a passing attestation run proves
+# nothing here either way.
+set(MCUBOOT_MEASURED_BOOT               ON          CACHE BOOL      "Boot record of each image")
+set(MCUBOOT_DATA_SHARING                ON          CACHE BOOL      "BL2 -> secure boot record")
 
 # SCE9 cipher acceleration: platform/ext/accelerator/renesas/sce9. FSP's rm_psa_crypto
 # *_ALT sources (AES, AES-GCM, SHA-256, ECDSA/ECDH P-256, plaintext keys) compiled into

@@ -686,11 +686,18 @@ if(BL2)
     # opens with #include "mcuboot_config/mcuboot_config.h", and that is the line that would
     # otherwise pull FSP's policy in through the side door.
     # ===================================================================================
-    target_include_directories(bl2 BEFORE PRIVATE
-        ${CMAKE_BINARY_DIR}/bl2/ext/mcuboot                 # TF-M's mcuboot_config.h, first
-        ${FSP_BL2_APP_DIR}/ra_cfg/mcu-tools/include         # FSP's sysflash.h
-        ${FSP_PARTITION_HEADER_DIR}                         # generated bsp_partitions.h
-        ${CMAKE_CURRENT_SOURCE_DIR})                        # flash_layout.h
+    # BOTH targets, not just bl2. bootutil is its own library and loader.c calls
+    # FLASH_AREA_IMAGE_PRIMARY/SECONDARY - which, with DEFAULT_MCUBOOT_FLASH_MAP OFF, exist
+    # only as the static inlines FSP's sysflash.h pulls out of bsp_linker_info.h. Give
+    # bootutil TF-M's header set and the names are simply undeclared, and the link fails
+    # with "undefined reference to FLASH_AREA_IMAGE_PRIMARY".
+    foreach(_tgt bl2 bootutil)
+        target_include_directories(${_tgt} BEFORE PRIVATE
+            ${CMAKE_BINARY_DIR}/bl2/ext/mcuboot             # TF-M's mcuboot_config.h, first
+            ${FSP_BL2_APP_DIR}/ra_cfg/mcu-tools/include     # FSP's sysflash.h
+            ${FSP_PARTITION_HEADER_DIR}                     # generated bsp_partitions.h
+            ${CMAKE_CURRENT_SOURCE_DIR})                    # flash_layout.h
+    endforeach()
 
     # The module compiles flash_map.c, so it needs the same view plus bootutil's own headers.
     set(FSP_MCUBOOT_PORT_INCLUDES
