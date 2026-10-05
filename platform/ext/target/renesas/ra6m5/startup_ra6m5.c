@@ -105,8 +105,9 @@ void TFM_TIMER0_IRQ_Handler(void)           __attribute__((weak, alias("Default_
  * Source of truth is the generated BSP config, ra_cfg/fsp_cfg/bsp/bsp_mcu_family_cfg.h:
  *     BSP_CORTEX_VECTOR_TABLE_ENTRIES  (16U)
  *     BSP_VECTOR_TABLE_MAX_ENTRIES    (112U)
- * Not included directly - this file deliberately keeps to CMSIS headers - so re-check
- * these two macros if the device ever changes.
+ * Not included directly - this file deliberately keeps to CMSIS headers. The check lives
+ * in ra6m5_layout_checks.c instead, which asserts that the device's
+ * BSP_VECTOR_TABLE_MAX_ENTRIES still fits S_CODE_VECTOR_TABLE_SIZE.
  *
  * 112 * 4 = 0x1C0, which must fit S_CODE_VECTOR_TABLE_SIZE (0x200) in region_defs.h.
  * This was 496 (RA6M4's table, 0x7C0) and overflowed .TFM_VECTORS into .ER_UNPRIV_CODE.

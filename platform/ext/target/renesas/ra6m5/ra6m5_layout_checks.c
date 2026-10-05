@@ -19,6 +19,24 @@
 #include "bsp_api.h"
 
 /* ---------------------------------------------------------------------------------
+ * Vector table size
+ *
+ * startup_ra6m5.c sizes __VECTOR_TABLE from its own RA6M5_VECTOR_TABLE_ENTRIES literal
+ * (112) and deliberately includes only CMSIS headers, so it cannot check itself against
+ * the generated BSP config. This file can, and the invariant that matters is that the
+ * table fits its linker region rather than the literal itself.
+ *
+ * The RA8M2 port shipped this as 496 once - RA6M4's table, 0x7C0 - and overflowed
+ * .TFM_VECTORS into the section after it. A device change that grows the ICU is how it
+ * recurs here. Back-ported from ra8m2_layout_checks.c (DECISIONS D077).
+ * --------------------------------------------------------------------------------- */
+_Static_assert(S_CODE_VECTOR_TABLE_SIZE >= (BSP_VECTOR_TABLE_MAX_ENTRIES * 4),
+               "RA6M5: S_CODE_VECTOR_TABLE_SIZE in region_defs.h is smaller than the "
+               "vector table the configured device needs. .TFM_VECTORS would overflow "
+               "into the section after it. Also update RA6M5_VECTOR_TABLE_ENTRIES in "
+               "startup_ra6m5.c, which must match BSP_VECTOR_TABLE_MAX_ENTRIES.");
+
+/* ---------------------------------------------------------------------------------
  * Main stack
  *
  * bsp_init_stub.c aliases FSP's g_main_stack onto Image$$ARM_LIB_STACK$$ZI$$Base, so
