@@ -58,11 +58,8 @@ target_sources(bl2
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/bl2_main.c
         $<$<BOOL:${PLATFORM_DEFAULT_ROTPK}>:${CMAKE_CURRENT_SOURCE_DIR}/keys.c>
-        # Upstream: these two implement the rest of flash_map_backend - get_sectors,
-        # get_sector, erased_val, and the slot/area id mapping - so they belong behind the
-        # same switch as bl2/src/flash_map.c. See fsp_cmake/UPSTREAM_CHANGES.md item 13.
-        $<$<BOOL:${DEFAULT_MCUBOOT_FLASH_BACKEND}>:${CMAKE_CURRENT_SOURCE_DIR}/flash_map_extended.c>
-        $<$<BOOL:${DEFAULT_MCUBOOT_FLASH_BACKEND}>:${CMAKE_CURRENT_SOURCE_DIR}/flash_map_legacy.c>
+        ${CMAKE_CURRENT_SOURCE_DIR}/flash_map_extended.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/flash_map_legacy.c
 )
 
 target_compile_definitions(bl2

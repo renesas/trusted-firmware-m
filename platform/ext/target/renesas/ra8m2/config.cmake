@@ -104,22 +104,6 @@ set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the
 # another. Reflash every slot rather than mixing - and note RA6M5 images are signed at 128,
 # so the two parts' images are not interchangeable even setting the addresses aside.
 set(MCUBOOT_ALIGN_VAL                   32          CACHE STRING    "RA8M2 MRAM programming size")
-# FSP supplies the MCUboot flash map AND backend on this part, not TF-M. OFF empties
-# bl2/ext/mcuboot/include/sysflash/sysflash.h and drops bl2/src/default_flash_map.c, so the
-# generated bsp_linker_info.h provides flash_map[] and FLASH_AREA_IMAGE_PRIMARY/SECONDARY
-# instead - with FSP's own area IDs, which is fine: nothing in bootutil uses a raw numeric
-# ID, and corstone1000 (which uses the same switch) has its image-0 primary at
-# FLASH_AREA_2_ID. The two cannot coexist - TF-M defines those accessors as function-like
-# macros and FSP as static inline functions of the same name - so turning this back on
-# without also restoring TF-M's backend fails to compile rather than half-adopting.
-#
-# DEFAULT_MCUBOOT_FLASH_BACKEND goes with it: bl2/src/flash_map.c and FSP's flash_map.c
-# define the same seven flash_area_* entry points. See cmake/modules/fsp_mcuboot_port.cmake
-# for why FSP's is the one to keep, and UPSTREAM_CHANGES.md item 13 for the guard that makes
-# it overridable at all.
-set(DEFAULT_MCUBOOT_FLASH_MAP           OFF         CACHE BOOL      "FSP's bsp_linker_info.h supplies it")
-set(DEFAULT_MCUBOOT_FLASH_BACKEND       OFF         CACHE BOOL      "FSP's rm_mcuboot_port supplies it")
-
 set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
 # MEASURED BOOT. Both ON - DATA_SHARING is the one that actually matters, because without it
 # BL2 writes no boot record at all and MEASURED_BOOT has nothing to carry.
