@@ -129,7 +129,14 @@
  * device that is a real constraint on the partitioning: with BL2 at 64 KB it forces
  * DF_EMULATION to 64 KB, because 8 or 32 KB leaves a remainder that cannot be split into
  * two secure and two non-secure slots on a 32 KB boundary. ra8m2_layout_checks.c asserts
- * the sizing, and that this value still agrees with FSP's header.
+ * that sizing.
+ *
+ * It does NOT assert the 0x8000 against FSP: FSP hardcodes it in the generated
+ * mcuboot_config.h rather than deriving it from a BSP_FEATURE macro, and that header also
+ * defines FLASH_AREA_IMAGE_SECTOR_SIZE, so it cannot be included alongside this one. What
+ * is checked is that the part reports MRAM and that the sector is a whole number of MRAM
+ * write units. After an FSP uprev, diff that generated header - see the note in
+ * ra8m2_layout_checks.c.
  *
  * Stated as a literal rather than including mcuboot_config.h because this header is also
  * preprocessed into ra8m2_bl2.ld, and that header includes bsp_api.h. Extracting it into

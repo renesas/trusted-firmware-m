@@ -86,16 +86,18 @@ set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the
 #
 # MRAM has no erase granularity to reconcile this against: r_mram.c reports block_size 32 and
 # its mram_erase_blocks() is documented as simulated. So 32 is a write-size constraint only,
-# and FLASH_AREA_IMAGE_SECTOR_SIZE is free to be chosen for the layout instead (see
-# flash_layout.h - it is 0x1000 here, set by the slot geometry rather than by the device).
+# and FLASH_AREA_IMAGE_SECTOR_SIZE is chosen for the layout instead - 0x8000, matching FSP's
+# RM_MCUBOOT_MRAM_BLOCK_SIZE (flash_layout.h).
 #
-# At 32 the OVERWRITE_ONLY trailer is max_align*2 + align_up(16,32) = 0x60, far smaller than
-# RA6M5's 0x180 at align 128. The secure slot reserves 0x100 for it (__BL_0_P_T) and the NSC
-# is 0x300 at 0x60C00, so the trailer is clear with room to spare - the trailer pressure that
-# forced RA6E1's NSC up to 0x800 does not arise at this alignment.
+# At 32 the OVERWRITE_ONLY trailer is max_align*2 + align_up(16,32) = 0x60, against RA6M5's
+# 0x180 at align 128. The __BL_*_T partitions are ZERO-SIZE end markers here, so the trailer
+# is not given a region of its own: it occupies the last 0x60 bytes of the slot, which on the
+# secure primary is the top of the NSC window (FLASH_CPU0_C, 0x400 at offset 0xAFC00). The
+# veneers therefore have 0x3A0 of that 0x400 to fit in. ra8m2_layout_checks.c asserts that the
+# NSC ends exactly at the secure/non-secure boundary, which is what keeps the arithmetic valid.
 #
-# Corresponding partition values: see the raPartitions block in RA8M2_SOLUTION.md. The secure
-# image region FLASH_CPU0_S is 0x4EA00 at 0x12200, NSC 0x300 at 0x60C00, NS at 0xB0000.
+# Partition values are in RA8M2_SOLUTION.md. Secure code FLASH_CPU0_S is 0x47A00 at offset
+# 0x68200, NSC 0x400 at 0xAFC00, non-secure from 0xB0000.
 #
 # FLAG DAY: imgtool encodes max_align into the boot magic whenever it is not 8
 # (image.py:189-202), so images signed at one alignment are NOT accepted by a BL2 built at

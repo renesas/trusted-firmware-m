@@ -70,6 +70,46 @@ _Static_assert(S_MSP_STACK_SIZE == (BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE),
  * signed image and the bootloader disagree about where the trailer magic lives.
  * See the note on TFM_SLOT_SPAN in flash_layout.h.
  * --------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------
+ * Vector table size
+ *
+ * startup_ra8m2.c sizes __VECTOR_TABLE from its own RA8M2_VECTOR_TABLE_ENTRIES literal
+ * (112) and deliberately includes only CMSIS headers, so it cannot check itself against
+ * the generated BSP config. This file can - it already has bsp_api.h - and the invariant
+ * that actually matters is that the table fits its linker region, not the literal itself.
+ *
+ * It was 496 once (RA6M4's table, 0x7C0) and overflowed .TFM_VECTORS into
+ * .ER_UNPRIV_CODE. A device change that grows the ICU is the way this recurs.
+ * --------------------------------------------------------------------------------- */
+_Static_assert(S_CODE_VECTOR_TABLE_SIZE >= (BSP_VECTOR_TABLE_MAX_ENTRIES * 4),
+               "RA8M2: S_CODE_VECTOR_TABLE_SIZE in region_defs.h is smaller than the "
+               "vector table the configured device needs. .TFM_VECTORS would overflow "
+               "into the section after it. Also update RA8M2_VECTOR_TABLE_ENTRIES in "
+               "startup_ra8m2.c, which must match BSP_VECTOR_TABLE_MAX_ENTRIES.");
+
+/* ---------------------------------------------------------------------------------
+ * FLASH_AREA_IMAGE_SECTOR_SIZE against FSP
+ *
+ * flash_layout.h states this as the literal 0x8000 because it is also preprocessed into
+ * ra8m2_bl2.ld. FSP defines the same value, but as a hardcoded 0x8000 in the generated
+ * mcuboot_config.h - there is no BSP_FEATURE macro for the MRAM block size - and that
+ * header also defines FLASH_AREA_IMAGE_SECTOR_SIZE itself, so it cannot be included here
+ * to compare against. The two assertions below are what CAN be checked from bsp_api.h.
+ *
+ * So the 0x8000 itself is NOT machine-checked. After an FSP pack uprev, diff
+ * ra_cfg/mcu-tools/include/mcuboot_config/mcuboot_config.h and confirm
+ * RM_MCUBOOT_MRAM_BLOCK_SIZE is still 0x8000. Getting this wrong is the D054 case: it was
+ * 0x1000 once, slots came out 9.875 sectors long, and it failed only on hardware.
+ * --------------------------------------------------------------------------------- */
+_Static_assert(BSP_FEATURE_MRAM_IS_AVAILABLE,
+               "RA8M2: this flash_layout.h describes an MRAM part, but the configured "
+               "device reports no MRAM. Every offset here is an MRAM alias offset.");
+
+_Static_assert((FLASH_AREA_IMAGE_SECTOR_SIZE % BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES) == 0,
+               "RA8M2: the erase sector is not a whole number of MRAM write units. "
+               "MCUBOOT_ALIGN_VAL comes from BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, so "
+               "a trailer written at that alignment would straddle a sector boundary.");
+
 #define RA8M2_SLOT_SUM_0 (BSP_PARTITION___BL_0_P_H_SIZE + BSP_PARTITION_FLASH_CPU0_S_SIZE + \
                           BSP_PARTITION_FLASH_CPU0_C_SIZE + BSP_PARTITION___BL_0_P_T_SIZE)
 #define RA8M2_SLOT_SUM_2 (BSP_PARTITION___BL_0_S_H_SIZE + BSP_PARTITION___BL_0_S_I_SIZE + \
