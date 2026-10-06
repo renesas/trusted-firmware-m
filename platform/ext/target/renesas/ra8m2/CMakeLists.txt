@@ -205,8 +205,11 @@ set(FSP_COMPILE_DEFS _RA_CORE=CPU0 _RENESAS_RA_)
 # registers Secure, which is what this port wants: BL2 and the secure image own MRAM, and the
 # non-secure app never changes MRAM timing.
 #
+# RA8 PARTS ONLY. MSAR exists only where there is MRAM; RA6 has no such register, and its
+# other route through OFS1_SEL is closed because BL2 is built as the flat FSP role (D094).
+#
 # REMOVE THIS once e2 emits BSP_CFG_CLOCKS_SECURE (1) from the Clocks/Security setting, and
-# confirm by checking ra_gen/bsp_clock_cfg.h after a regenerate. DECISIONS D092, D093.
+# confirm by checking ra_gen/bsp_clock_cfg.h after a regenerate. DECISIONS D092, D093, D094.
 #
 # This is a DEVIATION from "RASC is the source of config truth" (DESIGN.md 1, 1.1) and is
 # listed there. RA6M5 needs none of it: no MRAM, so no MSAR.
