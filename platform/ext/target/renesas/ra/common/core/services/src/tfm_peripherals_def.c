@@ -15,11 +15,17 @@
 #include <stdint.h>
 #include "tfm_utils.h"
 
-/* TODO: Provide struct platform_data_t for each peripheral when it is available */
+/* Platform data for the standard UART (SCI8) */
+struct platform_data_t tfm_peripheral_std_uart = {
+    .periph_start = R_SCI_B8_BASE,
+    .periph_limit = R_SCI_B8_BASE + 0xFF,
+    .periph_ppc_bank = PPC_SP_DO_NOT_CONFIGURE,
+    .periph_ppc_mask = 0,
+};
 
 /* Allowed named MMIO of this platform */
 static const uintptr_t partition_named_mmio_list[] = {
-    /* TODO: Provide the allowed named MMIO addresses when available */
+    (uintptr_t)TFM_PERIPHERAL_STD_UART,
 };
 
 void get_partition_named_mmio_list(const uintptr_t **list, size_t *length)

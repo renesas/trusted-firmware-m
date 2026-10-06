@@ -9,6 +9,15 @@
 #include <RTE_PinCfg.h>
 
 const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
+#if _RTE_HAS_USART0
+    RTE_PINS_UART(0)
+#endif
+#if _RTE_HAS_USART8
+    RTE_PINS_UART(8)
+#endif
+#if _RTE_HAS_USART9
+    RTE_PINS_UART(9)
+#endif
 };
 
 const ioport_cfg_t g_bsp_pin_cfg = {
