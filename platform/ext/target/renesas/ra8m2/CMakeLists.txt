@@ -177,6 +177,42 @@ endif()
 # faithful to the generated projects so a diff against them stays clean.
 set(FSP_COMPILE_DEFS _RA_CORE=CPU0 _RENESAS_RA_)
 
+# -------------------------------------------------------------------------------------
+# BSP_TZ_CFG_MSAR=0 - WORKAROUND, REMOVE WHEN THE e2 STUDIO GENERATOR IS FIXED
+#
+# MSAR is the MRAM Security Attribution register. FSP derives it from the clocks setting:
+#
+#     #ifndef BSP_TZ_CFG_MSAR
+#     #define BSP_TZ_CFG_MSAR (                                                    \
+#             ((BSP_CFG_CLOCKS_SECURE == 0) ? (1U << 1) : 0U) | /* MREFREQ */      \
+#             ((BSP_CFG_CLOCKS_SECURE == 0) ? (1U << 3) : 0U) | /* MRCFREQ */      \
+#             ((BSP_CFG_CLOCKS_SECURE == 0) ? (1U << 4) : 0U) /* MRCPFB  */)
+#     #endif
+#
+# and R_BSP_SecurityInit() writes it to R_MRMS->MSAR. With BSP_CFG_CLOCKS_SECURE at 0 that
+# marks MRCPFB NON-SECURE, and the secure image then takes a precise bus error the first time
+# it programs MRAM - tfm_plat_otp writing into DF_EMULATION, through mram_program_control()
+# into FSP's own bsp_prv_clear_pfb(), which does R_MRMS->MRCPFB = 0x00 from Secure state:
+#
+#     BFSR 0x82 (PRECISERR|BFARVALID), BFAR 0x4013C000 = R_MRMS base, MRCPFB at offset 0
+#
+# THE GENERATOR WILL NOT PRODUCE BSP_CFG_CLOCKS_SECURE (1). Setting Clocks to Secure in the
+# e2 Security tab writes <raClockConfiguration security="s"> into .secure_xml and changes
+# nothing in ra_gen/bsp_clock_cfg.h - ra6e1_secure carries that attribute, was generated with
+# it (same mtime on both files), and still emits (0). Believed to be an e2 studio defect.
+#
+# BSP_TZ_CFG_MSAR is #ifndef-guarded, so the port supplies it instead. 0 = all three MRAM
+# registers Secure, which is what this port wants: BL2 and the secure image own MRAM, and the
+# non-secure app never changes MRAM timing.
+#
+# REMOVE THIS once e2 emits BSP_CFG_CLOCKS_SECURE (1) from the Clocks/Security setting, and
+# confirm by checking ra_gen/bsp_clock_cfg.h after a regenerate. DECISIONS D092, D093.
+#
+# This is a DEVIATION from "RASC is the source of config truth" (DESIGN.md 1, 1.1) and is
+# listed there. RA6M5 needs none of it: no MRAM, so no MSAR.
+# -------------------------------------------------------------------------------------
+list(APPEND FSP_COMPILE_DEFS BSP_TZ_CFG_MSAR=0)
+
 # TrustZone build flavour, PER ROLE. The secure image declares itself secure to FSP; BL2
 # is deliberately FLAT, matching how the e2 solution template defines the bootloader.
 #
