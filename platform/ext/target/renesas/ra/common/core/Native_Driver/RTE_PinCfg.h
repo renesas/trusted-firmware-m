@@ -27,4 +27,28 @@
     {.pin = RTE_PORT_PIN(port, _pin), \
      .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t)(psel))},
 
+/* UART PSEL - derived from FSP IOPORT_PERIPHERAL_SCI* macros */
+#define RTE_UART_PSEL(ch) \
+    ((ch) & 1) ? IOPORT_PERIPHERAL_SCI1_3_5_7_9 : IOPORT_PERIPHERAL_SCI0_2_4_6_8
+
+/* TX + RX pair for one UART channel (TXD first, then RXD) */
+#define RTE_PINS_UART(ch) \
+    RTE_PIN_CFG(RTE_USART##ch##_TXD_PORT, RTE_USART##ch##_TXD_PIN, RTE_UART_PSEL(ch)) \
+    RTE_PIN_CFG(RTE_USART##ch##_RXD_PORT, RTE_USART##ch##_RXD_PIN, RTE_UART_PSEL(ch))
+
+/*
+ * Domain resolution - S is default, NS assignment from PSAR.
+ * RENESAS_RA_PSAR_NS_SCIx compile definitions come from
+ * s_ns_peripheral.cmake (1 = NS-accessible, 0 = S-only).
+ */
+#if DOMAIN_NS /* TFM NS image build */
+  #define _RTE_HAS_USART0  (RTE_USART0 && RENESAS_RA_PSAR_NS_SCI0)
+  #define _RTE_HAS_USART8  (RTE_USART8 && RENESAS_RA_PSAR_NS_SCI8)
+  #define _RTE_HAS_USART9  (RTE_USART9 && RENESAS_RA_PSAR_NS_SCI9)
+#else         /* TFM S image build */
+  #define _RTE_HAS_USART0  (RTE_USART0 && !RENESAS_RA_PSAR_NS_SCI0)
+  #define _RTE_HAS_USART8  (RTE_USART8 && !RENESAS_RA_PSAR_NS_SCI8)
+  #define _RTE_HAS_USART9  (RTE_USART9 && !RENESAS_RA_PSAR_NS_SCI9)
+#endif
+
 #endif /* RTE_PIN_CFG_H_ */
