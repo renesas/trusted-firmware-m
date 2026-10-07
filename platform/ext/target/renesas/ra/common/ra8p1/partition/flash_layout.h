@@ -163,14 +163,10 @@
 #endif /* MCUBOOT_IMAGE_NUMBER */
 
 /* Protected Storage (PS) Service definitions
- * The storage areas (PS/ITS/OTP) live inside the S slot, between the S image
- * code and the CMSE veneer region (FLASH_CPU0_C_*): they must sit in
- * secure-attributed MRAM (below the boot-firmware CMS size ==
- * FLASH_S_PARTITION_SIZE), because RA8P1 judges MRAM accesses by the alias
- * bit and non-secure code can program non-secure-attributed MRAM. */
-#define FLASH_PS_AREA_OFFSET (FLASH_S_PARTITION_SIZE - FLASH_CPU0_C_SIZE - \
-                              FLASH_PS_AREA_SIZE - FLASH_ITS_AREA_SIZE - \
-                              FLASH_OTP_NV_COUNTERS_AREA_SIZE)
+ * The storage areas (PS/ITS/OTP) are NOT part of the signed S image: they
+ * live in dedicated secure-attributed MRAM directly after the S slot */
+/* TODO: Add support for configuring the PS area in external memory. */
+#define FLASH_PS_AREA_OFFSET (FLASH_S_PARTITION_SIZE)
 
 /* Internal Trusted Storage (ITS) Service definitions */
 #define FLASH_ITS_AREA_OFFSET (FLASH_PS_AREA_OFFSET + FLASH_PS_AREA_SIZE)
@@ -211,6 +207,13 @@
 #define TFM_HAL_PS_SECTORS_PER_BLOCK (1)
 /* Smallest flash programmable unit in bytes */
 #define TFM_HAL_PS_PROGRAM_UNIT      (FLASH_PROGRAM_UNIT)
+
+/* Secure flash boundary information for on-chip flash */
+/* TODO: Update the secure boundary when Protected Storage (PS) supports external memory. */
+#define RA_HAL_FLASH_SECURE_BOUNDARY (FLASH_S_PARTITION_SIZE + \
+                                      FLASH_PS_AREA_SIZE + \
+                                      FLASH_ITS_AREA_SIZE + \
+                                      FLASH_OTP_NV_COUNTERS_AREA_SIZE)
 
 /* Internal Trusted Storage (ITS) Service definitions
  * Note: Further documentation of these definitions can be found in the

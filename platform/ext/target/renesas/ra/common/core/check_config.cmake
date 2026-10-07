@@ -118,31 +118,24 @@ endforeach()
 # ---- Fit checks --------------------------------------------------------------
 
 # BL2 is OFF (enforced above), so only the primary S (+ NS, if it lives in
-# on-chip ROM) slot occupies on-chip ROM -- no secondary/scratch chain. The S slot holds
-# the S image, the storage areas (PS/ITS/OTP, see flash_layout.h) and the
-# CMSE veneer region; NS starts at NS_IMAGE_PRIMARY_PARTITION_OFFSET. Rather
-# than summing sizes
-# (which ignores user-set gaps), each on-chip ROM region is validated against its
-# real [offset, offset+size) end, so an offset larger than the preceding
-# chain cannot silently overflow on-chip ROM, and a smaller offset cannot silently
-# overlap the chain before it.
-math(EXPR _ns_chain_end "${FLASH_AREA_BL2_OFFSET} + ${FLASH_AREA_BL2_SIZE} + ${FLASH_S_PARTITION_SIZE}")
+# on-chip ROM) slot occupies on-chip ROM -- no secondary/scratch chain. The
+# on-chip ROM chain is: S slot (code + CMSE veneers), then the storage areas,
+# then NS starts at NS_IMAGE_PRIMARY_PARTITION_OFFSET. Rather than summing
+# sizes (which ignores user-set gaps), each on-chip ROM region is validated
+# against its real [offset, offset+size) end, so an offset larger than the
+# preceding chain cannot silently overflow on-chip ROM, and a smaller offset
+# cannot silently overlap the chain before it.
+math(EXPR _ns_chain_end "${FLASH_AREA_BL2_OFFSET} + ${FLASH_AREA_BL2_SIZE} + ${FLASH_S_PARTITION_SIZE} + ${FLASH_STORAGE_TOTAL_SIZE}")
 if(_RA_NS_IN_ONCHIP_ROM)
     if(NS_IMAGE_PRIMARY_PARTITION_OFFSET LESS _ns_chain_end)
-        message(FATAL_ERROR "${RA_SOC_NAME}: NS_IMAGE_PRIMARY_PARTITION_OFFSET (${NS_IMAGE_PRIMARY_PARTITION_OFFSET}) is before the end of the S slot (${_ns_chain_end}); the NS image would overlap S.")
+        message(FATAL_ERROR "${RA_SOC_NAME}: NS_IMAGE_PRIMARY_PARTITION_OFFSET (${NS_IMAGE_PRIMARY_PARTITION_OFFSET}) is before the end of the S slot/storage areas (${_ns_chain_end}); the NS image would overlap S/storages.")
     endif()
     math(EXPR _ns_chain_end "${_ns_chain_end} + ${FLASH_NS_PARTITION_SIZE}")
 endif()
 
-# The storage areas (PS/ITS/OTP) are placed inside the S slot, between the
-# S image code and the CMSE veneer region: they must be in secure-attributed
-# on-chip ROM (the RA family judges flash accesses by the alias bit, and
-# non-secure code can program non-secure-attributed flash). They must fit
-# together with the veneer region within the S slot.
-math(EXPR _storage_total "${FLASH_PS_AREA_SIZE} + ${FLASH_ITS_AREA_SIZE} + ${FLASH_OTP_NV_COUNTERS_AREA_SIZE}")
-math(EXPR _s_reserved "${FLASH_CPU0_C_SIZE} + ${_storage_total}")
-if(_s_reserved GREATER FLASH_S_PARTITION_SIZE)
-    message(FATAL_ERROR "${RA_SOC_NAME}: storage areas (${_storage_total} bytes) plus the CMSE veneer region (${FLASH_CPU0_C_SIZE}) exceed the S slot (${FLASH_S_PARTITION_SIZE}).")
+# The CMSE veneer region is placed by the linker script inside the S slot
+if(FLASH_CPU0_C_SIZE GREATER FLASH_S_PARTITION_SIZE)
+    message(FATAL_ERROR "${RA_SOC_NAME}: the CMSE veneer region (${FLASH_CPU0_C_SIZE} bytes) exceeds the S slot (${FLASH_S_PARTITION_SIZE}).")
 endif()
 
 set(_rom_end "${_ns_chain_end}")
