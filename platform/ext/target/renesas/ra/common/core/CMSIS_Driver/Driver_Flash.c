@@ -175,7 +175,7 @@ static uintptr_t get_flash_access_addr(uint32_t offset)
 {
     uintptr_t base_addr;
 
-    if (offset < FLASH_S_PARTITION_SIZE) {
+    if (offset < RA_HAL_FLASH_SECURE_BOUNDARY) {
         base_addr = S_ROM_ALIAS_BASE;
     } else {
         base_addr = NS_ROM_ALIAS_BASE;

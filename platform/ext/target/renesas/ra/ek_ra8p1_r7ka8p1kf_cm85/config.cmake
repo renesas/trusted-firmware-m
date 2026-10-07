@@ -50,19 +50,22 @@ set(FLASH_PROGRAM_UNIT           "0x04"             CACHE STRING "MRAM minimum w
 set(FLASH_AREA_BL2_OFFSET   "0x0"    CACHE STRING "BL2 offset (BL2 unsupported)")
 set(FLASH_AREA_BL2_SIZE     "0x0"    CACHE STRING "BL2 size (BL2 unsupported)")
 set(FLASH_S_PARTITION_SIZE  "0x50000" CACHE STRING "Secure image slot size")
-set(FLASH_NS_PARTITION_SIZE "0x64000" CACHE STRING "Non-secure image slot size")
+set(FLASH_NS_PARTITION_SIZE "0x60000" CACHE STRING "Non-secure image slot size")
+
+# ---- Storage areas -----------------------------------------------------------
+set(FLASH_PS_AREA_SIZE              "0x8000" CACHE STRING "Protected Storage area size")
+set(FLASH_ITS_AREA_SIZE             "0x4000" CACHE STRING "Internal Trusted Storage area size")
+set(FLASH_OTP_NV_COUNTERS_AREA_SIZE "0x4000" CACHE STRING "OTP/NV counters area size (2 x FLASH_AREA_IMAGE_SECTOR_SIZE)")
+math(EXPR _RA8P1_S_STORAGE_TOTAL "${FLASH_PS_AREA_SIZE} + ${FLASH_ITS_AREA_SIZE} + ${FLASH_OTP_NV_COUNTERS_AREA_SIZE}")
+set(FLASH_STORAGE_TOTAL_SIZE "${_RA8P1_S_STORAGE_TOTAL}" CACHE INTERNAL "Total storage area size")
 
 # NS image offset within its ROM alias, independent of the secure chain so the
 # NS image can be relocated off-chip (e.g. onto the EK-RA8P1's OSPI0 CS0) by
 # overriding this (to 0x0) together with NS_ROM_ALIAS_BASE. Default keeps NS
-# right after S within MRAM, matching FLASH_AREA_0_OFFSET + FLASH_S_PARTITION_SIZE.
-math(EXPR _RA8P1_NS_DEFAULT_OFFSET "${FLASH_AREA_BL2_OFFSET} + ${FLASH_AREA_BL2_SIZE} + ${FLASH_S_PARTITION_SIZE}")
+# right after the S slot's storage areas within MRAM, matching
+# FLASH_AREA_0_OFFSET + FLASH_S_PARTITION_SIZE + FLASH_STORAGE_TOTAL_SIZE
+math(EXPR _RA8P1_NS_DEFAULT_OFFSET "${FLASH_AREA_BL2_OFFSET} + ${FLASH_AREA_BL2_SIZE} + ${FLASH_S_PARTITION_SIZE} + ${FLASH_STORAGE_TOTAL_SIZE}")
 set(NS_IMAGE_PRIMARY_PARTITION_OFFSET "${_RA8P1_NS_DEFAULT_OFFSET}" CACHE STRING "NS image offset within its ROM alias")
-
-# ---- Storage areas -----------------------------------------------------------
-set(FLASH_PS_AREA_SIZE              "0x4000" CACHE STRING "Protected Storage area size")
-set(FLASH_ITS_AREA_SIZE             "0x4000" CACHE STRING "Internal Trusted Storage area size")
-set(FLASH_OTP_NV_COUNTERS_AREA_SIZE "0x4000" CACHE STRING "OTP/NV counters area size (2 x FLASH_AREA_IMAGE_SECTOR_SIZE)")
 
 # ---- SRAM --------------------------------------------------------------------
 set(SRAM_BASE_ADDRESS "0x22000000" CACHE STRING "SRAM secure alias base")
