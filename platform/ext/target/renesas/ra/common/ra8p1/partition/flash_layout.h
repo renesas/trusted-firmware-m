@@ -166,7 +166,7 @@
  * The storage areas (PS/ITS/OTP) are NOT part of the signed S image: they
  * live in dedicated secure-attributed MRAM directly after the S slot */
 /* TODO: Add support for configuring the PS area in external memory. */
-#define FLASH_PS_AREA_OFFSET (FLASH_S_PARTITION_SIZE)
+#define FLASH_PS_AREA_OFFSET (FLASH_AREA_0_OFFSET + FLASH_S_PARTITION_SIZE)
 
 /* Internal Trusted Storage (ITS) Service definitions */
 #define FLASH_ITS_AREA_OFFSET (FLASH_PS_AREA_OFFSET + FLASH_PS_AREA_SIZE)
@@ -179,7 +179,7 @@
 #define SECURE_IMAGE_OFFSET   (0x0) /* Used for BL2: currently not supported */
 #define SECURE_IMAGE_MAX_SIZE FLASH_S_PARTITION_SIZE
 
-#define NON_SECURE_IMAGE_OFFSET   (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
+#define NON_SECURE_IMAGE_OFFSET   (NS_IMAGE_PRIMARY_PARTITION_OFFSET)
 #define NON_SECURE_IMAGE_MAX_SIZE FLASH_NS_PARTITION_SIZE
 
 /* Flash device name used by BL2
