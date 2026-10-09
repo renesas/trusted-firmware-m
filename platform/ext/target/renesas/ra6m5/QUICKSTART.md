@@ -174,7 +174,7 @@ than one shared target.
 The contract a module file works inside — the variables it is handed, why targets carry a role
 suffix — is documented at the top of
 [cmake/modules/fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake). Background and a
-worked example: **`fsp_cmake/TFM_INTEGRATION_COMPLETE.md`**, "Adding New FSP Modules" (written
+worked example: **`fsp_cmake/ADDING_FSP_MODULES.md`**, "Adding New FSP Modules" (written
 for the earlier RA6M4 port, so the surrounding CMake differs from the current per-role pattern).
 
 Three modules are deliberately **never** built from the e2 projects — `r_sce`, `rm_psa_crypto`

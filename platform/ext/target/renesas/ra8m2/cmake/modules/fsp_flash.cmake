@@ -11,7 +11,7 @@
 # flash_layout.h for the partitioning and Driver_Flash.c for the offset-vs-address
 # convention the two instances use.
 #
-# Adding a module: fsp_cmake/TFM_INTEGRATION_COMPLETE.md, "Adding New FSP Modules".
+# Adding a module: fsp_cmake/ADDING_FSP_MODULES.md.
 
 fsp_module_library(FSP_FLASH_TARGET flash)
 

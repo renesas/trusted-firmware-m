@@ -327,7 +327,7 @@ function(fsp_add_modules role dir includes out_targets)
                     "RA8M2 [${role}]: FSP module '${d}' is in the project but no module "
                     "declares it, so it is NOT in the image. Add a "
                     "cmake/modules/fsp_<name>.cmake and list it in FSP_MODULES_${_role_uc} "
-                    "- see TFM_INTEGRATION_COMPLETE.md, \"Adding New FSP Modules\".")
+                    "- see ADDING_FSP_MODULES.md.")
             endif()
         endif()
     endforeach()

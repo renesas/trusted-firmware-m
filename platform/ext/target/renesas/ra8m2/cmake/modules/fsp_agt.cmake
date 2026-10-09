@@ -3,7 +3,7 @@
 # interrupt test suites are built: they raise a real secure interrupt, and on RA that means
 # a timer the SECURE e2 project owns (DECISIONS D061, D068).
 #
-# Adding a module: fsp_cmake/TFM_INTEGRATION_COMPLETE.md, "Adding New FSP Modules".
+# Adding a module: fsp_cmake/ADDING_FSP_MODULES.md.
 #
 # TWO THINGS DEPEND ON THIS BEING LINKED, and the second one is not obvious:
 #

@@ -3,7 +3,7 @@
 # flash) and Driver_FLASH1 (data flash, where ITS/PS/NV counters live), with the RA 32 KB
 # region-1 erase geometry (DESIGN.md 4).
 #
-# Adding a module: fsp_cmake/TFM_INTEGRATION_COMPLETE.md, "Adding New FSP Modules".
+# Adding a module: fsp_cmake/ADDING_FSP_MODULES.md.
 
 fsp_module_library(FSP_FLASH_TARGET flash)
 
