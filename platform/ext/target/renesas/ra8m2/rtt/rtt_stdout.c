@@ -72,11 +72,26 @@ int _write(int fd, char *str, int len)
 
 #elif defined(__ICCARM__)
 /*
- * The IAR equivalent. DLIB calls __write(), never _write(), so the GNU hook above leaves
- * IAR builds with no backend at all: MCUboot's BOOT_LOG_* expand to printf(), which then
- * reaches the library __write() and semihosting - silent without a debugger attached, and
- * never RTT. That is why BL2 produced no output under IAR while the secure image, whose
- * SPM logging calls stdio_output_string() directly, was unaffected.
+ * The IAR equivalents. DLIB calls __write(), never _write(), so the GNU hook above leaves
+ * IAR builds with no backend at all.
+ *
+ * TWO HOOKS ARE NEEDED, NOT ONE. TF-M's toolchain_IARARM.cmake links with
+ *
+ *     --semihosting
+ *     --redirect __write=__write_buffered
+ *
+ * so every reference to __write resolves to DLIB's buffered writer instead. __write below is
+ * then DEFINED BUT UNREACHABLE: the real path is
+ *
+ *     printf -> _Prout -> fputc -> fflushOne -> __write_buffered -> __dwrite -> __iar_sh_stdout
+ *
+ * ending in SEMIHOSTING - silent with no debugger attached, and a halt on the semihosting
+ * breakpoint with one. __dwrite() is the hook that path actually calls; it is declared in
+ * <LowLevelIOInterface.h> with __write's signature, and defining it here keeps the library's
+ * dwrite.o and iarwstd.o out of the link entirely.
+ *
+ * __write is kept for builds that do not carry the redirect. Both are needed; neither alone
+ * is sufficient. DECISIONS D107, D108.
  *
  * A NULL buffer is DLIB asking for a flush; RTT holds nothing back, so there is nothing
  * to do but report success.
@@ -84,17 +99,29 @@ int _write(int fd, char *str, int len)
 #ifndef RA8M2_STDOUT_NO_WRITE
 #include <LowLevelIOInterface.h>
 
-size_t __write(int handle, const unsigned char *buffer, size_t size)
+static size_t rtt_llio_write(int handle, const unsigned char *buffer, size_t size)
 {
     if (buffer == NULL) {
         return 0;
     }
 
     if ((handle != _LLIO_STDOUT) && (handle != _LLIO_STDERR)) {
-        return _LLIO_ERROR;
+        return (size_t)_LLIO_ERROR;
     }
 
     return (size_t)stdio_output_string((const char *)buffer, (uint32_t)size);
+}
+
+/* Reached when the build does NOT redirect __write. */
+size_t __write(int handle, const unsigned char *buffer, size_t size)
+{
+    return rtt_llio_write(handle, buffer, size);
+}
+
+/* Reached when it does - which TF-M's toolchain_IARARM.cmake always does. */
+size_t __dwrite(int handle, const unsigned char *buffer, size_t size)
+{
+    return rtt_llio_write(handle, buffer, size);
 }
 #endif /* RA8M2_STDOUT_NO_WRITE */
 
