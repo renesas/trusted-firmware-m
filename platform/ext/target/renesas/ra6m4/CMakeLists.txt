@@ -286,7 +286,7 @@ add_subdirectory(ns)
 #
 # The RA6E1 equivalent of this switch (RA6E1_NS_IN_SPE_BUILD) defaults OFF, because that
 # port has a working split SPE/NSPE build. RA6M4 does not yet, so this one defaults ON and
-# the flow documented in TFM_RA6M4_STATUS.md is unchanged.
+# the flow documented in archive/ra6m4/TFM_RA6M4_STATUS.md is unchanged.
 #
 # It has to exist even before the split works, because every test flow that consumes the
 # SPE - tf-m-tests regression, tests_psa_arch - builds the SPE ALONE and supplies its own
