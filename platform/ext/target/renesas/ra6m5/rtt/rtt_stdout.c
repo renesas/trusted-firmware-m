@@ -21,6 +21,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "SEGGER_RTT.h"
 
 /* RTT "Terminal" up-channel used for stdout. Channel 0 is the default that
@@ -102,6 +103,25 @@ size_t __write(int handle, const unsigned char *buffer, size_t size)
 void stdio_init(void)
 {
     SEGGER_RTT_Init();
+
+#if defined(__ICCARM__)
+    /*
+     * Make stdout unbuffered. DLIB buffers stdout and only calls __write() when the FILE
+     * buffer fills or something flushes it, and BL2 does neither - it logs a few hundred
+     * bytes through MCUboot's BOOT_LOG_* (which expand to printf()) and then chainloads.
+     * The result was an RTT control block correctly initialised by SEGGER_RTT_Init() above,
+     * with aUp[0].WrOff still 0: the text never left the C library.
+     *
+     * The secure image hid this, because TF-M's SPM logging calls stdio_output_string()
+     * directly and never goes through printf. So the symptom was BL2-only and looked like a
+     * wrong RTT address.
+     *
+     * newlib is unaffected - it line-buffers stdout - so this is guarded to IAR rather than
+     * applied to both. DECISIONS D107.
+     */
+    (void)setvbuf(stdout, NULL, _IONBF, 0);
+#endif
+
     is_initialized = true;
 }
 
