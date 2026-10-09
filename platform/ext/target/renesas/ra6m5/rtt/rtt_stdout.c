@@ -133,18 +133,33 @@ void stdio_init(void)
 
 #if defined(__ICCARM__)
     /*
-     * Make stdout unbuffered. DLIB buffers stdout and only calls __write() when the FILE
-     * buffer fills or something flushes it, and BL2 does neither - it logs a few hundred
-     * bytes through MCUboot's BOOT_LOG_* (which expand to printf()) and then chainloads.
-     * The result was an RTT control block correctly initialised by SEGGER_RTT_Init() above,
-     * with aUp[0].WrOff still 0: the text never left the C library.
+     * Make stdout unbuffered. This is the SECOND of two independent blockers on BL2's output;
+     * the first is the __write redirect handled above. Keep both.
      *
-     * The secure image hid this, because TF-M's SPM logging calls stdio_output_string()
-     * directly and never goes through printf. So the symptom was BL2-only and looked like a
-     * wrong RTT address.
+     * DLIB buffers stdout and only calls the low-level writer when the FILE buffer fills or
+     * something flushes it, and BL2 does neither - it logs a few hundred bytes through
+     * MCUboot's BOOT_LOG_* (which expand to printf()) and then chainloads. So the bytes never
+     * reach __dwrite() at all.
+     *
+     * Proven by three builds, differing only in these two fixes:
+     *
+     *   no setvbuf, no __dwrite  -> silent, WrOff 0, no halt   (buffer holds it)
+     *   setvbuf,    no __dwrite  -> HALT in __iar_sh_stdout    (buffer released it;
+     *                                                           backend was semihosting)
+     *   setvbuf +   __dwrite     -> full log on RTT
+     *
+     * The middle one is the evidence that buffering alone blocks delivery: releasing it
+     * changed the failure. Note what buffering did NOT cause - WrOff was 0 because output
+     * went to semihosting, not because it was buffered. Buffering decided which failure you
+     * saw, not where the bytes went.
+     *
+     * ROOT CAUSE, for the record: BL2 and the secure image print by different routes. TF-M's
+     * SPM logging calls stdio_output_string() directly and never enters DLIB, so it was never
+     * affected by either problem. Only MCUboot's printf-based logging was, which made the
+     * fault look BL2-specific and therefore like a wrong RTT address.
      *
      * newlib is unaffected - it line-buffers stdout - so this is guarded to IAR rather than
-     * applied to both. DECISIONS D107.
+     * applied to both. DECISIONS D107, D108, D110.
      */
     (void)setvbuf(stdout, NULL, _IONBF, 0);
 #endif
