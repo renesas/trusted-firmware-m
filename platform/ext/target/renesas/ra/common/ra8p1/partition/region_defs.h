@@ -124,7 +124,8 @@
  * s_ns_memory.cmake) which occupies the top of the S_DATA_SIZE window.
  * S_RAM_CODE_SIZE is configured via the board config.cmake. If caches are
  * ever enabled, the boot-time copy must flush/invalidate (currently both
- * D/I-Cache are disabled, BSP_CFG_DCACHE_ENABLED=0). */
+ * D/I-Cache are disabled, BSP_CFG_DCACHE_ENABLED=0).
+ */
 #define S_RAM_CODE_START              (S_DATA_START + RAM_CPU0_S_SIZE - S_RAM_CODE_SIZE)
 #define S_RAM_CODE_EXTRA_SECTION_NAME ".ram_from_flash"
 #endif

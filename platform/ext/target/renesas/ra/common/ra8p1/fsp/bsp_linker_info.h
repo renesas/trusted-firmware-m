@@ -83,7 +83,7 @@ extern uint32_t const *const gp_ddsc_RAM_NSC;
 /***********************************************************************************************************************
  * Exported global functions (to be accessed by other files)
  **********************************************************************************************************************/
-#endif   // BSP_LINKER_H
+#endif   /* BSP_LINKER_H */
 #ifdef BSP_LINKER_C
 /***********************************************************************************************************************
  * Objects allocated by bsp_linker.c
@@ -98,6 +98,5 @@ BSP_DONT_REMOVE uint32_t const * const gp_ddsc_DTCM_START = &__ddsc_DTCM_START;
 extern const uint32_t __ddsc_DTCM_END;
 BSP_DONT_REMOVE uint32_t const * const gp_ddsc_DTCM_END = &__ddsc_DTCM_END;
 
-#endif   // BSP_LINKER_C
-
+#endif   /* BSP_LINKER_C */
 /* clang-format on */

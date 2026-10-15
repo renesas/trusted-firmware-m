@@ -8,16 +8,13 @@
 #define COMMON_DATA_H_
 
 #include <stdint.h>
-#include <RTE_Device.h>
+
+#include "RTE_Device.h"
 #include "bsp_api.h"
-
-#if (RTE_FLASH0 == 1)
-#include "r_mram.h"
-#include "r_flash_api.h"
-#endif
-
-#include "r_ioport.h"
 #include "bsp_pin_cfg.h"
+#include "r_flash_api.h"
+#include "r_ioport.h"
+#include "r_mram.h"
 
 FSP_HEADER
 
@@ -27,7 +24,8 @@ FSP_HEADER
 extern const flash_instance_t g_mram0;
 
 /* Access the MRAM instance using these structures when calling API functions directly (::p_api is
- * not used). */
+ * not used).
+ */
 extern mram_instance_ctrl_t g_mram0_ctrl;
 extern const flash_cfg_t g_mram0_cfg;
 
