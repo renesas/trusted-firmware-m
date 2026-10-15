@@ -16,13 +16,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <stdint.h>
 
 #include "Driver_USART.h"
-#include <RTE_Device.h>
+#include "RTE_Device.h"
 #include "bsp_api.h"
-#include <stdint.h>
-#include "tfm_hal_device_header.h"
 #include "device_cfg.h"
+#include "tfm_hal_device_header.h"
 
 #ifndef ARG_UNUSED
 #define ARG_UNUSED(arg)  (void)arg
@@ -48,7 +48,8 @@ static const ARM_USART_CAPABILITIES DriverCapabilities = {
 #define SCI_B_REG_SIZE            (R_SCI1_BASE - R_SCI0_BASE)
 
 /* Reset value of FCR (HWM 38.2.11 FCR), written explicitly here since
- * FIFO mode stays disabled on all channels used by this driver. */
+ * FIFO mode stays disabled on all channels used by this driver.
+ */
 #define SCI_B_UART_FCR_DEFAULT    0x1F1F0000U
 
 /*
@@ -91,12 +92,14 @@ static const sci_b_uart_baud_divisor_t g_sci_b_uart_baud_divisors[] = {
 /* MDDR is only used when BRME is 1, but the hardware manual defines its
  * valid range as 128-255; write the same safe default as FSP
  * (SCI_B_UART_MDDR_MIN = 128) even though BRME stays 0 in this driver,
- * instead of leaving MDDR at 0 (out of spec per HWM). */
+ * instead of leaving MDDR at 0 (out of spec per HWM).
+ */
 #define SCI_B_UART_CCR2_MDDR_DEFAULT \
     ((128UL << R_SCI_B0_CCR2_MDDR_Pos) & R_SCI_B0_CCR2_MDDR_Msk)
 
 /* Single raw CMSIS control mask (mode/data bits/parity/stop bits/flow
- * control) instead of separate data_bits/parity/stop_bits fields. */
+ * control) instead of separate data_bits/parity/stop_bits fields.
+ */
 
 typedef struct {
     uint8_t  channel;
@@ -149,8 +152,8 @@ static int32_t sci_b_ccr2_compute(uint32_t baudrate, uint32_t *p_ccr2)
             uint32_t brr;
             uint32_t err_x1000;
 
-            /* Pass 0: only 16 cycles/bit entries (abcs|abcse == 0).
-             * Pass 1: only 8/6 cycles/bit entries (abcs|abcse == 1). */
+            /* Pass 0: only 16 cycles/bit entries (abcs|abcse == 0). */
+            /* Pass 1: only 8/6 cycles/bit entries (abcs|abcse == 1). */
             if (reduced_cycles != (uint32_t)(p_div->abcs | p_div->abcse)) {
                 continue;
             }
@@ -200,7 +203,8 @@ static int32_t sci_b_ccr2_compute(uint32_t baudrate, uint32_t *p_ccr2)
         }
 
         /* Stop after pass 0 if 16 cycles/bit already meets the accuracy
-         * requirement - only fall back to 8/6 cycles/bit if it doesn't. */
+         * requirement - only fall back to 8/6 cycles/bit if it doesn't.
+         */
         if (best_err <= SCI_B_UART_BAUD_ERROR_MAX_X1000) {
             break;
         }
@@ -229,7 +233,8 @@ static uint32_t sci_b_ccr1_val(const sci_b_uart_config_t *cfg)
     /* Mask the PARITY field first, then compare for equality - these
      * macros are encoded values within ARM_USART_PARITY_Msk, not
      * independent flag bits, so a bare `control & VALUE` test is not
-     * reliable (e.g. some encoded values can share bits). */
+     * reliable (e.g. some encoded values can share bits).
+     */
 
     switch (cfg->control & ARM_USART_PARITY_Msk) {
     case ARM_USART_PARITY_ODD:
@@ -267,7 +272,8 @@ static uint32_t sci_b_ccr3_val(const sci_b_uart_config_t *cfg)
     ccr3 = R_SCI_B0_CCR3_LSBF_Msk;
 
     /* CHR[1:0] - character length. Masked switch/compare for the same
-     * reason as parity above (encoded field, not independent bits). */
+     * reason as parity above (encoded field, not independent bits).
+     */
 
     switch (cfg->control & ARM_USART_DATA_BITS_Msk) {
     case ARM_USART_DATA_BITS_7:
@@ -352,7 +358,9 @@ static int32_t sci_b_uart_init(sci_b_uart_data_t *data,
     p_reg->CCR0 = ccr0;
 
     /* Wait for RE internal state to stabilize */
-    while (p_reg->CESR_b.RIST == 0U) {};
+    while (p_reg->CESR_b.RIST == 0U) {
+        /* Wait until the receiver state machine is ready */
+    }
 
     data->p_reg    = p_reg;
     data->tx_count = 0u;
@@ -363,7 +371,8 @@ static int32_t sci_b_uart_init(sci_b_uart_data_t *data,
 
 /* Register-level de-initialization */
 /* Idempotent: safe to call before init (or twice in a row) - returns OK
- * without touching hardware when there is nothing to tear down. */
+ * without touching hardware when there is nothing to tear down.
+ */
 
 static int32_t sci_b_uart_deinit(sci_b_uart_data_t *data, uint8_t channel)
 {
@@ -382,12 +391,17 @@ static int32_t sci_b_uart_deinit(sci_b_uart_data_t *data, uint8_t channel)
 
     /* Make sure no transmission is in progress before clearing TE.
      * Setting CCR0_b.TE to 0 while CSR_b.TEND is 0 causes the SCI
-     * peripheral to work abnormally (HWM / FSP r_sci_b_uart.c). */
-    while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {};
+     * peripheral to work abnormally (HWM / FSP r_sci_b_uart.c).
+     */
+    while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {
+        /* Wait until the current transmission completes */
+    }
 
     /* Disable transmitter and wait for internal state inactive */
     p_reg->CCR0 &= ~R_SCI_B0_CCR0_TE_Msk;
-    while (p_reg->CESR_b.TIST != 0U) {};
+    while (p_reg->CESR_b.TIST != 0U) {
+        /* Wait for the TX state machine to become inactive */
+    }
 
     /* Disable receiver */
     p_reg->CCR0 &= ~R_SCI_B0_CCR0_RE_Msk;
@@ -426,11 +440,15 @@ static int32_t sci_b_uart_send(sci_b_uart_data_t *data,
     p_reg = data->p_reg;
 
     for (uint32_t i = 0U; i < num; i++) {
-        while ((p_reg->CSR & R_SCI_B0_CSR_TDRE_Msk) == 0U) {};
+        while ((p_reg->CSR & R_SCI_B0_CSR_TDRE_Msk) == 0U) {
+            /* Wait until the transmit data register is ready */
+        }
         p_reg->TDR_BY = buf[i];
     }
 
-    while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {};
+    while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {
+        /* Wait until the final transmission completes */
+    }
 
     data->tx_count = num;
 
@@ -454,7 +472,9 @@ static int32_t sci_b_uart_receive(sci_b_uart_data_t *data,
     p_reg = data->p_reg;
 
     for (uint32_t i = 0U; i < num; i++) {
-        while ((p_reg->CSR & R_SCI_B0_CSR_RDRF_Msk) == 0U) {};
+        while ((p_reg->CSR & R_SCI_B0_CSR_RDRF_Msk) == 0U) {
+            /* Wait until receive data is available */
+        }
         buf[i] = (uint8_t)p_reg->RDR;
     }
 
@@ -521,7 +541,8 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
     switch (operation) {
     case ARM_USART_MODE_ASYNCHRONOUS:
             /* arg == 0 is only invalid for the baudrate here, not for
-             * ARM_USART_CONTROL_TX/RX below - scoped to this branch only. */
+             * ARM_USART_CONTROL_TX/RX below - scoped to this branch only.
+             */
         if (arg == 0U) {
             return ARM_USART_ERROR_BAUDRATE;
         }
@@ -535,7 +556,8 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
         default:
             /* 9-bit is rejected: the TX/RX data path is byte-oriented
              * (uint8_t buffers, TDR_BY/RDR 8-bit access), so the 9th bit
-             * would silently be lost if accepted here. */
+             * would silently be lost if accepted here.
+             */
             return ARM_USART_ERROR_DATA_BITS;
         }
 
@@ -551,7 +573,8 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
         }
 
         /* Validate stop bits - only 1 and 2 stop bits are supported by
-         * this hardware/driver; 1.5 and 0.5 stop bits are rejected. */
+         * this hardware/driver; 1.5 and 0.5 stop bits are rejected.
+         */
         switch (control & ARM_USART_STOP_BITS_Msk) {
         case ARM_USART_STOP_BITS_1:
         case ARM_USART_STOP_BITS_2:
@@ -561,7 +584,8 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
         }
 
         /* Validate flow control - RTS/CTS are not wired up in this
-         * driver yet, so only "none" is accepted. */
+         * driver yet, so only "none" is accepted.
+         */
         switch (control & ARM_USART_FLOW_CONTROL_Msk) {
         case ARM_USART_FLOW_CONTROL_NONE:
             break;
@@ -570,7 +594,8 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
         }
 
         /* Fully initialize cfg (avoids reading an uninitialized
-         * `channel` even though no helper currently reads it). */
+         * `channel` even though no helper currently reads it).
+         */
         cfg = (sci_b_uart_config_t){
             .channel  = 0U,   /* Not used while reconfiguring. */
             .baudrate = arg,
@@ -578,7 +603,8 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
         };
 
         /* Compute the new baud rate setting before touching any hardware
-         * state, so a rejected baud rate leaves TE/RE untouched. */
+         * state, so a rejected baud rate leaves TE/RE untouched.
+         */
         err = sci_b_ccr2_compute(cfg.baudrate, &ccr2);
         if (err != ARM_DRIVER_OK) {
             return err;
@@ -586,12 +612,17 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
 
         /* Make sure no transmission is in progress before clearing TE.
          * Setting CCR0_b.TE to 0 while CSR_b.TEND is 0 causes the SCI
-         * peripheral to work abnormally (HWM / FSP r_sci_b_uart.c). */
-        while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {};
+         * peripheral to work abnormally (HWM / FSP r_sci_b_uart.c).
+         */
+        while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {
+            /* Wait until the current transmission stops */
+        }
 
         /* RA8P1 HW manual 39.3.7: disable TE/RE before writing CCRx */
         p_reg->CCR0 &= ~(R_SCI_B0_CCR0_TE_Msk | R_SCI_B0_CCR0_RE_Msk);
-        while (p_reg->CESR_b.TIST != 0U) {};
+        while (p_reg->CESR_b.TIST != 0U) {
+            /* Wait for the TX state machine to become inactive */
+        }
 
         p_reg->CCR3 = sci_b_ccr3_val(&cfg);
         p_reg->CCR2 = ccr2;
@@ -599,13 +630,16 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
 
         /* Re-enable transmitter and receiver */
         p_reg->CCR0 |= R_SCI_B0_CCR0_RE_Msk | R_SCI_B0_CCR0_TE_Msk;
-        while (p_reg->CESR_b.RIST == 0U) {};
+        while (p_reg->CESR_b.RIST == 0U) {
+            /* Wait for the receiver state machine to become ready */
+        }
         return ARM_DRIVER_OK;
 
     case ARM_USART_CONTROL_TX:
         /* CMSIS contract: arg is 0=disabled, 1=enabled (exactly two
          * valid values) - reject anything else instead of silently
-         * treating it as enable or disable. */
+         * treating it as enable or disable.
+         */
         if (arg > 1U) {
             return ARM_DRIVER_ERROR_PARAMETER;
         }
@@ -613,10 +647,15 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
             p_reg->CCR0 |= R_SCI_B0_CCR0_TE_Msk;
         } else {
             /* Make sure no transmission is in progress before clearing
-             * TE (see note above). */
-            while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {};
+             * TE (see note above).
+             */
+            while ((p_reg->CSR & R_SCI_B0_CSR_TEND_Msk) == 0U) {
+                /* Wait until the transmission has actually ended */
+            }
             p_reg->CCR0 &= ~R_SCI_B0_CCR0_TE_Msk;
-            while (p_reg->CESR_b.TIST != 0U) {};
+            while (p_reg->CESR_b.TIST != 0U) {
+                /* Wait for the TX hardware state to go idle */
+            }
         }
         return ARM_DRIVER_OK;
 

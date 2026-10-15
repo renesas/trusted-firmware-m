@@ -22,10 +22,11 @@
 #include "tfm_hal_device_header.h"
 
 /*----------------------------------------------------------------------------
-  External References
- *----------------------------------------------------------------------------*/
+ * External References
+ *----------------------------------------------------------------------------
+ */
 extern uint32_t __INITIAL_SP;
-#if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+#if defined(__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
 extern uint64_t __STACK_SEAL;
 #endif
 extern __NO_RETURN void __PROGRAM_START(void);
@@ -34,17 +35,20 @@ extern __NO_RETURN void __PROGRAM_START(void);
 extern void NMI_Handler(void);
 
 /*----------------------------------------------------------------------------
-  Internal References
- *----------------------------------------------------------------------------*/
-__NO_RETURN void Reset_Handler  (void);
+ * Internal References
+ *----------------------------------------------------------------------------
+ */
+__NO_RETURN void Reset_Handler(void);
             void Default_Handler(void);
 
 /*----------------------------------------------------------------------------
-  Exception / Interrupt Handler
- *----------------------------------------------------------------------------*/
+ * Exception / Interrupt Handler
+ *----------------------------------------------------------------------------
+ */
 #define DEFAULT_IRQ_HANDLER(handler_name)  \
 void __WEAK handler_name(void); \
-void handler_name(void) { \
+void handler_name(void) \
+{ \
     Default_Handler(); \
 }
 
@@ -60,17 +64,18 @@ DEFAULT_IRQ_HANDLER(PendSV_Handler)
 DEFAULT_IRQ_HANDLER(SysTick_Handler)
 
 /*----------------------------------------------------------------------------
-  Exception / Interrupt Vector table
- *----------------------------------------------------------------------------*/
+ * Exception / Interrupt Vector table
+ *----------------------------------------------------------------------------
+ */
 
-#if defined ( __GNUC__ )
+#if defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
 
 /**
-  \brief Exception / Interrupt Handler Function Prototype
-*/
+ * \brief Exception / Interrupt Handler Function Prototype
+ */
 typedef void (*VECTOR_TABLE_Type)(void);
 
 extern const VECTOR_TABLE_Type __VECTOR_TABLE[BSP_CORTEX_VECTOR_TABLE_ENTRIES];
@@ -94,17 +99,18 @@ BSP_DONT_REMOVE const VECTOR_TABLE_Type __VECTOR_TABLE[BSP_CORTEX_VECTOR_TABLE_E
   SysTick_Handler,                   /*  -1: SysTick Handler */
 };
 
-#if defined ( __GNUC__ )
+#if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
 
 /*----------------------------------------------------------------------------
-  Reset Handler called on controller reset
- *----------------------------------------------------------------------------*/
+ * Reset Handler called on controller reset
+ *----------------------------------------------------------------------------
+ */
 void Reset_Handler(void)
 {
     /* Stack pointers and stack limits are configured by the FSP BSP in SystemInit */
-#if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+#if defined(__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
     __TZ_set_STACKSEAL_S((uint32_t *)(&__STACK_SEAL));
 #endif
 
@@ -113,18 +119,18 @@ void Reset_Handler(void)
 }
 
 /*----------------------------------------------------------------------------
-  Default Handler for Exceptions / Interrupts
- *----------------------------------------------------------------------------*/
+ * Default Handler for Exceptions / Interrupts
+ *----------------------------------------------------------------------------
+ */
 void Default_Handler(void)
 {
-    /** An error has occurred. The user will need to investigate the cause. Common problems are stack corruption
-     *  or use of an invalid pointer. Use the Fault Status window in e2 studio or manually check the fault status
-     *  registers for more information.
+    /* An error has occurred. The user will need to investigate the cause. Common problems are stack corruption
+     * or use of an invalid pointer. Use the Fault Status window in e2 studio or manually check the fault status
+     * registers for more information.
      */
     BSP_CFG_HANDLE_UNRECOVERABLE_ERROR(0);
 
-    while (1)
-    {
+    while (1) {
         /* Infinite Loop. */
     }
 }

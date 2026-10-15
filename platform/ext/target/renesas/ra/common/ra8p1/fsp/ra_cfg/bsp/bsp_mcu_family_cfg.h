@@ -211,7 +211,8 @@
 /* Security attribution for registers of LVD channels. */
 #ifndef BSP_TZ_CFG_LVDSAR
 /* The LVD driver needs to access both channels. This means that the security
- * attribution for both channels must be the same. */
+ * attribution for both channels must be the same.
+ */
 #if (RA_NOT_DEFINED > 0) || (RA_NOT_DEFINED > 0)
 #define BSP_TZ_CFG_LVDSAR (0U)
 #else
@@ -258,20 +259,12 @@
 
 /* Security attribution for Battery Backup registers. */
 #ifndef BSP_TZ_CFG_BBFSAR
-#if 0
-#define BSP_TZ_CFG_BBFSAR (0U)
-#else
 #define BSP_TZ_CFG_BBFSAR (0x7FU)
-#endif
 #endif
 
 /* Security attribution for Battery Backup registers (VBTBKRn). */
 #ifndef BSP_TZ_CFG_VBRSABAR
-#if 0
-#define BSP_TZ_CFG_VBRSABAR (0xFFE0)
-#else
 #define BSP_TZ_CFG_VBRSABAR (0xED00)
-#endif
 #endif
 
 /* Security attribution for registers for IRQ channels. */
@@ -342,13 +335,15 @@
 #endif
 
 /* Trusted Event Route Control Register for IELSR, DMAC.DELSR and ELC.ELSR. Note
- * that currently Trusted Event Route Control is not supported. */
+ * that currently Trusted Event Route Control is not supported.
+ */
 #ifndef BSP_TZ_CFG_TEVTRCR
 #define BSP_TZ_CFG_TEVTRCR (0)
 #endif
 
 /* Security attribution register for ELCR, ELSEGR0, ELSEGR1, ELSEGR2, ELSEGR3
- * Security Attribution. */
+ * Security Attribution.
+ */
 #ifndef BSP_TZ_CFG_ELCSARA
 #define BSP_TZ_CFG_ELCSARA (0x0000001FU)
 #endif
@@ -385,7 +380,8 @@
 #ifndef BSP_TZ_CFG_SRAMSAR
 /* If the CGC registers are only accessible in Secure mode, than there is no
  * reason for Non Secure applications to access SRAM0WTEN and therefore there is
- * no reason to access PRCR2. */
+ * no reason to access PRCR2.
+ */
 #define BSP_TZ_CFG_SRAMSAR                                                                         \
 	((((RENESAS_RA_SRAMSAR_NS_SRAMSA0 > 0) ? 1U : 0U) << 0U) | /* SRAMSA0 */                   \
 	 (((RENESAS_RA_SRAMSAR_NS_SRAMSA1 > 0) ? 1U : 0U) << 1U) | /* SRAMSA1 */                   \
@@ -431,7 +427,8 @@
 #endif
 
 /* Used to create IELS values for the interrupt initialization table
- * g_interrupt_event_link_select. */
+ * g_interrupt_event_link_select.
+ */
 #define BSP_PRV_IELS_ENUM(vector) (ELC_##vector)
 
 #ifndef BSP_CLOCK_CFG_MAIN_OSC_WAIT

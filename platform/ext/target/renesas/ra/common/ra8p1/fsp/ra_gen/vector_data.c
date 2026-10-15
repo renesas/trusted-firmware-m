@@ -7,7 +7,8 @@
 #include <bsp_api.h>
 
 /* Do not build these data structures if no interrupts are currently allocated because IAR will have
- * build errors. */
+ * build errors.
+ */
 
 BSP_DONT_REMOVE const
 	fsp_vector_t BSP_PLACE_IN_SECTION(BSP_SECTION_APPLICATION_VECTORS) g_vector_table[BSP_ICU_VECTOR_NUM_ENTRIES] = {

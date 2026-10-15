@@ -7,9 +7,9 @@
 #ifndef RTE_PIN_CFG_H_
 #define RTE_PIN_CFG_H_
 
-#include <bsp_api.h>
-#include <r_ioport.h>
-#include <RTE_Device.h>
+#include "RTE_Device.h"
+#include "bsp_api.h"
+#include "r_ioport.h"
 
 /*
  * Helpers to construct FSP ioport_pin_cfg_t entries from the raw

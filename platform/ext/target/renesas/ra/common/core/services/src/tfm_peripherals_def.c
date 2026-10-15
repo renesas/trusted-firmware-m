@@ -5,14 +5,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-
-#include "tfm_peripherals_def.h"
-#include "target_cfg.h"
-#include "common_target_cfg.h"
 #include <stddef.h>
 #include <stdint.h>
+
+#include "common_target_cfg.h"
+#include "target_cfg.h"
 #include "tfm_hal_device_header.h"
-#include <stdint.h>
+#include "tfm_peripherals_def.h"
 #include "tfm_utils.h"
 
 /* Platform data for the standard UART (SCI8) */

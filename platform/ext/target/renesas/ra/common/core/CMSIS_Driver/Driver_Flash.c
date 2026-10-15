@@ -17,12 +17,12 @@
  * limitations under the License.
  */
 
-#include "Driver_Flash.h"
-#include <RTE_Device.h>
-#include <r_flash_api.h>
+#include <cmsis_compiler.h>
 #include <string.h>
 
-#include "cmsis_compiler.h"
+#include "Driver_Flash.h"
+#include "RTE_Device.h"
+#include "r_flash_api.h"
 
 #ifndef ARG_UNUSED
 #define ARG_UNUSED(arg) (void)arg
@@ -35,8 +35,7 @@
  * Event ready values for ARM_FLASH_CAPABILITIES::event_ready
  * \ref ARM_FLASH_CAPABILITIES
  */
-enum
-{
+enum {
     EVENT_READY_NOT_AVAILABLE = 0u,
     EVENT_READY_AVAILABLE
 };
@@ -45,8 +44,7 @@ enum
  * Data width values for ARM_FLASH_CAPABILITIES::data_width
  * \ref ARM_FLASH_CAPABILITIES
  */
-enum
-{
+enum {
     DATA_WIDTH_8BIT = 0u,
     DATA_WIDTH_16BIT,
     DATA_WIDTH_32BIT,
@@ -57,8 +55,7 @@ enum
  * Erase chip values for ARM_FLASH_CAPABILITIES::erase_chip
  * \ref ARM_FLASH_CAPABILITIES
  */
-enum
-{
+enum {
     CHIP_ERASE_NOT_SUPPORTED = 0u,
     CHIP_ERASE_SUPPORTED
 };
@@ -67,8 +64,7 @@ enum
  * Flash busy values flash status
  * \ref ARM_FLASH_STATUS
  */
-enum
-{
+enum {
     DRIVER_STATUS_IDLE = 0u,
     DRIVER_STATUS_BUSY
 };
@@ -77,17 +73,16 @@ enum
  * Flash error values flash status
  * \ref ARM_FLASH_STATUS
  */
-enum
-{
+enum {
     DRIVER_STATUS_NO_ERROR = 0u,
     DRIVER_STATUS_ERROR
 };
 
 /* CMSIS Flash device context */
 struct arm_flash_dev_t {
-    flash_instance_t const * instance; /*!< FLASH memory device structure */
-    ARM_FLASH_INFO         * info;     /*!< FLASH memory device info */
-    ARM_FLASH_STATUS       * status;
+    flash_instance_t const *instance; /*!< FLASH memory device structure */
+    ARM_FLASH_INFO         *info;     /*!< FLASH memory device info */
+    ARM_FLASH_STATUS       *status;
 };
 
 /* Check program-unit alignment. */
@@ -161,7 +156,7 @@ static ARM_FLASH_STATUS FlashStatus = {
     .reserved = 0,
 };
 
-extern flash_instance_t const * gp_tfm_flash_instance;
+extern flash_instance_t const *gp_tfm_flash_instance;
 
 static struct arm_flash_dev_t arm_flash0_dev = {
     .instance = NULL,
@@ -216,9 +211,10 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
     }
 
     /* Validate the flash geometry against the compile-time flash map.
-    * Only the total flash size is checked because hardware block sizes may not
-    * match the software sector size. block_section_end_addr is exclusive, so
-    * no +1 is required when calculating the flash size. */
+     * Only the total flash size is checked because hardware block sizes may not
+     * match the software sector size. block_section_end_addr is exclusive, so
+     * no +1 is required when calculating the flash size.
+     */
     err = FLASH0_DEV->instance->p_api->infoGet(FLASH0_DEV->instance->p_ctrl, &info);
 
     if (err != FSP_SUCCESS) {
@@ -280,7 +276,8 @@ static int32_t ARM_Flash_ReadData(uint32_t addr, void *data, uint32_t cnt)
 
     FLASH0_DEV->status->busy  = DRIVER_STATUS_BUSY;
     /* Access must use the alias matching the target area's security
-     * attribution (see get_flash_access_addr()). */
+     * attribution (see get_flash_access_addr()).
+     */
     memcpy(data, (const void *)(get_flash_access_addr(addr)), cnt);
 
     FLASH0_DEV->status->busy = DRIVER_STATUS_IDLE;
@@ -310,7 +307,8 @@ static int32_t ARM_Flash_ProgramData(uint32_t addr, const void *data, uint32_t c
 
     FLASH0_DEV->status->busy  = DRIVER_STATUS_BUSY;
     /* The FSP write helpers are placed in SRAM (.ram_from_flash),
-     * and interrupts must stay disabled so that no ISR executes mid-write. */
+     * and interrupts must stay disabled so that no ISR executes mid-write.
+     */
     primask = __get_PRIMASK();
 
     __disable_irq();
@@ -346,16 +344,17 @@ static int32_t ARM_Flash_EraseSector(uint32_t addr)
 
     FLASH0_DEV->status->busy  = DRIVER_STATUS_BUSY;
     /* The FSP write helpers are placed in SRAM (.ram_from_flash),
-     * and interrupts must stay disabled so that no ISR executes mid-write. */
+     * and interrupts must stay disabled so that no ISR executes mid-write.
+     */
     primask = __get_PRIMASK();
 
     __disable_irq();
     /* Erase operates on hardware erase blocks, so FLASH_PAGE_SIZE must match
-    * the device-reported erase block size. FLASH_AREA_IMAGE_SECTOR_SIZE is
-    * converted to a block count by dividing it by FLASH_PAGE_SIZE; therefore,
-    * any mismatch between FLASH_PAGE_SIZE and the actual erase block size may
-    * result in an incorrect erase range.
-    */
+     * the device-reported erase block size. FLASH_AREA_IMAGE_SECTOR_SIZE is
+     * converted to a block count by dividing it by FLASH_PAGE_SIZE; therefore,
+     * any mismatch between FLASH_PAGE_SIZE and the actual erase block size may
+     * result in an incorrect erase range.
+     */
     err = FLASH0_DEV->instance->p_api->erase(FLASH0_DEV->instance->p_ctrl, get_flash_access_addr(addr),
                        FLASH_AREA_IMAGE_SECTOR_SIZE / FLASH_PAGE_SIZE);
 
@@ -381,7 +380,7 @@ static ARM_FLASH_STATUS ARM_Flash_GetStatus(void)
     return *FLASH0_DEV->status;
 }
 
-static ARM_FLASH_INFO * ARM_Flash_GetInfo(void)
+static ARM_FLASH_INFO *ARM_Flash_GetInfo(void)
 {
     return FLASH0_DEV->info;
 }
