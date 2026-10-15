@@ -77,4 +77,12 @@
 #define BSP_CFG_ESWPHYCLK_DIV (BSP_CLOCKS_ESWPHY_CLOCK_DIV_2) /* ESWPHYCLK Div /2 */
 #define BSP_CFG_ETHPHYCLK_SOURCE (BSP_CLOCKS_CLOCK_DISABLED) /* ETHPHYCLK Disabled */
 #define BSP_CFG_ETHPHYCLK_DIV (BSP_CLOCKS_ETHPHY_CLOCK_DIV_32) /* ETHPHYCLK Div /32 */
+
+/*******************************************************************************************************************//**
+ * TF-M BSP Clock Configuration
+ **********************************************************************************************************************/
+/* TODO: Provide a mechanism to configure the clock settings at runtime. */
+#define BSP_CFG_CLOCK_CPUCLK_SRC_FREQ (BSP_CFG_PLL1P_FREQUENCY_HZ)
+#define BSP_CFG_SCICLK_SRC_FREQ (BSP_CFG_PLL2R_FREQUENCY_HZ)
+
 #endif /* BSP_CLOCK_CFG_H_ */

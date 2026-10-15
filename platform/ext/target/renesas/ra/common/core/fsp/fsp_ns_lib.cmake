@@ -21,13 +21,22 @@ include(${FSP_LIBS_CORE_PATH}/s_ns_memory.cmake)
 include(${FSP_LIBS_CORE_PATH}/s_ns_interrupt.cmake)
 include(${FSP_LIBS_CORE_PATH}/s_ns_peripheral.cmake)
 
-# Mark as non-secure build for RA platform code
-target_compile_definitions(fsp_library
-    INTERFACE
-    _RA_TZ_NONSECURE
-    _RA_BOOT_IMAGE
-    _RA_CORE=CPU0
-)
+if(RA_CORE STREQUAL "cm33")
+    # Mark as remote non-secure (CPU1) build for RA platform code.
+    target_compile_definitions(fsp_library
+        INTERFACE
+        _RA_REMOTE_NONSECURE
+        _RA_CORE=CPU1
+    )
+else()
+    # Mark as local non-secure (CPU0, TrustZone) build for RA platform code.
+    target_compile_definitions(fsp_library
+        INTERFACE
+        _RA_TZ_NONSECURE
+        _RA_BOOT_IMAGE
+        _RA_CORE=CPU0
+    )
+endif()
 
 target_include_directories(fsp_library
     INTERFACE

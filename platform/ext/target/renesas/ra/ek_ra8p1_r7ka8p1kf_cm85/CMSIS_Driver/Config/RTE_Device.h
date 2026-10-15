@@ -37,18 +37,18 @@
 #define RTE_USART0_RXD_PORT 6
 #define RTE_USART0_RXD_PIN  2
 
+/* USART7: SCI7 @ P809(TXD7_B) P808(RXD7_B) — Arduino Uno D1/D0*/
+#define RTE_USART7          1
+#define RTE_USART7_TXD_PORT 8
+#define RTE_USART7_TXD_PIN  9
+#define RTE_USART7_RXD_PORT 8
+#define RTE_USART7_RXD_PIN  8
+
 /* USART8: SCI8 @ P132(TXD8) P133(RXD8) — J-Link */
 #define RTE_USART8          1
 #define RTE_USART8_TXD_PORT 13
 #define RTE_USART8_TXD_PIN  2
 #define RTE_USART8_RXD_PORT 13
 #define RTE_USART8_RXD_PIN  3
-
-/* USART9: SCI9 @ P209(TXD9_B) P208(RXD9_B) — PMOD (disabled) */
-#define RTE_USART9          0
-#define RTE_USART9_TXD_PORT 2
-#define RTE_USART9_TXD_PIN  9
-#define RTE_USART9_RXD_PORT 2
-#define RTE_USART9_RXD_PIN  8
 
 #endif /* RTE_DEVICE_H */

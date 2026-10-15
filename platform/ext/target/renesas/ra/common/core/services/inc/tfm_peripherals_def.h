@@ -26,6 +26,16 @@ extern struct platform_data_t tfm_peripheral_std_uart;
 
 #define TFM_PERIPHERAL_STD_UART (&tfm_peripheral_std_uart)
 
+#ifdef TFM_MULTI_CORE_TOPOLOGY
+#include "bsp_api.h"
+
+/*
+ * ns_agent_mailbox.yaml declares an IRQ with "source": "MAILBOX_IRQ", so the
+ * manifest tool needs this symbol to resolve.
+ */
+#define MAILBOX_IRQ FSP_INVALID_VECTOR
+#endif /* TFM_MULTI_CORE_TOPOLOGY */
+
 #ifdef __cplusplus
 }
 #endif
