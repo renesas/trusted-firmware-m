@@ -8,8 +8,10 @@
 #==================== Partition settings for bsp_linker_info.h ================#
 set(RAM_CPU0_C_START "0x22080000" CACHE STRING "NSC SRAM carve-out base (NS boundary; NSC unsupported, keep size 0x0)")
 set(RAM_CPU0_C_SIZE "0x0" CACHE STRING "NSC SRAM carve-out size (UNSUPPORTED on RA8P1: must stay 0x0)")
-set(FLASH_CPU0_C_START "0x02048000" CACHE STRING "CMSE veneer region base in MRAM (NSC)")
 set(FLASH_CPU0_C_SIZE "0x8000" CACHE STRING "CMSE veneer region size in MRAM")
+# Veneer region MUST be allocated at end of secure image partition
+math(EXPR _VENEER_START "${S_ROM_ALIAS_BASE} + ${FLASH_S_PARTITION_SIZE} - ${FLASH_CPU0_C_SIZE}")
+set(FLASH_CPU0_C_START "${_VENEER_START}" CACHE STRING "CMSE veneer region base in MRAM (NSC)" FORCE)
 
 if(DEFINED S_RAM_ALIAS_BASE)
     # Values are available (this file is being included from the S-side
@@ -19,8 +21,8 @@ if(DEFINED S_RAM_ALIAS_BASE)
     # partition so the FSP BSP's SAU secure region does not overlap it;
     # RAM_CPU0_C_SIZE itself is declared at the top of this file.
     math(EXPR RAM_CPU0_S_SIZE "${S_DATA_SIZE} - ${RAM_CPU0_C_SIZE}")
-    math(EXPR RAM_NS_CPU0_N_START "${NS_RAM_ALIAS_BASE} + ${S_DATA_SIZE}")
-    set(RAM_NS_CPU0_N_SIZE ${NS_DATA_SIZE})
+    math(EXPR RAM_NS_CPU0_N_START "${CPU0_NS_RAM_ALIAS_BASE} + ${CPU0_NS_RAM_OFFSET}")
+    set(RAM_NS_CPU0_N_SIZE ${CPU0_NS_RAM_DATA_SIZE})
 else()
     # Exceptional: config.cmake has not run (or its map was not exported to
     # the NS build). These hardcoded values silently diverge from the
@@ -35,8 +37,8 @@ endif()
 if(DEFINED S_ROM_ALIAS_BASE)
     set(FLASH_CPU0_S_START ${S_ROM_ALIAS_BASE})
     math(EXPR FLASH_CPU0_S_SIZE "${FLASH_S_PARTITION_SIZE} + ${FLASH_STORAGE_TOTAL_SIZE}")
-    math(EXPR FLASH_NS_CPU0_N_START "${NS_ROM_ALIAS_BASE} + ${NS_IMAGE_PRIMARY_PARTITION_OFFSET}")
-    set(FLASH_NS_CPU0_N_SIZE ${FLASH_NS_PARTITION_SIZE})
+    math(EXPR FLASH_NS_CPU0_N_START "${CPU0_NS_ROM_ALIAS_BASE} + ${CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET}")
+    set(FLASH_NS_CPU0_N_SIZE ${FLASH_CPU0_NS_PARTITION_SIZE})
 else()
     # Exceptional: config.cmake has not run (or its map was not exported to
     # the NS build). These hardcoded values silently diverge from the
@@ -46,6 +48,22 @@ else()
     set(FLASH_CPU0_S_SIZE "0x60000")
     set(FLASH_NS_CPU0_N_START "0x12060000")
     set(FLASH_NS_CPU0_N_SIZE "0x60000")
+endif()
+
+# CPU1 image/data partitions, derived from config.cmake's CPU1 map.
+if(DEFINED CPU1_NS_ROM_ALIAS_BASE)
+    math(EXPR _CPU1_FLASH_START "${CPU1_NS_ROM_ALIAS_BASE} + ${CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET}")
+    math(EXPR _CPU1_RAM_START "${CPU1_NS_RAM_ALIAS_BASE} + ${CPU1_NS_RAM_OFFSET}")
+    set(FLASH_NS_CPU1_N_START "${_CPU1_FLASH_START}")
+    set(FLASH_NS_CPU1_N_SIZE "${FLASH_CPU1_NS_PARTITION_SIZE}")
+    set(RAM_NS_CPU1_N_START "${_CPU1_RAM_START}")
+    set(RAM_NS_CPU1_N_SIZE "${CPU1_NS_RAM_DATA_SIZE}")
+else()
+    message(WARNING "RA8P1: s_ns_memory.cmake using hardcoded CPU1 fallback values (CPU1_NS_ROM_ALIAS_BASE not defined); keep in sync with config.cmake")
+    set(FLASH_NS_CPU1_N_START "0x0")
+    set(FLASH_NS_CPU1_N_SIZE "0x0")
+    set(RAM_NS_CPU1_N_START "0x0")
+    set(RAM_NS_CPU1_N_SIZE "0x0")
 endif()
 
 set(DATA_FLASH_NS_CPU0_N_START "0x37000000" CACHE STRING "Default: 0x37000000")
@@ -187,6 +205,8 @@ target_compile_definitions(fsp_library
     RAM_CPU0_S_SIZE=${RAM_CPU0_S_SIZE}
     RAM_CPU0_C_START=${RAM_CPU0_C_START}
     RAM_CPU0_C_SIZE=${RAM_CPU0_C_SIZE}
+    RAM_NS_CPU1_N_START=${RAM_NS_CPU1_N_START}
+    RAM_NS_CPU1_N_SIZE=${RAM_NS_CPU1_N_SIZE}
 
     # Flash
     FLASH_NS_CPU0_N_START=${FLASH_NS_CPU0_N_START}
@@ -195,6 +215,8 @@ target_compile_definitions(fsp_library
     FLASH_CPU0_S_SIZE=${FLASH_CPU0_S_SIZE}
     FLASH_CPU0_C_START=${FLASH_CPU0_C_START}
     FLASH_CPU0_C_SIZE=${FLASH_CPU0_C_SIZE}
+    FLASH_NS_CPU1_N_START=${FLASH_NS_CPU1_N_START}
+    FLASH_NS_CPU1_N_SIZE=${FLASH_NS_CPU1_N_SIZE}
     DATA_FLASH_NS_CPU0_N_START=${DATA_FLASH_NS_CPU0_N_START}
     DATA_FLASH_NS_CPU0_N_SIZE=${DATA_FLASH_NS_CPU0_N_SIZE}
     DATA_FLASH_CPU0_S_START=${DATA_FLASH_CPU0_S_START}
@@ -311,6 +333,8 @@ target_compile_definitions(platform_region_defs
     RAM_CPU0_S_SIZE=${RAM_CPU0_S_SIZE}
     RAM_CPU0_C_START=${RAM_CPU0_C_START}
     RAM_CPU0_C_SIZE=${RAM_CPU0_C_SIZE}
+    RAM_NS_CPU1_N_START=${RAM_NS_CPU1_N_START}
+    RAM_NS_CPU1_N_SIZE=${RAM_NS_CPU1_N_SIZE}
     # Flash
     FLASH_NS_CPU0_N_START=${FLASH_NS_CPU0_N_START}
     FLASH_NS_CPU0_N_SIZE=${FLASH_NS_CPU0_N_SIZE}
@@ -318,6 +342,8 @@ target_compile_definitions(platform_region_defs
     FLASH_CPU0_S_SIZE=${FLASH_CPU0_S_SIZE}
     FLASH_CPU0_C_START=${FLASH_CPU0_C_START}
     FLASH_CPU0_C_SIZE=${FLASH_CPU0_C_SIZE}
+    FLASH_NS_CPU1_N_START=${FLASH_NS_CPU1_N_START}
+    FLASH_NS_CPU1_N_SIZE=${FLASH_NS_CPU1_N_SIZE}
     # TCMs
     ITCM_NS_CPU0_N_START=${ITCM_NS_CPU0_N_START}
     ITCM_NS_CPU0_N_SIZE=${ITCM_NS_CPU0_N_SIZE}

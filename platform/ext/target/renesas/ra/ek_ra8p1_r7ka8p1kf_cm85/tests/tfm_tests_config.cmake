@@ -12,3 +12,7 @@ set(TEST_NS_ATTESTATION      OFF CACHE BOOL "Whether to build NS regression Atte
 # TODO: - Fix build issue with TEST_NS_ATTESTATION enabled
 #       - Support and enable other default OFF tests suite
 #         (default_s_test_config.cmake, default_ns_test_config.cmake).
+
+if(NOT RA_NS_INTERFACE_MAILBOX)
+    set(TEST_NS_MULTI_CORE OFF CACHE BOOL "Whether to build NS regression multi-core tests" FORCE)
+endif()

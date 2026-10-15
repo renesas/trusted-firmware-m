@@ -56,8 +56,11 @@
 #ifndef FLASH_S_PARTITION_SIZE
 #error "FLASH_S_PARTITION_SIZE must be defined by config.cmake"
 #endif
-#ifndef FLASH_NS_PARTITION_SIZE
-#error "FLASH_NS_PARTITION_SIZE must be defined by config.cmake"
+#ifndef FLASH_CPU0_NS_PARTITION_SIZE
+#error "FLASH_CPU0_NS_PARTITION_SIZE must be defined by config.cmake"
+#endif
+#ifndef FLASH_CPU1_NS_PARTITION_SIZE
+#error "FLASH_CPU1_NS_PARTITION_SIZE must be defined by config.cmake"
 #endif
 #ifndef FLASH_PS_AREA_SIZE
 #error "FLASH_PS_AREA_SIZE must be defined by config.cmake"
@@ -74,15 +77,18 @@
 #ifndef S_ROM_ALIAS_BASE
 #error "S_ROM_ALIAS_BASE must be defined by config.cmake"
 #endif
-#ifndef NS_ROM_ALIAS_BASE
-#error "NS_ROM_ALIAS_BASE must be defined by config.cmake"
+#ifndef CPU0_NS_ROM_ALIAS_BASE
+#error "CPU0_NS_ROM_ALIAS_BASE must be defined by config.cmake"
 #endif
 #ifndef S_RAM_ALIAS_BASE
 #error "S_RAM_ALIAS_BASE must be defined by config.cmake"
 #endif
-#ifndef NS_RAM_ALIAS_BASE
-#error "NS_RAM_ALIAS_BASE must be defined by config.cmake"
+#ifndef CPU0_NS_RAM_ALIAS_BASE
+#error "CPU0_NS_RAM_ALIAS_BASE must be defined by config.cmake"
 #endif
+
+/* TODO: Support BL2 with both CPU0 and CPU1 Non-secure images  */
+#define FLASH_NS_PARTITION_SIZE FLASH_CPU0_NS_PARTITION_SIZE
 
 #if (FLASH_S_PARTITION_SIZE > FLASH_NS_PARTITION_SIZE)
 #define FLASH_MAX_PARTITION_SIZE FLASH_S_PARTITION_SIZE

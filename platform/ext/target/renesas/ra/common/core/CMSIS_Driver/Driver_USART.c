@@ -728,10 +728,10 @@ static int32_t sci_b_uart_control(sci_b_uart_data_t *data,
 SCI_B_UART_INSTANCE(0);
 #endif
 
-#if RTE_USART8
-SCI_B_UART_INSTANCE(8);
+#if RTE_USART7
+SCI_B_UART_INSTANCE(7);
 #endif
 
-#if RTE_USART9
-SCI_B_UART_INSTANCE(9);
+#if RTE_USART8
+SCI_B_UART_INSTANCE(8);
 #endif

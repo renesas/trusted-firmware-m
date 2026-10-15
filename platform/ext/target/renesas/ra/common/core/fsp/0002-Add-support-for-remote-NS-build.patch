@@ -1,0 +1,297 @@
+From 73525b297c35832c0adac1eb12d4d4e4b2748550 Mon Sep 17 00:00:00 2001
+From: Khai Cao <khai.cao.xk@renesas.com>
+Date: Tue, 22 Sep 2026 06:33:22 +0000
+Subject: [PATCH] [tfm patch] Add support for remote NS build
+
+Add remote non-secure build support for multi-core RA devices.
+
+Changes include:
+- Add _RA_REMOTE_NONSECURE build support
+- Clock calculation support from compile-time configuration
+- Support releasing CM33 when the Secure Extension is disabled
+  (no CM33 secure partitions are available)
+
+Signed-off-by: Khai Cao <khai.cao.xk@renesas.com>
+---
+ .../Device/RENESAS/Include/R7KA8D2KF_core0.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8D2KF_core1.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8M2JF_core0.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8M2JF_core1.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8P1KF_core0.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8P1KF_core1.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8T2LF_core0.h  |  2 +-
+ .../Device/RENESAS/Include/R7KA8T2LF_core1.h  |  2 +-
+ ra/fsp/src/bsp/mcu/all/bsp_clocks.c           | 19 ++++++++++++++++++-
+ ra/fsp/src/bsp/mcu/all/bsp_common.h           |  7 +++++--
+ ra/fsp/src/bsp/mcu/all/bsp_irq.c              |  9 ++++++---
+ ra/fsp/src/r_dtc/r_dtc.c                      | 12 ++++++------
+ 12 files changed, 43 insertions(+), 20 deletions(-)
+
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core0.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core0.h
+index 19cdf6a34..68835593e 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core0.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core0.h
+@@ -63452,7 +63452,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET     (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET     0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core1.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core1.h
+index 076271b3b..7b8e69ac2 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core1.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8D2KF_core1.h
+@@ -63654,7 +63654,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET     (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET     0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core0.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core0.h
+index 709cbce5b..8d3c06e4d 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core0.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core0.h
+@@ -52900,7 +52900,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET        (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET        0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core1.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core1.h
+index 0d5458200..c3041a565 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core1.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8M2JF_core1.h
+@@ -53102,7 +53102,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET        (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET        0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core0.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core0.h
+index a8b6d1bc6..f52d68ae0 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core0.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core0.h
+@@ -64689,7 +64689,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET        (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET        0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core1.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core1.h
+index 3965bdb73..6b9b1925f 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core1.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8P1KF_core1.h
+@@ -64891,7 +64891,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET        (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET        0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core0.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core0.h
+index b04903899..0786aedad 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core0.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core0.h
+@@ -53906,7 +53906,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET         (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET         0U
+diff --git a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core1.h b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core1.h
+index 2be511b82..489ab687d 100644
+--- a/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core1.h
++++ b/ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7KA8T2LF_core1.h
+@@ -54108,7 +54108,7 @@ typedef struct                         /*!< (@ 0x4001C800) R_TCM Structure
+  * @{
+  */
+ 
+- #if defined(_RA_TZ_NONSECURE)
++ #if defined(_RA_TZ_NONSECURE) || defined(_RA_REMOTE_NONSECURE)
+   #define BASE_NS_OFFSET         (BSP_FEATURE_TZ_NS_OFFSET)
+  #else
+   #define BASE_NS_OFFSET         0U
+diff --git a/ra/fsp/src/bsp/mcu/all/bsp_clocks.c b/ra/fsp/src/bsp/mcu/all/bsp_clocks.c
+index 21a96c3bb..7773e2891 100644
+--- a/ra/fsp/src/bsp/mcu/all/bsp_clocks.c
++++ b/ra/fsp/src/bsp/mcu/all/bsp_clocks.c
+@@ -983,7 +983,10 @@ void bsp_prv_prepare_pll (uint32_t clock, uint32_t const * const p_pll_hz)
+  **********************************************************************************************************************/
+ void SystemCoreClockUpdate (void)
+ {
+-#if !BSP_FEATURE_CGC_REGISTER_SET_B
++#if BSP_REMOTE_NONSECURE_BUILD && (BSP_CFG_CLOCKS_SECURE == 1)
++    /* TODO: Support reading the clock at runtime so the secure clock can be changed dynamically. */
++    SystemCoreClock = BSP_CFG_CLOCK_CPUCLK_SRC_FREQ / BSP_PRV_SCKDIVCR_DIV_VALUE(BSP_CFG_CPUCLK1_DIV);
++#elif !BSP_FEATURE_CGC_REGISTER_SET_B
+  #if BSP_FEATURE_TZ_HAS_TRUSTZONE && (BSP_TZ_SECURE_BUILD || BSP_TZ_NONSECURE_BUILD) && BSP_FEATURE_TZ_VERSION == 2
+     bool secure = !R_SYSTEM->CGFSAR_b.NONSEC00;
+  #endif
+@@ -3529,4 +3532,18 @@ fsp_err_t R_BSP_SubclockInitialize ()
+ 
+ #endif
+ 
++#if BSP_FEATURE_SCI_HAS_CLOCK && BSP_REMOTE_NONSECURE_BUILD
++
++/*******************************************************************************************************************//**
++ * Gets the frequency of a SCI clock.
++ *
++ * @return     Frequency of requested clock in Hertz.
++ **********************************************************************************************************************/
++
++/* TODO: Support reading the clock at runtime so the secure clock can be changed dynamically. */
++uint32_t R_FSP_SciClockHzGet (void)
++{
++    return BSP_CFG_SCICLK_SRC_FREQ / R_FSP_ClockDividerGet(BSP_CFG_SCICLK_DIV);
++}
++#endif
+ /** @} (end addtogroup BSP_MCU_PRV) */
+diff --git a/ra/fsp/src/bsp/mcu/all/bsp_common.h b/ra/fsp/src/bsp/mcu/all/bsp_common.h
+index a26c52878..32e76a218 100644
+--- a/ra/fsp/src/bsp/mcu/all/bsp_common.h
++++ b/ra/fsp/src/bsp/mcu/all/bsp_common.h
+@@ -190,7 +190,7 @@ FSP_HEADER
+ #endif
+ 
+ /* Use the secure registers for secure projects and flat projects. */
+-#if !BSP_TZ_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
++#if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
+  #define FSP_PRIV_TZ_USE_SECURE_REGS            (1)
+ #else
+  #define FSP_PRIV_TZ_USE_SECURE_REGS            (0)
+@@ -537,6 +537,9 @@ __STATIC_INLINE uint32_t R_FSP_SpiClockHzGet (void)
+  *
+  * @return     Frequency of requested clock in Hertz.
+  **********************************************************************************************************************/
++ #if BSP_REMOTE_NONSECURE_BUILD
++uint32_t R_FSP_SciClockHzGet (void);
++ #else
+ __STATIC_INLINE uint32_t R_FSP_SciClockHzGet (void)
+ {
+     uint32_t                scidivcr  = FSP_STYPE3_REG8_READ(R_SYSTEM->SCICKDIVCR, BSP_CFG_CLOCKS_SECURE);
+@@ -548,7 +551,7 @@ __STATIC_INLINE uint32_t R_FSP_SciClockHzGet (void)
+ 
+     return R_BSP_SourceClockHzGet(scicksel) / clock_div;
+ }
+-
++ #endif
+ #endif
+ 
+ /*******************************************************************************************************************//**
+diff --git a/ra/fsp/src/bsp/mcu/all/bsp_irq.c b/ra/fsp/src/bsp/mcu/all/bsp_irq.c
+index f0ab7eb14..46bd6cabd 100644
+--- a/ra/fsp/src/bsp/mcu/all/bsp_irq.c
++++ b/ra/fsp/src/bsp/mcu/all/bsp_irq.c
+@@ -202,7 +202,9 @@ void R_BSP_IrqCfgEnable (IRQn_Type const irq, uint32_t priority, void * p_contex
+ 
+ /** @} (end addtogroup BSP_MCU) */
+ 
+-#if (BSP_CFG_CPU_CORE == 1) && !BSP_TZ_NONSECURE_BUILD
++/* TODO: INTSELR must be set from the Secure state. Need to confirm and, if necessary, add support for
++ * setting it from the CPU0 Secure side when CPU1 runs with Security Extension disabled. */
++#if (BSP_CFG_CPU_CORE == 1) && !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD
+ 
+ /*******************************************************************************************************************//**
+  * INTSELR is a S-TYPE-6 register but it needs to be set based on interrupts that are used in each project.
+@@ -287,7 +289,8 @@ void bsp_irq_cfg (void)
+  #endif
+ #endif
+ #if BSP_FEATURE_ICU_HAS_IELSR
+-
++/* The TF-M implementation will set the IELSR and INTSELR registers. */
++ #if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD
+     /* Calculate the number of IELSR registers that need to be initialized. */
+     uint32_t ielsr_count = BSP_ICU_VECTOR_MAX_ENTRIES - BSP_FEATURE_ICU_FIXED_IELSR_COUNT;
+     if (ielsr_count > BSP_ICU_VECTOR_NUM_ENTRIES)
+@@ -300,11 +303,11 @@ void bsp_irq_cfg (void)
+         if (0U != g_interrupt_event_link_select[i])
+         {
+             R_ICU->IELSR[i] = (uint32_t) g_interrupt_event_link_select[i];
+-
+  #if (BSP_CFG_CPU_CORE == 1)
+             bsp_prv_intselr_set(g_interrupt_event_link_select[i]);
+  #endif
+         }
+     }
++ #endif
+ #endif
+ }
+diff --git a/ra/fsp/src/r_dtc/r_dtc.c b/ra/fsp/src/r_dtc/r_dtc.c
+index ff22d67c5..fa232c811 100644
+--- a/ra/fsp/src/r_dtc/r_dtc.c
++++ b/ra/fsp/src/r_dtc/r_dtc.c
+@@ -259,7 +259,7 @@ fsp_err_t R_DTC_Reset (transfer_ctrl_t * const p_api_ctrl,
+ 
+     /* Disable read skip prior to modifying settings. It will be enabled later
+      * (See "Transfer Information Read Skip Function" in the DTC section of the relevant hardware manual). */
+-#if !BSP_TZ_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
++#if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
+     R_DTC->DTCCR_SEC = DTC_PRV_RRS_DISABLE;
+ #else
+     R_DTC->DTCCR = DTC_PRV_RRS_DISABLE;
+@@ -290,7 +290,7 @@ fsp_err_t R_DTC_Reset (transfer_ctrl_t * const p_api_ctrl,
+     }
+ 
+     /* Enable read skip after all settings are written. */
+-#if !BSP_TZ_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
++#if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
+     R_DTC->DTCCR_SEC = DTC_PRV_RRS_ENABLE;
+ #else
+     R_DTC->DTCCR = DTC_PRV_RRS_ENABLE;
+@@ -546,13 +546,13 @@ static void r_dtc_state_initialize (void)
+         memset(&gp_dtc_vector_table, 0U, DTC_VECTOR_TABLE_ENTRIES * sizeof(transfer_info_t *));
+ 
+         /* Set DTC vector table. */
+-#if !BSP_TZ_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
++#if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
+         R_DTC->DTCVBR_SEC = (uint32_t) gp_dtc_vector_table;
+ #else
+         R_DTC->DTCVBR = (uint32_t) gp_dtc_vector_table;
+ #endif
+ 
+-#if BSP_FEATURE_TZ_HAS_TRUSTZONE && BSP_TZ_NONSECURE_BUILD
++#if BSP_FEATURE_TZ_HAS_TRUSTZONE && (BSP_TZ_NONSECURE_BUILD || BSP_REMOTE_NONSECURE_BUILD)
+         if (1 == DTC_PRV_DTCSAR_DTCSTSA)
+         {
+             /* Enable the DTC Peripheral */
+@@ -577,7 +577,7 @@ static void r_dtc_set_info (dtc_instance_ctrl_t * p_ctrl, transfer_info_t * p_in
+ 
+     /* Disable read skip prior to modifying settings. It will be enabled later
+      * (See "Transfer Information Read Skip Function" in the DTC section of the relevant hardware manual). */
+-#if !BSP_TZ_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
++#if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
+     R_DTC->DTCCR_SEC = DTC_PRV_RRS_DISABLE;
+ #else
+     R_DTC->DTCCR = DTC_PRV_RRS_DISABLE;
+@@ -587,7 +587,7 @@ static void r_dtc_set_info (dtc_instance_ctrl_t * p_ctrl, transfer_info_t * p_in
+     gp_dtc_vector_table[p_ctrl->irq] = p_info;
+ 
+     /* Enable read skip after all settings are written. */
+-#if !BSP_TZ_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
++#if !BSP_TZ_NONSECURE_BUILD && !BSP_REMOTE_NONSECURE_BUILD && BSP_FEATURE_TZ_HAS_TRUSTZONE
+     R_DTC->DTCCR_SEC = DTC_PRV_RRS_ENABLE;
+ #else
+     R_DTC->DTCCR = DTC_PRV_RRS_ENABLE;
+-- 
+2.43.0
+

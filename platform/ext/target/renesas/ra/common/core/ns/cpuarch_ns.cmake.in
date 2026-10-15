@@ -7,5 +7,18 @@
 
 set(TARGET_PLATFORM_PATH         "@TARGET_PLATFORM_PATH@")
 set(RENESAS_RA_FSP_LIB_PATH      "@RENESAS_RA_FSP_LIB_PATH@")
+set(RENESAS_RA_COMMON_SOURCE_DIR "@RENESAS_RA_COMMON_SOURCE_DIR@")
+set(RENESAS_RA_SOC_SOURCE_DIR    "@RENESAS_RA_SOC_SOURCE_DIR@")
 
-include(${TARGET_PLATFORM_PATH}/cpuarch.cmake)
+# Marks this as the non-secure-side build
+set(NS_BUILD ON)
+
+include(${RENESAS_RA_SOC_SOURCE_DIR}/cpuarch.cmake)
+
+if(RA_CORE STREQUAL "cm85")
+    set(RA_NS_INTERFACE_TZ ON)
+    add_compile_definitions(RA_NS_INTERFACE_TZ=1)
+elseif(RA_CORE STREQUAL "cm33")
+    set(RA_NS_INTERFACE_MAILBOX ON)
+    add_compile_definitions(RA_NS_INTERFACE_MAILBOX=1)
+endif()

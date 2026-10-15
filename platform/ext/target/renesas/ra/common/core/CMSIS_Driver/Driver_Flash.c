@@ -176,9 +176,9 @@ static uintptr_t get_flash_access_addr(uint32_t offset)
     uintptr_t base_addr;
 
     if (offset < RA_HAL_FLASH_SECURE_BOUNDARY) {
-        base_addr = S_ROM_ALIAS_BASE;
+        base_addr = BSP_FEATURE_FLASH_CODE_FLASH_START;
     } else {
-        base_addr = NS_ROM_ALIAS_BASE;
+        base_addr = BSP_FEATURE_TZ_NS_OFFSET + BSP_FEATURE_FLASH_CODE_FLASH_START;
     }
 
     return base_addr + offset;

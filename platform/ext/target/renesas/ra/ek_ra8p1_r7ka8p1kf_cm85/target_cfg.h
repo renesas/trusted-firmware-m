@@ -15,7 +15,11 @@ extern "C" {
 #endif
 
 #define TFM_DRIVER_STDIO    Driver_USART8
+#if (RA_CORE == RA_CM33)
+#define NS_DRIVER_STDIO     Driver_USART7
+#elif (RA_CORE == RA_CM85)
 #define NS_DRIVER_STDIO     Driver_USART0
+#endif
 
 /* PPC bank type */
 typedef uint32_t ppc_bank_t;
