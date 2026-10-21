@@ -653,7 +653,17 @@ target_compile_definitions(platform_s
 #
 # The define was absent from the compile lines inspected here only because TFM_PXN_ENABLE
 # defaults OFF, which collapses the generator expression to nothing. Absent because unset,
-# not absent because unplumbed - and the two look identical on a compile line. See D115.
+# not absent because unplumbed - and the two look identical on a compile line.
+#
+# Provenance, since the first correction guessed at it: the define was introduced by
+# d839593bf, 2021-02-25, "TZ: Add configuration switch for PXN", moved to its present home by
+# ec27c23f5 (2022-07-25) when the SPM HAL sources moved to tfm_spm, and last touched by
+# d90aa0c44 (2023-03-14), which only added the armv8.1-m.main check in check_config.cmake:91.
+# It has therefore worked since 2021, not since 2023.
+#
+# Confirmed by configuring, not only by reading: a TFM_PXN_ENABLE=ON configure of this
+# platform puts -DTFM_PXN_ENABLE on tfm_hal_isolation_v8m.o's compile line and passes the
+# armv8.1-m.main gate. See D115, D117.
 
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

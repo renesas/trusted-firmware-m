@@ -141,10 +141,16 @@ void tfm_plat_test_secure_timer_start(void)
 }
 
 /*
- * Called from the partition's FLIH handler, which TF-M runs in THREAD mode at the
- * partition's privilege - so this is UNPRIVILEGED for an ARoT partition, exactly like
- * start() and stop(). Measured: an earlier version cleared the ICU here and faulted with
- * MMFSR 0x82, MMFAR 0x40006300. AGT0 registers only.
+ * Called from the partition's FLIH handler. For an ARoT partition at isolation 2 or 3 - the
+ * configuration this fixture runs in - TF-M dispatches that handler in THREAD mode at the
+ * partition's privilege, so this is UNPRIVILEGED, exactly like start() and stop(). Measured:
+ * an earlier version cleared the ICU here and faulted with MMFSR 0x82, MMFAR 0x40006300.
+ * AGT0 registers only.
+ *
+ * That is the ARoT-above-isolation-1 case, not FLIH in general: interrupt.c:195-209 calls
+ * flih_func() directly - Handler mode, privileged - at isolation 1, and also above it
+ * whenever tfm_hal_boundary_need_switch() is false, i.e. for PSA-RoT. Writing only AGT0
+ * here is the safe intersection of all three. DECISIONS D117.
  *
  * The ICU latch is cleared ahead of us in TFM_TIMER0_IRQ_Handler(), preserving the
  * ICU-then-peripheral order that agt_int_isr() uses.

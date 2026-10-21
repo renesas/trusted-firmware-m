@@ -59,11 +59,20 @@ void TFM_TIMER0_IRQ_Handler(void)
      * Clear the ICU's latched request HERE, before the SPM dispatches, because this is the
      * last privileged code on the path.
      *
-     * TF-M runs FLIH handlers in THREAD mode at the owning partition's privilege - measured,
+     * TF-M runs THIS handler in THREAD mode at the owning partition's privilege - measured,
      * not assumed: at isolation 2 the ARoT FLIH handler faulted on this very write with
      * MMFSR 0x82, MMFAR 0x40006300 (ICU IELSR), "came from secure FW in thread mode". So the
      * handler cannot touch the ICU, and it cannot touch the NVIC either - that is the PPB,
      * privileged-only by architecture. This vector entry is Handler mode and can do both.
+     *
+     * Not a general rule about FLIH, and an earlier revision of this comment overstated it.
+     * interrupt.c:195-209 picks one of three dispatches: at isolation 1 it calls flih_func()
+     * directly; above that it calls it directly when tfm_hal_boundary_need_switch() is
+     * false - which is the PSA-RoT case - and only otherwise goes through
+     * tfm_flih_deprivileged_handling(). So Handler mode is the norm; Thread mode happens
+     * for an ARoT partition at isolation 2 or 3, which is exactly this fixture. Writing the
+     * clear here is correct either way, since Handler mode is also privileged.
+     * DECISIONS D117.
      *
      * What is left for the partition's FLIH handler is clearing AGT0's own TUNDF flag, which
      * its TFM_PERIPHERAL_TIMER0 mmio_region does cover. See plat_test.c.

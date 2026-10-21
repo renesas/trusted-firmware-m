@@ -35,22 +35,34 @@ const struct memory_region_limits memory_regions = {
 
 void sau_and_idau_cfg(void)
 {
-    /* SAU configuration is handled by TF-M's common ARMv8-M isolation framework */
-    /* The framework will configure SAU based on region_defs.h and memory_regions */
-
-    /* RA6M4 doesn't have IDAU - security attribution is done entirely via SAU */
+    /*
+     * Deliberately empty, and NOT because the generic framework does it elsewhere.
+     *
+     * RA6E1 has no SAU at all: __SAUREGION_PRESENT is 0 in the device header, so there
+     * are no SAU regions to programme. Security attribution is done by the IDAU, which on
+     * RA is driven by the Renesas Device Partition Manager - the BSP_PARTITION_* values in
+     * the generated bsp_linker_info.h - and is fixed before this code runs.
+     *
+     * An earlier revision of this comment said the reverse: "RA6M4 doesn't have IDAU -
+     * security attribution is done entirely via SAU". That is backwards on both halves. The
+     * part in this port with __SAUREGION_PRESENT 1 is RA8M2; ra8m2/target_cfg.c states it
+     * correctly and ra8m2/bl2_boot_hal.c is where an SAU actually gets programmed.
+     * DECISIONS D117.
+     */
 }
 
 enum tfm_plat_err_t mpc_init_cfg(void)
 {
-    /* RA6M4 does not have MPC - memory protection is done via SAU/MPU */
+    /* No MPC on this part. Memory attribution is the IDAU (see sau_and_idau_cfg above -
+     * there is no SAU here), and the MPU subdivides the secure side. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 enum tfm_plat_err_t ppc_init_cfg(void)
 {
-    /* RA6 has no PPC - peripheral protection is done via SAU/IDAU and the Renesas PSAR
-     * registers, which FSP programs from the solution. See target_cfg.h. */
+    /* RA6 has no PPC - peripheral protection is done by the IDAU (there is no SAU on
+     * this part) and the Renesas PSAR registers, which FSP programs from the solution.
+     * See target_cfg.h. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
