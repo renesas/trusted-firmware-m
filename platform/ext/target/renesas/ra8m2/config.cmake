@@ -199,9 +199,12 @@ set(CONFIG_TFM_SPM_BACKEND              "SFN"       CACHE STRING    "SFN - no IP
 #
 # Nothing platform-specific implements it: this port uses the shared
 # platform/ext/common/tfm_hal_isolation_v8m.c, which carries the whole level-3 mechanism
-# (per-partition MPU regions programmed on each context switch), and the RA8M2 Cortex-M33
-# has the 8-region ARMv8-M MPU it assumes. The flag is a statement that the port has been
-# built and run that way, so keep it honest.
+# (per-partition MPU regions programmed on each context switch), and the RA8M2's CPU0 - a
+# Cortex-M85, not the Cortex-M33 an earlier revision of this comment inherited from RA6M5 -
+# has the 8-region ARMv8-M MPU it assumes. The count is measured, not assumed: MPU->TYPE
+# reads 8 on silicon, with 5 static regions programmed at both levels 2 and 3 (no PXN, which
+# needs armv8.1-m.main) and a sixth appended at level 2 when the FLIH service binds AGT0.
+# The flag is a statement that the port has been built and run that way, so keep it honest.
 #
 # The isolation level does NOT change the TrustZone boundaries programmed with the Renesas
 # Device Partition Manager. Those come from the solution's IDAU partitioning - the

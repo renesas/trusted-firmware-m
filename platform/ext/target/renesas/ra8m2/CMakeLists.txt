@@ -556,12 +556,105 @@ target_sources(platform_s PRIVATE
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_hal_nvic.c>
 
     # The TIMER0 fixture the FLIH/SLIH suites need: the handler and the SPM registration
-    # hook (tfm_timer0_irq.c), and the AGT0 start/stop/ack the test services call
-    # (plat_test.c). Both are RA-specific - see the header of tfm_timer0_irq.c for why
+    # hook. RA-specific - see the header of tfm_timer0_irq.c for why
     # ext/common/tfm_interrupts.c cannot be used on this family. DECISIONS D061, D069.
+    #
+    # This half stays in platform_s. The handler runs in Handler mode, which is always
+    # privileged, and tfm_timer0_irq_init() is called by the SPM. plat_test.c is the other
+    # half and must NOT be here - see the tfm_sprt block below.
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/tfm_timer0_irq.c>
-    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
 )
+
+# plat_test.c goes in tfm_sprt, NOT platform_s. Twin of the RA6M5 change - the full
+# diagnosis is in that file's CMakeLists.
+#
+# Short version: the FLIH and SLIH test services are APPLICATION-ROT partitions, so from
+# isolation 2 they run UNPRIVILEGED and call tfm_plat_test_secure_timer_{start,stop,
+# clear_intr} directly. platform_s lands in PT_PSA_ROT_CODE, which the static MPU table
+# marks ARM_MPU_PRIVILEGED, so the branch takes an instruction access violation
+# (MMFSR 0x01, IACCVIOL). tfm_sprt links into the unprivileged code region. Measured on
+# RA6M5 at isolation 2 on 2026-10-20; RA8M2 is changed in step rather than waiting to
+# reproduce it, since the mechanism is the shared isolation HAL and both parts place
+# platform_s identically.
+#
+# Invisible at isolation 1, which is what this port ships - no MPU region is programmed
+# there and the call works.
+target_sources(tfm_sprt
+    PRIVATE
+        $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c>
+)
+
+# plat_test.c needs the include path platform_s has, inherited rather than restated.
+#
+# hal_data.h -> ra_gen/common_data.h -> rm_psa_crypto.h, which lives in an FSP module
+# directory that fsp_module_library() adds to platform_s and that is NOT in
+# FSP_S_INCLUDES. A hand-written directory list breaks whenever the e2 project's module
+# set changes; inheriting platform_s's resolved list cannot. See the RA6M5 CMakeLists for
+# the full reasoning and the error it produced.
+#
+# Scoped to the one file - tfm_sprt is linked into every partition and the FSP tree must
+# not shadow a partition's headers. TARGET_DIRECTORY must name tfm_sprt or the property is
+# set in the wrong scope and silently ignored.
+if(CONFIG_TFM_FLIH_API OR CONFIG_TFM_SLIH_API)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/plat_test.c
+        TARGET_DIRECTORY tfm_sprt
+        PROPERTIES INCLUDE_DIRECTORIES
+            "$<TARGET_PROPERTY:platform_s,INCLUDE_DIRECTORIES>")
+endif()
+# TFM_ISOLATION_LEVEL for platform_s - an upstream gap, and a silent one.
+#
+# platform/ext/common/tfm_hal_isolation_v8m.c switches on TFM_ISOLATION_LEVEL throughout,
+# but platform/CMakeLists.txt links platform_s against tfm_config and NOT psa_interface,
+# and psa_interface is the only target that carries
+#     $<$<BOOL:${TFM_ISOLATION_LEVEL}>:TFM_ISOLATION_LEVEL=${TFM_ISOLATION_LEVEL}>
+# (interface/CMakeLists.txt:37). The macro is therefore UNDEFINED in that translation unit
+# on every platform using the shared HAL, and #if on an undefined macro is 0 with no
+# diagnostic.
+#
+# What that silently does at isolation 2, measured on RA6M5 2026-10-21:
+#   #if TFM_ISOLATION_LEVEL == 1  -> false -> privileged = IS_PSA_ROT(), so ARoT
+#                                    partitions ARE correctly de-privileged
+#   #if TFM_ISOLATION_LEVEL == 2  -> false -> the named-MMIO region is NEVER programmed
+# i.e. the isolation is enforced but the peripheral grant that makes it usable is dropped.
+# An ARoT partition touching its own declared mmio_region takes a DACCVIOL. The
+# post-partition MPU dump in tfm_hal_platform.c showed 5 regions where 6 were expected,
+# with nothing covering AGT0 at 0x400E8000.
+#
+# Fixed here rather than in platform/CMakeLists.txt to keep the shared-file delta small;
+# logged for upstream in UPSTREAM_CHANGES.md. Linking psa_interface would also work but
+# pulls in far more than one macro.
+target_compile_definitions(platform_s
+    PRIVATE
+        $<$<BOOL:${TFM_ISOLATION_LEVEL}>:TFM_ISOLATION_LEVEL=${TFM_ISOLATION_LEVEL}>
+        $<$<BOOL:${CONFIG_TFM_PARTITION_META}>:CONFIG_TFM_PARTITION_META>
+)
+
+# CONFIG_TFM_PARTITION_META is the same gap as TFM_ISOLATION_LEVEL above - another
+# psa_interface INTERFACE definition that platform_s never sees - and it bites ONLY at
+# isolation 3, which is why the isolation-2 run did not catch it.
+#
+# The static MPU table swaps the App RoT data region for the partition-metadata-pointer
+# region at level 3:
+#     #if   TFM_ISOLATION_LEVEL != 3        -> App RoT data region
+#     #elif defined(CONFIG_TFM_PARTITION_META) -> TFM_SP_META_PTR region
+#     #endif
+# With the macro undefined NEITHER arm fires, so level 3 programmes FOUR static regions
+# instead of five and nothing covers TFM_SP_META_PTR. Measured on RA6M5 2026-10-21: the
+# post-partition dump showed 4 regions with 0x20000400 absent, and the SPM faulted with
+# MMFSR 0x82, MMFAR 0x20000400 - the metadata pointer itself.
+#
+# NOT A THIRD INSTANCE, though an earlier revision of this comment said it was.
+# TFM_PXN_ENABLE is tested by the same file (#ifdef), and the claim here was that it too is
+# never turned into a compile definition anywhere in TF-M. That is false:
+# platform/CMakeLists.txt:126 emits it PUBLIC on platform_s, on the line immediately after
+# CONFIG_TFM_ENABLE_MEMORY_PROTECT. It reaches the isolation HAL, the PXN arms of the static
+# table are live, and that is how the four Arm platforms setting TFM_PXN_ENABLE=ON in their
+# config.cmake actually get PXN attributes.
+#
+# The define was absent from the compile lines inspected here only because TFM_PXN_ENABLE
+# defaults OFF, which collapses the generator expression to nothing. Absent because unset,
+# not absent because unplumbed - and the two look identical on a compile line. See D115.
+
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers

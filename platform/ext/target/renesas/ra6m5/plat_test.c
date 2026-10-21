@@ -39,11 +39,9 @@
  * --------------------------------------------------------------------------------------
  */
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #include "bsp_api.h"
-#include "hal_data.h"
 #include "tfm_hal_device_header.h"
 #include "tfm_peripherals_def.h"
 #include "tfm_plat_test.h"
@@ -71,59 +69,86 @@ _Static_assert((int)TFM_TIMER0_IRQ == (int)VECTOR_NUMBER_AGT0_INT,
                "ra_gen/vector_data.h, and the vector slot in startup_ra6m5.c with it.");
 
 /*
- * R_AGT_Open() returns FSP_ERR_ALREADY_OPEN on a second call, and the test HAL starts and
- * stops the timer once per test case, so the open is done once and latched here.
+ * PRIVILEGE RULES FOR THIS FILE - read before changing anything here.
  *
- * Not a re-entrancy hazard: the SPM calls these from the owning partition's context, one
- * at a time.
+ * This file is built into tfm_sprt, not platform_s, and start()/stop() below are called by
+ * the FLIH and SLIH test services. Those are APPLICATION-ROT partitions, so from isolation
+ * 2 they run UNPRIVILEGED. That rules out three things the obvious implementation uses:
+ *
+ *   1. ANY static in this file. tfm_sprt's code is placed in the unprivileged code region
+ *      but its .bss is not - it lands in PT_PSA_ROT_DATA, which is ARM_MPU_PRIVILEGED.
+ *      A "static bool timer_opened" here faulted with MMFSR 0x82 (DACCVIOL) at
+ *      MMFAR 0x20011493. SPRT has to be stateless; an521's sprt timer driver has no
+ *      statics either, for the same reason.
+ *   2. The FSP driver API. R_AGT_Start(&g_timer0_ctrl) reads the control block, and
+ *      g_timer0_ctrl is generated into ra_gen/hal_data.c, which lands in PT_PSA_ROT_DATA
+ *      at 0x2000fd54 - privileged. Worse, R_AGT_Open() calls R_BSP_IrqCfgEnable(), which
+ *      writes the NVIC: the PPB is privileged-only by ARCHITECTURE, so no MPU region can
+ *      grant it. Every interrupt-driven FSP driver does this in Open.
+ *   3. The NVIC, directly. Same reason.
+ *
+ * So the split is: the privileged side (R_AGT_Open, NVIC setup) happens once in
+ * tfm_timer0_irq_init(), which the SPM calls at partition init, and the two functions an
+ * unprivileged partition calls touch nothing but the AGT0 register block - which the FLIH
+ * service's TFM_PERIPHERAL_TIMER0 mmio_region already grants it.
+ *
+ * clear_intr() is the exception and may use the NVIC: it is called from
+ * tfm_flih_test_timer_handler(), i.e. Handler mode, which is always privileged.
+ *
+ * None of this applies at isolation 1, where no MPU region is programmed. That is why the
+ * FSP-driver version worked for five months of green regression runs.
+ *
+ * ADDING_FSP_MODULES.md has the general pattern for using an FSP driver from a partition.
  */
-static bool plat_test_timer_opened = false;
 
 /*
- * Clear the ICU's latched request for this vector.
- *
- * The register read-back inside R_BSP_IrqStatusClear() is required, not defensive - see
- * "Operations During an Interrupt" in the ICU section of the hardware manual. The barrier
- * before touching the NVIC is FSP's, for the same reason its R_BSP_IrqClearPending() has
- * one: the IR clear must land before the pending clear, or the request re-asserts.
+ * AGTCR write values, from r_agt.c. Bits 7:4 are the status flags and clear by writing 0,
+ * so writing 1 to them leaves them alone; bit 0 is TSTART. Whole-register writes, as FSP
+ * does - a read-modify-write would clear whichever flag happened to read as 0.
  */
-static void plat_test_icu_status_clear(void)
-{
-    R_BSP_IrqStatusClear(TFM_TIMER0_IRQ);
-    __DMB();
-    NVIC_ClearPendingIRQ(TFM_TIMER0_IRQ);
-}
+#define PLAT_TEST_AGTCR_START    (0xF1U)
+#define PLAT_TEST_AGTCR_STOP     (0xF0U)
 
+/*
+ * The ICU latch and the NVIC pending bit are cleared in TFM_TIMER0_IRQ_Handler(), not here.
+ * Both are out of reach of this file: the ICU is a peripheral outside the AGT0 mmio_region,
+ * and the NVIC is the PPB, privileged-only by architecture. The vector entry runs in
+ * Handler mode and does both before dispatching. See tfm_timer0_irq.c.
+ */
+
+/*
+ * Called from the partition thread - UNPRIVILEGED from isolation 2. AGT0 registers only.
+ *
+ * The timer was opened and configured (16-bit, periodic, PCLKB) by tfm_timer0_irq_init().
+ * If that did not happen the counter simply never starts and the test times out, which is
+ * diagnosable; starting an unconfigured timer would not be.
+ *
+ * No ICU/NVIC clear here - it needs privilege, and TFM_TIMER0_IRQ_Handler() does it on
+ * every interrupt instead.
+ */
 void tfm_plat_test_secure_timer_start(void)
 {
-    if (!plat_test_timer_opened) {
-        /* g_timer0_ctrl / g_timer0_cfg are the generated instance from the secure e2
-         * project (ra_gen/hal_data.c): AGT0, 16-bit, periodic, PCLKB. Nothing else in the
-         * secure image opens it - TF-M never calls g_hal_init(). */
-        if (FSP_SUCCESS != R_AGT_Open(&g_timer0_ctrl, &g_timer0_cfg)) {
-            /* Leave the timer shut. The test then fails rather than running against a
-             * timer in an unknown state, and a failure is diagnosable where a hang is not. */
-            return;
-        }
-        plat_test_timer_opened = true;
+    R_AGT0->AGT16.CTRL.AGTCR = PLAT_TEST_AGTCR_START;
+
+    /* TCSTF is the count-status flag; it lags the write by up to 3 source cycles. FSP
+     * waits on it in R_AGT_Start() and so must we, or a stop() immediately following a
+     * start() can be lost. */
+    while (0U == R_AGT0->AGT16.CTRL.AGTCR_b.TCSTF) {
+        /* wait for the counter to actually be running */
     }
-
-    /* A request may already be latched in the ICU from a previous test case. Clear it
-     * before the count starts, or the first underflow appears to arrive instantly. */
-    plat_test_icu_status_clear();
-
-    (void)R_AGT_Start(&g_timer0_ctrl);
 }
 
+/*
+ * Called from the partition's FLIH handler, which TF-M runs in THREAD mode at the
+ * partition's privilege - so this is UNPRIVILEGED for an ARoT partition, exactly like
+ * start() and stop(). Measured: an earlier version cleared the ICU here and faulted with
+ * MMFSR 0x82, MMFAR 0x40006300. AGT0 registers only.
+ *
+ * The ICU latch is cleared ahead of us in TFM_TIMER0_IRQ_Handler(), preserving the
+ * ICU-then-peripheral order that agt_int_isr() uses.
+ */
 void tfm_plat_test_secure_timer_clear_intr(void)
 {
-    /*
-     * ICU latch first, then the peripheral flag - the order agt_int_isr() uses
-     * (R_BSP_IrqStatusClear() at entry, AGTCR flags at exit). Clearing only the peripheral
-     * flag is why this interrupt fired exactly once.
-     */
-    plat_test_icu_status_clear();
-
     /*
      * There is no FSP API for "clear the underflow flag" - agt_int_isr() does it inline,
      * and that ISR is not in the vector here. Read-modify-write is correct: the timer is
@@ -134,10 +159,15 @@ void tfm_plat_test_secure_timer_clear_intr(void)
     R_AGT0->AGT16.CTRL.AGTCR_b.TUNDF = 0;
 }
 
+/*
+ * Called from the partition thread - UNPRIVILEGED from isolation 2. AGT0 registers only;
+ * see the header of this file for why there is no ICU/NVIC clear here.
+ */
 void tfm_plat_test_secure_timer_stop(void)
 {
-    if (plat_test_timer_opened) {
-        (void)R_AGT_Stop(&g_timer0_ctrl);
+    R_AGT0->AGT16.CTRL.AGTCR = PLAT_TEST_AGTCR_STOP;
+
+    while (0U != R_AGT0->AGT16.CTRL.AGTCR_b.TCSTF) {
+        /* wait for the counter to actually be stopped */
     }
-    plat_test_icu_status_clear();
 }

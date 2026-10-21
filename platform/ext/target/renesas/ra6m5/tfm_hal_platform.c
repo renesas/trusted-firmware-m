@@ -83,6 +83,116 @@ static void ra_ram_code_init(void)
 }
 #endif /* __ICCARM__ */
 
+#ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
+/* Included HERE, not with the headers at the top of the file. tfm_spm_log.h has
+ *     #error "TFM_SPM_LOG_LEVEL not defined!"
+ * and this file is compiled into platform_bl2 as well as platform_s - BL2 links it for the
+ * __STACK_SEAL definition above and calls none of the rest - where that symbol does not
+ * exist. Including it at the top broke the BL2 object only, which is a confusing failure
+ * because nothing in BL2 uses the logging. Inside this guard it is both secure-only (the
+ * enclosing RA6M5_BUILDING_BL2 check) and isolation-2-or-above only.
+ */
+#include "tfm_spm_log.h"
+/* Declares tfm_hal_post_partition_init_hook(), implemented at the end of this block. */
+#include "tfm_hal_isolation.h"
+
+/*
+ * MPU inventory, reported once at the end of platform init.
+ *
+ * WHY THIS EXISTS. Two numbers about this port were asserted for months and never read off
+ * the hardware:
+ *
+ *   1. How many MPU regions the part provides. The region budget is checked at run time in
+ *      tfm_hal_set_up_static_boundaries() against MPU->TYPE, and over-budget is a panic, so
+ *      a successful boot only ever proved ">= the number needed" - never the actual count.
+ *      "Eight" came from the Cortex-M33 configuration, not from a measurement.
+ *   2. How many regions TF-M actually programmed. The static table in
+ *      tfm_hal_isolation_v8m.c is five entries on an M33 (PXN needs armv8.1-m.main, so the
+ *      combined-code branch is taken), plus one reserved for private data at isolation 3,
+ *      plus one per named MMIO region. Counting source branches is not the same as reading
+ *      RLAR.EN.
+ *
+ * ORDERING. The SPM calls this hook AFTER tfm_hal_set_up_static_boundaries(), so the static
+ * regions are already live and the enabled count is meaningful. Per-partition regions are
+ * programmed later still, on each tfm_hal_activate_boundary(), so at isolation 3 the figure
+ * here is the static set only - the dynamic ones have not been bound yet.
+ *
+ * COST. Nothing below isolation 2: the whole function is compiled out with
+ * CONFIG_TFM_ENABLE_MEMORY_PROTECT, and SPMLOG_INFMSGVAL expands to (void)(val) whenever SPM
+ * logging is off, which it is at the MinSizeRel default. That matters - the secure slot has
+ * 1,693 B spare on RA6M5 and 670 B on RA8M2 (DECISIONS D087).
+ *
+ * RNR is saved and restored. It is only a selector, and nothing in the SPM holds a value
+ * across this point, but ARM_MPU_SetRegion() writes it for its own use and leaving it moved
+ * would be a gratuitous difference between a logging and a non-logging build.
+ */
+static void ra_mpu_report(void)
+{
+    const uint32_t dregion = (MPU->TYPE & MPU_TYPE_DREGION_Msk) >> MPU_TYPE_DREGION_Pos;
+    const uint32_t saved_rnr = MPU->RNR;
+    uint32_t enabled = 0U;
+    uint32_t i;
+
+    for (i = 0U; i < dregion; i++) {
+        MPU->RNR = i;
+        if ((MPU->RLAR & MPU_RLAR_EN_Msk) != 0U) {
+            enabled++;
+        }
+    }
+    MPU->RNR = saved_rnr;
+
+    SPMLOG_INFMSGVAL("[MPU] regions in hardware: ", dregion);
+    SPMLOG_INFMSGVAL("[MPU] enabled after static boundaries: ", enabled);
+    SPMLOG_INFMSGVAL("[MPU] CTRL: ", MPU->CTRL);
+}
+
+/*
+ * Per-region dump. Separate from the summary above because it is only worth printing at the
+ * second call site - after the SPM has bound every partition - where the question is not how
+ * many regions exist but which ranges they actually cover.
+ *
+ * RBAR[31:5] is the base and RLAR[31:5] the limit, both with the low 5 bits used for
+ * attributes, so each is masked before printing. The limit is inclusive and reads back with
+ * its low 5 bits clear, i.e. 0x400E80FF programmes as 0x400E80E0 - add 0x1F when comparing
+ * against a datasheet range.
+ */
+static void ra_mpu_dump_regions(void)
+{
+    const uint32_t dregion = (MPU->TYPE & MPU_TYPE_DREGION_Msk) >> MPU_TYPE_DREGION_Pos;
+    const uint32_t saved_rnr = MPU->RNR;
+    uint32_t i;
+
+    for (i = 0U; i < dregion; i++) {
+        MPU->RNR = i;
+        if ((MPU->RLAR & MPU_RLAR_EN_Msk) != 0U) {
+            SPMLOG_INFMSGVAL("[MPU]   idx ", i);
+            SPMLOG_INFMSGVAL("[MPU]     base  ", MPU->RBAR & MPU_RBAR_BASE_Msk);
+            SPMLOG_INFMSGVAL("[MPU]     limit ", MPU->RLAR & MPU_RLAR_LIMIT_Msk);
+        }
+    }
+    MPU->RNR = saved_rnr;
+}
+
+/*
+ * Called by the SPM from spm_ipc.c once every partition has been bound, which is the only
+ * point at which per-partition MMIO regions are visible. Enabled by
+ * CONFIG_TFM_POST_PARTITION_INIT_HOOK in config_tfm_target.h.
+ *
+ * At isolation 2 a named MMIO region is appended permanently during tfm_hal_bind_boundary(),
+ * so an ARoT partition's peripheral should appear here as an extra enabled region beyond the
+ * five static ones. At isolation 3 it is programmed per context switch instead and will NOT
+ * appear - absence there means nothing.
+ */
+FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_post_partition_init_hook(void)
+{
+    SPMLOG_INFMSG("[MPU] --- after partition init ---\r\n");
+    ra_mpu_report();
+    ra_mpu_dump_regions();
+
+    FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
+}
+#endif /* CONFIG_TFM_ENABLE_MEMORY_PROTECT */
+
 FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
 {
     /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
@@ -148,6 +258,11 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
      */
     stdio_init();
+
+#ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
+    /* After stdio_init(), or the report goes nowhere. */
+    ra_mpu_report();
+#endif
 
     /* Note: target_cfg.h functions are called by TF-M framework */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));

@@ -61,4 +61,36 @@
  * budget above allows up to 155; raise it here if an application needs more assets. */
 #define PS_NUM_ASSETS                           5
 
+
+/*
+ * Diagnostic only. Enables tfm_hal_post_partition_init_hook(), which the SPM calls from
+ * spm_ipc.c once every partition has been bound. tfm_hal_platform.c uses it to report the
+ * MPU state AFTER per-partition MMIO regions have been programmed - the report in
+ * tfm_hal_platform_init() runs before the partition loop and can only see the static set.
+ *
+ * GATED ON CONFIG_TFM_ENABLE_MEMORY_PROTECT, and it has to be. The hook BODY in
+ * tfm_hal_platform.c sits inside that same #ifdef, while the CALL SITE sits inside
+ * #if CONFIG_TFM_POST_PARTITION_INIT_HOOK == 1 in spm_ipc.c. Define this unconditionally and
+ * the two disagree in exactly one configuration - isolation 1 with the IPC backend, where
+ * the caller exists and the body does not:
+ *
+ *     spm_ipc.c:440: undefined reference to `tfm_hal_post_partition_init_hook'
+ *
+ * Nothing else reaches it. L1+SFN has no call site at all - the hook is called only from
+ * spm_ipc.c - and L2/L3 define CONFIG_TFM_ENABLE_MEMORY_PROTECT and so get both halves. That
+ * is why this went unnoticed: the shipping configuration and every configuration run on
+ * silicon so far are on the safe side of it.
+ *
+ * platform/CMakeLists.txt:125 sets CONFIG_TFM_ENABLE_MEMORY_PROTECT PUBLIC on platform_s for
+ * TFM_ISOLATION_LEVEL > 1, and tfm_spm links platform_s, so spm_ipc.c and tfm_hal_platform.c
+ * see the same value - verified on the compile lines, not inferred - and the two halves now
+ * appear and disappear together.
+ *
+ * Costs nothing below isolation 2: the hook compiles out entirely, and SPMLOG_INFMSGVAL
+ * expands to (void)(val) when SPM logging is off.
+ */
+#ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
+#define CONFIG_TFM_POST_PARTITION_INIT_HOOK     1
+#endif
+
 #endif /* __CONFIG_TFM_TARGET_H__ */

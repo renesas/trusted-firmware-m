@@ -5,9 +5,7 @@
  */
 
 #include "tfm_hal_platform.h"
-/* <string.h> was here for the .ram_from_flash memcpy, which this part does not need - see
- * the note below. Removed rather than left: an unused include is a claim about what the file
- * does. */
+#include <string.h>
 #include "target_cfg.h"
 #include "region_defs.h"
 #include "bsp_api.h"
@@ -46,52 +44,184 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
  */
 #ifndef RA8M2_BUILDING_BL2
 
+#if defined(__ICCARM__)
 /*
- * NO .ram_from_flash COPY ON THIS PART - deliberately, unlike RA6E1/RA6M5.
+ * Copy .ram_from_flash to RAM. DECISIONS D029.
  *
- * Those ports need a ra_ram_code_init() here: FSP's r_flash_hp marks its code-flash
- * program/erase routines PLACE_IN_RAM_SECTION, ILINK declined to copy-init the section at
- * isolation 3 while doing so correctly at isolation 1, and the copy had to become ours
- * (DECISIONS D029/D048).
+ * FSP's code-flash program/erase routines must run from RAM: the FCU makes code flash
+ * unreadable for the duration of a P/E operation, so a routine fetching from flash aborts
+ * mid-erase with the FCU still in P/E mode - a hang, not a fault.
  *
- * RA8M2 has MRAM and nothing in r_mram carries PLACE_IN_RAM_SECTION, so the section is empty
- * in the linked image and there is nothing to copy. region_defs.h therefore defines no
- * S_RAM_CODE_START, TF-M's template creates no ER_CODE_SRAM, and ra8m2_fsp_sections.icf
- * places nothing - all three have to agree, and they do. See the restore recipe at the top of
- * ra8m2_fsp_sections.icf if that ever changes.
+ * ILINK will not be trusted with the copy. Asked to copy-init the section it decides for
+ * itself whether it may, and at isolation 3 it declined - "excluded because they were marked
+ * as possibly needed for init" (--log initialization) - leaving the routines in flash while
+ * isolation 1 relocated them correctly, with nothing in the build to say so. The ICF now
+ * declares the section 'initialize manually' and the copy happens here, identically at every
+ * isolation level.
+ *
+ * The section pragmas give the RAM half and the initialiser ILINK left in ER_RO_DATA.
+ * Sizes are taken from the destination: it is what the members hook placed, and ER_CODE_SRAM
+ * has maximum size = S_RAM_CODE_SIZE, so an overflow is a link error rather than a run-time
+ * overrun. The GNU build reaches the same result through the linker script and needs none of
+ * this.
  */
+#pragma section = ".ram_from_flash"
+#pragma section = ".ram_from_flash_init"
+
+static void ra_ram_code_init(void)
+{
+    const uint8_t *src = (const uint8_t *)__section_begin(".ram_from_flash_init");
+    uint8_t       *dst = (uint8_t *)__section_begin(".ram_from_flash");
+    size_t         len = (size_t)__section_size(".ram_from_flash");
+
+    if ((src != dst) && (len != 0U)) {
+        (void)memcpy(dst, src, len);
+        /* The copied bytes are executed: make them visible to the instruction side. */
+        __DSB();
+        __ISB();
+    }
+}
+#endif /* __ICCARM__ */
+
+#ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
+/* Included HERE, not with the headers at the top of the file. tfm_spm_log.h has
+ *     #error "TFM_SPM_LOG_LEVEL not defined!"
+ * and this file is compiled into platform_bl2 as well as platform_s - BL2 links it for the
+ * __STACK_SEAL definition above and calls none of the rest - where that symbol does not
+ * exist. Including it at the top broke the BL2 object only, which is a confusing failure
+ * because nothing in BL2 uses the logging. Inside this guard it is both secure-only (the
+ * enclosing RA8M2_BUILDING_BL2 check) and isolation-2-or-above only.
+ */
+#include "tfm_spm_log.h"
+/* Declares tfm_hal_post_partition_init_hook(), implemented at the end of this block. */
+#include "tfm_hal_isolation.h"
+
+/*
+ * MPU inventory, reported once at the end of platform init.
+ *
+ * WHY THIS EXISTS. Two numbers about this port were asserted for months and never read off
+ * the hardware. BOTH ARE NOW MEASURED - this block records what they turned out to be, and
+ * the dump stays because it is the only thing that can prove either one:
+ *
+ *   1. How many MPU regions the part provides. The region budget is checked at run time in
+ *      tfm_hal_set_up_static_boundaries() against MPU->TYPE, and over-budget is a panic, so
+ *      a successful boot only ever proved ">= the number needed" - never the actual count.
+ *      ra8m2/config.cmake justified its budget with "the RA8M2 Cortex-M33 has the 8-region
+ *      ARMv8-M MPU it assumes" - and CPU0 is a Cortex-M85, so that sentence had been carried
+ *      over from RA6M5 and the count had never been checked against this silicon.
+ *      MEASURED: MPU->TYPE reads 8. The number was right, the core name was not; both have
+ *      been corrected in config.cmake.
+ *   2. How many regions TF-M actually programmed. On an M85 TFM_PXN_ENABLE is permitted -
+ *      check_config.cmake:91 allows it only for armv8.1-m.main - and with it the combined
+ *      unprivileged/ARoT code region splits in two, giving six static entries rather than
+ *      five. PXN defaults OFF, so the shipping configuration should still report five.
+ *      MEASURED: five static at both isolation 2 and 3, so the combined-code branch is
+ *      taken here exactly as on the M33 - because PXN is OFF, not because PXN is broken.
+ *      platform/CMakeLists.txt:126 does emit TFM_PXN_ENABLE PUBLIC on platform_s, so setting
+ *      it ON for this part would really split that region and report six static entries.
+ *      D115 corrects D114, which claimed the macro never reaches the HAL.
+ *      At isolation 2 a sixth appears when the FLIH service binds AGT0 (0x40221000); at
+ *      isolation 3 MMIO is reprogrammed per context switch, so the post-partition hook
+ *      cannot see it and five is the correct reading, not a regression.
+ *      Counting source branches is not the same as reading RLAR.EN.
+ *
+ * ORDERING. The SPM calls this hook AFTER tfm_hal_set_up_static_boundaries(), so the static
+ * regions are already live and the enabled count is meaningful. Per-partition regions are
+ * programmed later still, on each tfm_hal_activate_boundary(), so at isolation 3 the figure
+ * here is the static set only - the dynamic ones have not been bound yet.
+ *
+ * COST. Nothing below isolation 2: the whole function is compiled out with
+ * CONFIG_TFM_ENABLE_MEMORY_PROTECT, and SPMLOG_INFMSGVAL expands to (void)(val) whenever SPM
+ * logging is off, which it is at the MinSizeRel default. That matters - the secure slot has
+ * 1,693 B spare on RA8M2 and 670 B on RA8M2 (DECISIONS D087).
+ *
+ * RNR is saved and restored. It is only a selector, and nothing in the SPM holds a value
+ * across this point, but ARM_MPU_SetRegion() writes it for its own use and leaving it moved
+ * would be a gratuitous difference between a logging and a non-logging build.
+ */
+static void ra_mpu_report(void)
+{
+    const uint32_t dregion = (MPU->TYPE & MPU_TYPE_DREGION_Msk) >> MPU_TYPE_DREGION_Pos;
+    const uint32_t saved_rnr = MPU->RNR;
+    uint32_t enabled = 0U;
+    uint32_t i;
+
+    for (i = 0U; i < dregion; i++) {
+        MPU->RNR = i;
+        if ((MPU->RLAR & MPU_RLAR_EN_Msk) != 0U) {
+            enabled++;
+        }
+    }
+    MPU->RNR = saved_rnr;
+
+    SPMLOG_INFMSGVAL("[MPU] regions in hardware: ", dregion);
+    SPMLOG_INFMSGVAL("[MPU] enabled after static boundaries: ", enabled);
+    SPMLOG_INFMSGVAL("[MPU] CTRL: ", MPU->CTRL);
+}
+
+/*
+ * Per-region dump. Separate from the summary above because it is only worth printing at the
+ * second call site - after the SPM has bound every partition - where the question is not how
+ * many regions exist but which ranges they actually cover.
+ *
+ * RBAR[31:5] is the base and RLAR[31:5] the limit, both with the low 5 bits used for
+ * attributes, so each is masked before printing. The limit is inclusive and reads back with
+ * its low 5 bits clear, i.e. 0x400E80FF programmes as 0x400E80E0 - add 0x1F when comparing
+ * against a datasheet range.
+ */
+static void ra_mpu_dump_regions(void)
+{
+    const uint32_t dregion = (MPU->TYPE & MPU_TYPE_DREGION_Msk) >> MPU_TYPE_DREGION_Pos;
+    const uint32_t saved_rnr = MPU->RNR;
+    uint32_t i;
+
+    for (i = 0U; i < dregion; i++) {
+        MPU->RNR = i;
+        if ((MPU->RLAR & MPU_RLAR_EN_Msk) != 0U) {
+            SPMLOG_INFMSGVAL("[MPU]   idx ", i);
+            SPMLOG_INFMSGVAL("[MPU]     base  ", MPU->RBAR & MPU_RBAR_BASE_Msk);
+            SPMLOG_INFMSGVAL("[MPU]     limit ", MPU->RLAR & MPU_RLAR_LIMIT_Msk);
+        }
+    }
+    MPU->RNR = saved_rnr;
+}
+
+/*
+ * Called by the SPM from spm_ipc.c once every partition has been bound, which is the only
+ * point at which per-partition MMIO regions are visible. Enabled by
+ * CONFIG_TFM_POST_PARTITION_INIT_HOOK in config_tfm_target.h.
+ *
+ * At isolation 2 a named MMIO region is appended permanently during tfm_hal_bind_boundary(),
+ * so an ARoT partition's peripheral should appear here as an extra enabled region beyond the
+ * five static ones. At isolation 3 it is programmed per context switch instead and will NOT
+ * appear - absence there means nothing.
+ */
+FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_post_partition_init_hook(void)
+{
+    SPMLOG_INFMSG("[MPU] --- after partition init ---\r\n");
+    ra_mpu_report();
+    ra_mpu_dump_regions();
+
+    FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
+}
+#endif /* CONFIG_TFM_ENABLE_MEMORY_PROTECT */
 
 FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
 {
     /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
      * SystemInit() in system.c during Reset_Handler, before main() is entered.
-     *
-     * From ra_gen/bsp_clock_cfg.h on this part - NOT RA6M5's 200 MHz:
+     * This configures the system to 200 MHz from the 24 MHz XTAL:
      *   - XTAL: 24 MHz
-     *   - PLL: div /3, mul x250, source PLL1P
-     *   - CPUCLK: /1   (CPU0 is specified at 1 GHz - see the device rzone, Dclock)
-     *   - ICLK:   /4   (the peripheral clock FSP drivers derive from)
-     * R_FSP_SystemClockHzGet() applies the per-peripheral divider to SystemCoreClock, so a
-     * wrong SystemCoreClock scales every peripheral clock, not just one.
+     *   - PLL: (24 MHz / 3) * 25 = 200 MHz
+     *   - ICLK (system clock): 200 MHz
      *
-     * The M85 CACHES need nothing from TF-M: FSP enables both during clock init -
-     * SCB_EnableICache() in bsp_clocks.c and SCB_EnableDCache() in the CMSIS system.c, with
-     * MEMSYSCTL->MSCR ICACTIVE/DCACTIVE set alongside. Worth stating because an M85 port is
-     * where a reader would expect to find cache bring-up, and its absence here is a decision
-     * rather than an omission.
-     *
-     * No additional clock *configuration* is needed here, and SystemCoreClockUpdate() below
-     * is now belt-and-braces rather than load-bearing: the port REQUIRES
-     * BSP_CFG_EARLY_INIT=1 (ra8m2_layout_checks.c fails the build otherwise), which puts
-     * SystemCoreClock somewhere the C-runtime init does not zero. It is kept because it is
-     * idempotent and cheap, and because the failure it guards against is silent.
-     *
-     * The history, since the guard is what makes this safe: with BSP_CFG_EARLY_INIT=0
-     * SystemInit() runs before __PROGRAM_START() does the C-runtime init and the
-     * SystemCoreClock variable lives in plain .bss, so it is zeroed immediately after
-     * SystemInit set it. Any FSP driver that
+     * No additional clock *configuration* is needed here - BUT the cached
+     * SystemCoreClock value must be recomputed: SystemInit() runs before
+     * __PROGRAM_START() does the C-runtime init, and with the RASC config's
+     * BSP_CFG_EARLY_INIT=0 the SystemCoreClock variable lives in plain .bss,
+     * so it is zeroed immediately after SystemInit set it. Any FSP driver that
      * derives a peripheral clock via R_FSP_SystemClockHzGet() (== SystemCoreClock
-     * >> divider) would then see 0 - e.g. R_MRAM_Open() rejects it with
+     * >> divider) would then see 0 - e.g. R_FLASH_HP_Open() rejects it with
      * FSP_ERR_FCLK (FCLK below the 4 MHz minimum). g_clock_freq[] lives in
      * .ram_noinit and survives, so SystemCoreClockUpdate() restores the real
      * value. Idempotent.
@@ -100,6 +230,11 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * BL2 never calls it. BL2 runs TF-M's startup too and is the image that actually
      * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
      */
+#if defined(__ICCARM__)
+    /* Before anything can reach the flash driver. DECISIONS D029. */
+    ra_ram_code_init();
+#endif
+
     SystemCoreClockUpdate();
 
     /* Clear PRIMASK. Reset_Handler in startup_ra8m2.c does __disable_irq() - standard,
@@ -136,6 +271,11 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
      */
     stdio_init();
+
+#ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
+    /* After stdio_init(), or the report goes nowhere. */
+    ra_mpu_report();
+#endif
 
     /* Note: target_cfg.h functions are called by TF-M framework */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
