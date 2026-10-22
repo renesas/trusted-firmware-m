@@ -42,8 +42,9 @@
  * (fsp_bsp.cmake), deliberately, so BL2 gets neither. Confirm with
  * `arm-none-eabi-nm bl2.elf | grep SAUInit`: absent in BL2, present in tfm_s.
  *
- * RA6M5 needs none of this. __SAUREGION_PRESENT is 0 there - no SAU at all,
- * BSP_FEATURE_TZ_NS_OFFSET is 0, one alias.
+ * RA6M5 needs none of this. __SAUREGION_PRESENT is 0 there - an SAU with no regions, not
+ * no SAU: FSP still sets SAU_CTRL.ALLNS so the IDAU decides. BSP_FEATURE_TZ_NS_OFFSET is 0,
+ * one alias.
  *
  * ONE REGION, NOT FSP'S FIVE. BL2 has no veneers, so neither NSC region applies, and the
  * only non-secure alias it touches is MRAM's. Everything outside an enabled SAU region stays

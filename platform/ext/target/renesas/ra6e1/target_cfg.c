@@ -65,14 +65,14 @@ void sau_and_idau_cfg(void)
 enum tfm_plat_err_t mpc_init_cfg(void)
 {
     /* No MPC on this part. Memory attribution is the IDAU (see sau_and_idau_cfg above -
-     * there is no SAU here), and the MPU subdivides the secure side. */
+     * the SAU here has no regions), and the MPU subdivides the secure side. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 enum tfm_plat_err_t ppc_init_cfg(void)
 {
-    /* RA6 has no PPC - peripheral protection is done by the IDAU (there is no SAU on
-     * this part) and the Renesas PSAR registers, which FSP programs from the solution.
+    /* RA6 has no PPC - peripheral protection is done by the IDAU (the SAU here has no
+     * regions - see sau_and_idau_cfg above) and the Renesas PSAR registers, which FSP programs from the solution.
      * See target_cfg.h. */
     return TFM_PLAT_ERR_SUCCESS;
 }
