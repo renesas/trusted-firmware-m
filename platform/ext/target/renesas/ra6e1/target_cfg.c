@@ -38,10 +38,21 @@ void sau_and_idau_cfg(void)
     /*
      * Deliberately empty, and NOT because the generic framework does it elsewhere.
      *
-     * RA6E1 has no SAU at all: __SAUREGION_PRESENT is 0 in the device header, so there
-     * are no SAU regions to programme. Security attribution is done by the IDAU, which on
-     * RA is driven by the Renesas Device Partition Manager - the BSP_PARTITION_* values in
-     * the generated bsp_linker_info.h - and is fixed before this code runs.
+     * RA6E1 has an SAU with ZERO REGIONS, which is not the same as having no SAU.
+     * __SAUREGION_PRESENT is 0 in the device header, so SAU_TYPE.SREGION reads 0 and there
+     * is nothing to programme - but an Armv8-M core with the Security Extension always
+     * implements SAU_CTRL and SAU_TYPE, and their state still matters.
+     *
+     * The IDAU decides attribution here ONLY because FSP sets SAU_CTRL.ALLNS = 1 in
+     * bsp_security.c (R_BSP_SecurityInit, "allows the security attribution of all addresses
+     * to be set by the IDAU"). At reset ALLNS is 0 with the SAU disabled, and in that state
+     * Armv8-M attributes EVERY address Secure - the part could not run non-secure code at
+     * all. **Anyone replacing FSP's startup must keep that write.** Saying "no SAU" hides
+     * that dependency, which is why this comment no longer does.
+     *
+     * The attribution itself comes from the Renesas Device Partition Manager - the
+     * BSP_PARTITION_* values in the generated bsp_linker_info.h - and is fixed before this
+     * code runs.
      *
      * An earlier revision of this comment said the reverse: "RA6M4 doesn't have IDAU -
      * security attribution is done entirely via SAU". That is backwards on both halves. The
