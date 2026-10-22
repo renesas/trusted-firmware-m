@@ -612,12 +612,21 @@ endif()
 #
 # This port used to add it to platform_s and hand-define the two macros with
 # target_compile_definitions(). That worked, but only for the two macros someone had
-# already been bitten by. With them undefined, measured on RA6M5 2026-10-21:
-#   isolation 2 - the named-MMIO region is never programmed. The post-partition dump
-#                 showed 5 enabled regions where 6 were expected, nothing covering AGT0,
-#                 and an ARoT partition touching its own mmio_region took a DACCVIOL.
-#   isolation 3 - TFM_SP_META_PTR is never covered. Four static regions instead of five,
-#                 then MMFSR 0x82 / MMFAR 0x20000400 - the metadata pointer itself.
+# already been bitten by. What each one costs when it is missing, measured on RA6M5
+# 2026-10-21 - note the two were found in sequence, not together:
+#
+#   TFM_ISOLATION_LEVEL undefined, at isolation 2 - the named-MMIO region is never
+#       programmed. The post-partition dump showed 5 enabled regions where 6 were
+#       expected, nothing covering AGT0, and an ARoT partition touching its own
+#       mmio_region took a DACCVIOL.
+#   TFM_ISOLATION_LEVEL=3 defined but CONFIG_TFM_PARTITION_META still missing, at
+#       isolation 3 - TFM_SP_META_PTR is never covered. Four static regions instead of
+#       five, then MMFSR 0x82 / MMFAR 0x20000400, the metadata pointer itself.
+#
+# The second case needs the first already fixed. With BOTH undefined the table reads
+# "#if TFM_ISOLATION_LEVEL != 3", which is 0 != 3 = true, so the App RoT data arm fires
+# and level 3 builds five regions - wrong ones, but five. "Neither arm fires" describes
+# only the in-between state. DECISIONS D120.
 #
 # Moving the source fixes the class instead of the instances: anything psa_interface
 # gains later arrives with it, and no one has to re-audit this file's #ifs. The port no
@@ -639,15 +648,25 @@ target_sources(tfm_spm
 # defaults OFF, which collapses the generator expression to nothing. Absent because unset,
 # not absent because unplumbed - and the two look identical on a compile line.
 #
-# Provenance, since the first correction guessed at it: the define was introduced by
-# d839593bf, 2021-02-25, "TZ: Add configuration switch for PXN", moved to its present home by
-# ec27c23f5 (2022-07-25) when the SPM HAL sources moved to tfm_spm, and last touched by
-# d90aa0c44 (2023-03-14), which only added the armv8.1-m.main check in check_config.cmake:91.
-# It has therefore worked since 2021, not since 2023.
+# It still reaches the HAL after D121 moved the source to tfm_spm, by a different route:
+# TFM_PXN_ENABLE is PUBLIC on platform_s, and tfm_spm links platform_s, so the definition
+# propagates. Re-verified post-move, not assumed - see the measurement below.
+#
+# Provenance, since the first correction guessed at it: introduced by d839593bf, 2021-02-25,
+# "TZ: Add configuration switch for PXN"; moved to its present home by ec27c23f5 (2022-07-25)
+# when the SPM HAL sources moved to tfm_spm; last touched by d90aa0c44 (2023-03-14). That last
+# commit did TWO things, and an earlier revision of this comment recorded only one of them:
+#   - it REMOVED the architecture test from the generator expression, which had been
+#     $<$<AND:$<BOOL:${TFM_PXN_ENABLE}>,$<STREQUAL:${TFM_SYSTEM_ARCHITECTURE},armv8.1-m.main>>:...>
+#     and is now simply $<$<BOOL:${TFM_PXN_ENABLE}>:TFM_PXN_ENABLE>;
+#   - it ADDED tfm_invalid_config() in check_config.cmake, so the bad pairing now fails the
+#     configure loudly instead of silently dropping the define.
+# So the define has existed since 2021, but its present unconditional form dates from 2023.
 #
 # Confirmed by configuring, not only by reading: a TFM_PXN_ENABLE=ON configure of this
-# platform puts -DTFM_PXN_ENABLE on tfm_hal_isolation_v8m.o's compile line and passes the
-# armv8.1-m.main gate. See D115, D117.
+# platform at isolation 3 puts -DTFM_PXN_ENABLE on tfm_hal_isolation_v8m.o's compile line -
+# the tfm_spm-owned object, post-move - alongside TFM_ISOLATION_LEVEL and
+# CONFIG_TFM_PARTITION_META, and passes the armv8.1-m.main gate. See D115, D117, D121.
 
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
