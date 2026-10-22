@@ -532,10 +532,27 @@ target_sources(tfm_spm
 #     configure loudly instead of silently dropping the define.
 # So the define has existed since 2021, but its present unconditional form dates from 2023.
 #
-# Confirmed by configuring, not only by reading: a TFM_PXN_ENABLE=ON configure of this
-# platform at isolation 3 puts -DTFM_PXN_ENABLE on tfm_hal_isolation_v8m.o's compile line -
-# the tfm_spm-owned object, post-move - alongside TFM_ISOLATION_LEVEL and
-# CONFIG_TFM_PARTITION_META, and passes the armv8.1-m.main gate. See D115, D117, D121.
+# PXN CANNOT BE ENABLED ON THIS PART AT ALL, and an earlier revision of this paragraph said
+# a configure of it "passes the armv8.1-m.main gate". That is impossible here and the claim
+# was copied from ra8m2:
+#
+#   config/check_config.cmake:91
+#     tfm_invalid_config(TFM_PXN_ENABLE AND NOT TFM_SYSTEM_ARCHITECTURE STREQUAL "armv8.1-m.main")
+#
+# RA6M5 is a Cortex-M33: cpuarch.cmake:15 sets TFM_SYSTEM_ARCHITECTURE armv8-m.main. So
+# -DTFM_PXN_ENABLE=ON fails the configure on this platform, by design - PXN is an Armv8.1-M
+# feature and the M33 does not implement it. (Note the gate lives in check_config.cmake, not
+# in the generator expression: d90aa0c44 took it OUT of the genex and put it here, which is
+# the whole point of the two-things note above.)
+#
+# The plumbing claim is verified on RA8M2 (armv8.1-m.main, cpuarch.cmake:24), where a
+# TFM_PXN_ENABLE=ON configure at isolation 3 does put -DTFM_PXN_ENABLE on
+# tfm_hal_isolation_v8m.o's compile line - the tfm_spm-owned object, post-move - alongside
+# TFM_ISOLATION_LEVEL and CONFIG_TFM_PARTITION_META. See that port's copy of this comment.
+#
+# What this comment establishes for RA6M5 is narrower and is still worth having: the define
+# is plumbed PUBLIC on platform_s and would reach the HAL through tfm_spm if the part could
+# use it. See D115, D117, D121, D128.
 
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

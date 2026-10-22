@@ -666,7 +666,10 @@ target_sources(tfm_spm
 # Confirmed by configuring, not only by reading: a TFM_PXN_ENABLE=ON configure of this
 # platform at isolation 3 puts -DTFM_PXN_ENABLE on tfm_hal_isolation_v8m.o's compile line -
 # the tfm_spm-owned object, post-move - alongside TFM_ISOLATION_LEVEL and
-# CONFIG_TFM_PARTITION_META, and passes the armv8.1-m.main gate. See D115, D117, D121.
+# CONFIG_TFM_PARTITION_META, and clears the architecture gate at check_config.cmake:91
+# (TFM_PXN_ENABLE requires TFM_SYSTEM_ARCHITECTURE armv8.1-m.main, which cpuarch.cmake:24
+# sets for this part). RA6M5 is armv8-m.main and cannot pass it - its copy of this comment
+# claimed it could until D128. See D115, D117, D121, D128.
 
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
