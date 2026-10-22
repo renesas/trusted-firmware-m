@@ -173,7 +173,7 @@ if(BL2)
         #
         # SAFETY: this is only sound because ra6m4_bl2.ld gives each option-setting
         # group its OWN MEMORY region, so ld emits one PT_LOAD per group and cannot
-        # zero-fill the FCU config bytes (incl. FSPR) in the gaps. Emitting these
+        # zero-fill the FCU config bytes in the gaps. Emitting these
         # sections without per-group regions permanently bricks the part - it cost
         # two EK-RA6M4 boards on 2026-07-21. If you touch the OFS placement, verify
         # with `arm-none-eabi-readelf -l bin/bl2.axf` (13 small LOAD segments, never
@@ -187,8 +187,13 @@ if(BL2)
 
         # DEBUG (brick investigation, DESIGN.md 8.4): spin at the very start of BL2
         # main() before any bootloader work, so a freshly programmed board can be
-        # checked (read FAWMON/FSPR over J-Link) for survival of flash+startup without
-        # running MCUboot. Toggle: -DRA6M4_BL2_HALT_AT_MAIN=ON. Default OFF.
+        # checked for survival of flash+startup without running MCUboot.
+        # Toggle: -DRA6M4_BL2_HALT_AT_MAIN=ON. Default OFF.
+        #
+        # Read DLMMON for the lifecycle state. Do NOT read FAWMON/FSPR, which an
+        # earlier revision of this comment suggested: RA6M4 reports
+        # BSP_FEATURE_FLASH_SUPPORTS_ACCESS_WINDOW = 0, so those registers are not
+        # implemented and the values are meaningless (D094).
         if(RA6M4_BL2_HALT_AT_MAIN)
             message(WARNING "RA6M4_BL2_HALT_AT_MAIN=ON - BL2 will spin at main(); not a bootable image")
             target_compile_definitions(bl2 PRIVATE BL2_HALT_AT_MAIN=1)
@@ -328,8 +333,10 @@ endif()
 # permanently bricked by a bl2 image whose thirteen option-setting words had been coalesced
 # by ld into ONE PT_LOAD spanning 0x0100A100-0x0100A284, with the 368 bytes between them
 # zero-filled. A debugger flashes by program header, so it wrote 0x00000000 over the FCU
-# configuration in those gaps - including the FSPR permanence word - and the parts were
-# gone. DESIGN.md 8.4.
+# configuration in those gaps, and the parts were gone. WHICH zeroed field killed them is
+# unknown - D094 withdrew the FSPR attribution this comment used to make (RA6M4 has no
+# Flash Access Window, so FSPR does not exist here) and disproved OFS1_SEL. The mechanism
+# is proven byte-exact; the field is not. DESIGN.md 8.4.
 #
 # The defence is in ra6m4_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
 # each with its own '> REGION', which forces one tiny PT_LOAD per word. check_ofs.py

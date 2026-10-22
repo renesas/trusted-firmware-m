@@ -20,7 +20,7 @@
  *
  *    DO NOT collapse these into one region spanning 0x0100A100..0x0100A2D0. Under GNU ld
  *    that mistake produced a single PT_LOAD across the range and zero-filled the 368 bytes
- *    of FCU configuration in the gaps - including the FSPR permanence word - and flashing
+ *    of FCU configuration in the gaps (which field dies is unknown; D094) and flashing
  *    it permanently bricked two EK-RA6M4 boards on 2026-07-21. The zero fill is invisible
  *    in the srec; only the program headers show it. check_ofs.py runs post-link on this
  *    image and is not optional.

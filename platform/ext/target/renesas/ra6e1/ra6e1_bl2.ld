@@ -296,7 +296,7 @@ SECTIONS
      *       .option_setting_ofs0 0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
      *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
      *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes of FCU config in the
-     *   gaps (including the FSPR permanence word). Flashing that from a debugger
+     *   gaps (which field dies is unknown; D094 withdrew FSPR). Flashing from a debugger
      *   permanently bricks the part - it cost two EK-RA6M4 boards on 2026-07-21.
      *   The zero fill is invisible in the srec; check readelf -l. Full rationale
      *   and the verification command are in region_defs.h (OPTION_SETTING_* block).

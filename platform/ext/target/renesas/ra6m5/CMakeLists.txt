@@ -88,10 +88,20 @@ function(fsp_collect_sources out_var dir role)
     # Whole FSP modules TF-M replaces with its own implementation. These are enabled
     # in the e2 projects because the STANDALONE bootloader needs them, and that project
     # set must keep working standalone - so drop them here rather than reconfiguring it.
-    #   r_sce, rm_psa_crypto, ra/arm/mbedtls - FSP's SCE9 hardware crypto and its
-    #       mbedTLS. TF-M uses its own mbedcrypto with CRYPTO_HW_ACCELERATOR OFF; FSP's
-    #       mbedTLS is entangled with the FSP MCUboot config and was never grafted
-    #       (DESIGN.md 6). Re-enabling the hardware path is the future HW-crypto switch.
+    #   rm_psa_crypto, ra/arm/mbedtls - FSP's PSA core and its mbedTLS CONFIG. Not built
+    #       as FSP modules: that config wires PSA ITS to littlefs and fights
+    #       TFM_PARTITION_INTERNAL_TRUSTED_STORAGE (DESIGN.md 6). FSP's crypto CODE is
+    #       still in the image by two other routes - the *_ALT sources come from
+    #       platform/ext/accelerator/renesas/sce9, and the library itself from the overlay
+    #       cmake/fsp_mbedtls.cmake FORCEs MBEDCRYPTO_PATH at. So "TF-M uses its own
+    #       mbedcrypto", which this comment used to say, is wrong on both counts.
+    #
+    #       r_sce is NOT in this list's spirit either: the sce module BUILDS it
+    #       (FSP_MODULE_DIRS_sce). The SCE9 TRNG is always reachable; the cipher
+    #       *_ALT path is live whenever CRYPTO_HW_ACCELERATOR is ON, which is the
+    #       default. It appears in FSP_MODULES_NEVER_BUILT only to keep the unclaimed-
+    #       directory audit quiet for the BL2-without-accelerator role, which does not
+    #       declare the module. See cmake/modules/fsp_sce.cmake for the real split.
     #   rm_mcuboot_port - FSP's flash_map/MCUboot glue. It carries FSP's whole flash
     #       identity (its own FLASH_AREA_*_ID, single-image assumptions) out of
     #       bsp_linker_info.h and conflicts with TF-M's dual-image flash_map. Grafting
@@ -242,10 +252,14 @@ set(FSP_MODULE_DIRS_agt    r_agt)
 # Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
 # HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
 # them unconditionally.
-#   r_sce, rm_psa_crypto, ra/arm/mbedtls - FSP's SCE9 cipher stack and its mbedTLS.
-#       TF-M uses its own mbedcrypto; FSP's config wires PSA ITS to littlefs and fights
-#       TFM_PARTITION_INTERNAL_TRUSTED_STORAGE (DESIGN.md 6). Only the TRNG is taken, via
-#       the sce module.
+#   rm_psa_crypto, ra/arm/mbedtls - FSP's PSA core and its mbedTLS CONFIG, which wires PSA
+#       ITS to littlefs and fights TFM_PARTITION_INTERNAL_TRUSTED_STORAGE (DESIGN.md 6).
+#       FSP's crypto CODE is still in the image: *_ALT from
+#       platform/ext/accelerator/renesas/sce9, the library from the fsp_mbedtls.cmake
+#       overlay. "Only the TRNG is taken" was wrong - with CRYPTO_HW_ACCELERATOR ON (the
+#       default) the SCE9 ciphers are live.
+#   r_sce - listed here but BUILT, by the sce module. This entry only silences the audit
+#       for the BL2-without-accelerator role, which declares no sce module. fsp_sce.cmake.
 #   rm_mcuboot_port - FSP's flash_map/MCUboot glue, carrying FSP's own FLASH_AREA_*_ID and
 #       single-image assumptions out of bsp_linker_info.h. Conflicts with TF-M's dual-image
 #       flash_map; grafting it is what failed on ra6m4 (DESIGN.md 4, 5).
@@ -704,8 +718,12 @@ if(BL2)
     target_compile_options(platform_bl2 PUBLIC ${COMPILER_CMSE_FLAG})
 
     # OFS goes in BL2 only, and ONLY with the discrete per-group MEMORY regions in
-    # ra6m5_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the FCU config
-    # including FSPR and permanently bricks the part - it cost two EK-RA6M4 boards.
+    # ra6m5_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the configuration
+    # memory BETWEEN the option groups and permanently bricks the part - it cost two
+    # EK-RA6M4 boards. Which zeroed field killed them is NOT known: D094 withdrew the
+    # FSPR attribution this comment used to carry (RA6M4 has no Flash Access Window, so
+    # FSPR does not exist on the part) and disproved OFS1_SEL. The mechanism is proven
+    # byte-exact; the field is not, and none of the guidance depends on naming it.
     # See DESIGN.md 8.4 and verify with: arm-none-eabi-readelf -l bin/bl2.axf
     target_sources(bl2 PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra6m5.c
