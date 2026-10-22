@@ -539,10 +539,9 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ra8m2_layout_checks.c
     # bsp_init_stub.c is NOT here - it lives in the fsp_bsp module, beside the FSP
     # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
-    # Common ARMv8-M isolation HAL: tfm_hal_set_up_static_boundaries,
-    # tfm_hal_bind_boundary, tfm_hal_memory_check. Nothing else provides them, and the
-    # port has no reason to fork it - attribution here is IDAU/SAU, which this handles.
-    ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
+    # The common ARMv8-M isolation HAL is deliberately NOT here. It is added to tfm_spm
+    # instead - see the target_sources(tfm_spm) note below for why that placement is
+    # load-bearing, and do not move it back. DECISIONS D120.
 
     # tfm_hal_irq_enable/_disable/_clear_pending, required once any partition
     # manifest declares an "irqs" entry. The common file IS the whole HAL - all four
@@ -601,64 +600,33 @@ if(CONFIG_TFM_FLIH_API OR CONFIG_TFM_SLIH_API)
         PROPERTIES INCLUDE_DIRECTORIES
             "$<TARGET_PROPERTY:platform_s,INCLUDE_DIRECTORIES>")
 endif()
-# TFM_ISOLATION_LEVEL and CONFIG_TFM_PARTITION_META for platform_s - a PORT gap, NOT an
-# upstream one. An earlier revision of this comment said "an upstream gap, and a silent one"
-# and claimed the macro is undefined "on every platform using the shared HAL". The second
-# half was wrong, and UPSTREAM_CHANGES item 15 has been WITHDRAWN over it. DECISIONS D120.
+# The shared ARMv8-M isolation HAL goes in tfm_spm, NOT platform_s, and the placement is
+# load-bearing. DECISIONS D120.
 #
-# platform/ext/common/tfm_hal_isolation_v8m.c switches on both macros, and psa_interface is
-# the only target carrying them (interface/CMakeLists.txt:37). What decides whether they
-# arrive is which target compiles the shared HAL:
+# tfm_hal_isolation_v8m.c provides tfm_hal_set_up_static_boundaries, tfm_hal_bind_boundary
+# and tfm_hal_memory_check, and switches on TFM_ISOLATION_LEVEL and
+# CONFIG_TFM_PARTITION_META throughout. psa_interface is the only target carrying those
+# (interface/CMakeLists.txt:37). tfm_spm links psa_interface; platform_s links tfm_config
+# and does not. Every upstream user of this file - an519, an524, corstone300/310, mps4,
+# musca_b1/s1, rse, alcor - adds it to tfm_spm, for exactly this reason.
 #
-#   Every upstream user - an519, an524, corstone300/310, mps4, musca_b1/s1, rse, alcor -
-#       adds it to tfm_spm, which links psa_interface. The macros arrive.
-#   All four RA ports add it to platform_s (the target_sources above), which links
-#       tfm_config and not psa_interface. They do not.
+# This port used to add it to platform_s and hand-define the two macros with
+# target_compile_definitions(). That worked, but only for the two macros someone had
+# already been bitten by. With them undefined, measured on RA6M5 2026-10-21:
+#   isolation 2 - the named-MMIO region is never programmed. The post-partition dump
+#                 showed 5 enabled regions where 6 were expected, nothing covering AGT0,
+#                 and an ARoT partition touching its own mmio_region took a DACCVIOL.
+#   isolation 3 - TFM_SP_META_PTR is never covered. Four static regions instead of five,
+#                 then MMFSR 0x82 / MMFAR 0x20000400 - the metadata pointer itself.
 #
-# Measured, not inferred: an519 configured at isolation 2 compiles
-# tfm_spm.dir/.../tfm_hal_isolation_v8m.o with -DTFM_ISOLATION_LEVEL=2,
-# -DCONFIG_TFM_PARTITION_META and -DCONFIG_TFM_ENABLE_MEMORY_PROTECT all present.
-#
-# A second, independent contributor: platform_s PRIVATE-links tfm_sprt - which PUBLIC-links
-# psa_interface - but only when PLATFORM_DEFAULT_ATTEST_HAL is ON (platform/CMakeLists.txt:109),
-# and this port sets it OFF, closing that route too. It is not the trigger: mps4 also sets it
-# OFF and still gets the macros, because it uses tfm_spm.
-#
-# What that silently does at isolation 2, measured on RA6M5 2026-10-21:
-#   #if TFM_ISOLATION_LEVEL == 1  -> false -> privileged = IS_PSA_ROT(), so ARoT
-#                                    partitions ARE correctly de-privileged
-#   #if TFM_ISOLATION_LEVEL == 2  -> false -> the named-MMIO region is NEVER programmed
-# i.e. the isolation is enforced but the peripheral grant that makes it usable is dropped.
-# An ARoT partition touching its own declared mmio_region takes a DACCVIOL. The
-# post-partition MPU dump in tfm_hal_platform.c showed 5 regions where 6 were expected,
-# with nothing covering AGT0 (0x400E8000 on RA6M5, 0x40221000 here).
-#
-# The defines below are the minimal fix and are what this port ships. The cleaner fix is to
-# move the source to tfm_spm and match the other nine platforms, deleting the deviation
-# instead of documenting it - not attempted here. Nothing is owed upstream.
-#
-# NOTE: ra6e1 and ra6m4 compile the shared HAL into platform_s too and have NEITHER define,
-# so they still carry this gap. Harmless while they only run isolation 1 + SFN, but real.
-target_compile_definitions(platform_s
+# Moving the source fixes the class instead of the instances: anything psa_interface
+# gains later arrives with it, and no one has to re-audit this file's #ifs. The port no
+# longer defines either macro by hand.
+target_sources(tfm_spm
     PRIVATE
-        $<$<BOOL:${TFM_ISOLATION_LEVEL}>:TFM_ISOLATION_LEVEL=${TFM_ISOLATION_LEVEL}>
-        $<$<BOOL:${CONFIG_TFM_PARTITION_META}>:CONFIG_TFM_PARTITION_META>
+        ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
 )
 
-# CONFIG_TFM_PARTITION_META is the same gap as TFM_ISOLATION_LEVEL above - another
-# psa_interface INTERFACE definition that platform_s never sees - and it bites ONLY at
-# isolation 3, which is why the isolation-2 run did not catch it.
-#
-# The static MPU table swaps the App RoT data region for the partition-metadata-pointer
-# region at level 3:
-#     #if   TFM_ISOLATION_LEVEL != 3        -> App RoT data region
-#     #elif defined(CONFIG_TFM_PARTITION_META) -> TFM_SP_META_PTR region
-#     #endif
-# With the macro undefined NEITHER arm fires, so level 3 programmes FOUR static regions
-# instead of five and nothing covers TFM_SP_META_PTR. Measured on RA6M5 2026-10-21: the
-# post-partition dump showed 4 regions with 0x20000400 absent, and the SPM faulted with
-# MMFSR 0x82, MMFAR 0x20000400 - the metadata pointer itself.
-#
 # NOT A THIRD INSTANCE, though an earlier revision of this comment said it was.
 # TFM_PXN_ENABLE is tested by the same file (#ifdef), and the claim here was that it too is
 # never turned into a compile definition anywhere in TF-M. That is false:

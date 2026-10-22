@@ -375,10 +375,9 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_layout_checks.c
     # bsp_init_stub.c is NOT here - it lives in the fsp_bsp module, beside the FSP
     # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
-    # Common ARMv8-M isolation HAL: tfm_hal_set_up_static_boundaries,
-    # tfm_hal_bind_boundary, tfm_hal_memory_check. Nothing else provides them, and the
-    # port has no reason to fork it - attribution here is IDAU/SAU, which this handles.
-    ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
+    # The common ARMv8-M isolation HAL is deliberately NOT here. It is added to tfm_spm
+    # instead - see the target_sources(tfm_spm) note below for why that placement is
+    # load-bearing, and do not move it back. DECISIONS D120.
 
     # tfm_hal_irq_enable/_disable/_clear_pending, required once any partition
     # manifest declares an "irqs" entry. The common file IS the whole HAL - all four
@@ -391,6 +390,33 @@ target_sources(platform_s PRIVATE
     # no RA port defines. Wiring that file in is what ra6m4 used to do. DECISIONS D061.
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${PLATFORM_DIR}/ext/common/tfm_hal_nvic.c>
 )
+# The shared ARMv8-M isolation HAL goes in tfm_spm, NOT platform_s, and the placement is
+# load-bearing. DECISIONS D120.
+#
+# tfm_hal_isolation_v8m.c provides tfm_hal_set_up_static_boundaries, tfm_hal_bind_boundary
+# and tfm_hal_memory_check, and switches on TFM_ISOLATION_LEVEL and
+# CONFIG_TFM_PARTITION_META throughout. psa_interface is the only target carrying those
+# (interface/CMakeLists.txt:37). tfm_spm links psa_interface; platform_s links tfm_config
+# and does not. Every upstream user of this file - an519, an524, corstone300/310, mps4,
+# musca_b1/s1, rse, alcor - adds it to tfm_spm, for exactly this reason.
+#
+# This port used to add it to platform_s and hand-define the two macros with
+# target_compile_definitions(). That worked, but only for the two macros someone had
+# already been bitten by. With them undefined, measured on RA6M5 2026-10-21:
+#   isolation 2 - the named-MMIO region is never programmed. The post-partition dump
+#                 showed 5 enabled regions where 6 were expected, nothing covering AGT0,
+#                 and an ARoT partition touching its own mmio_region took a DACCVIOL.
+#   isolation 3 - TFM_SP_META_PTR is never covered. Four static regions instead of five,
+#                 then MMFSR 0x82 / MMFAR 0x20000400 - the metadata pointer itself.
+#
+# Moving the source fixes the class instead of the instances: anything psa_interface
+# gains later arrives with it, and no one has to re-audit this file's #ifs. The port no
+# longer defines either macro by hand.
+target_sources(tfm_spm
+    PRIVATE
+        ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
+)
+
 target_include_directories(platform_s PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/cmsis_drivers
