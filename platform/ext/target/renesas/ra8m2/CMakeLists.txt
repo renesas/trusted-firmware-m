@@ -601,15 +601,28 @@ if(CONFIG_TFM_FLIH_API OR CONFIG_TFM_SLIH_API)
         PROPERTIES INCLUDE_DIRECTORIES
             "$<TARGET_PROPERTY:platform_s,INCLUDE_DIRECTORIES>")
 endif()
-# TFM_ISOLATION_LEVEL for platform_s - an upstream gap, and a silent one.
+# TFM_ISOLATION_LEVEL and CONFIG_TFM_PARTITION_META for platform_s - a PORT gap, NOT an
+# upstream one. An earlier revision of this comment said "an upstream gap, and a silent one"
+# and claimed the macro is undefined "on every platform using the shared HAL". The second
+# half was wrong, and UPSTREAM_CHANGES item 15 has been WITHDRAWN over it. DECISIONS D120.
 #
-# platform/ext/common/tfm_hal_isolation_v8m.c switches on TFM_ISOLATION_LEVEL throughout,
-# but platform/CMakeLists.txt links platform_s against tfm_config and NOT psa_interface,
-# and psa_interface is the only target that carries
-#     $<$<BOOL:${TFM_ISOLATION_LEVEL}>:TFM_ISOLATION_LEVEL=${TFM_ISOLATION_LEVEL}>
-# (interface/CMakeLists.txt:37). The macro is therefore UNDEFINED in that translation unit
-# on every platform using the shared HAL, and #if on an undefined macro is 0 with no
-# diagnostic.
+# platform/ext/common/tfm_hal_isolation_v8m.c switches on both macros, and psa_interface is
+# the only target carrying them (interface/CMakeLists.txt:37). What decides whether they
+# arrive is which target compiles the shared HAL:
+#
+#   Every upstream user - an519, an524, corstone300/310, mps4, musca_b1/s1, rse, alcor -
+#       adds it to tfm_spm, which links psa_interface. The macros arrive.
+#   All four RA ports add it to platform_s (the target_sources above), which links
+#       tfm_config and not psa_interface. They do not.
+#
+# Measured, not inferred: an519 configured at isolation 2 compiles
+# tfm_spm.dir/.../tfm_hal_isolation_v8m.o with -DTFM_ISOLATION_LEVEL=2,
+# -DCONFIG_TFM_PARTITION_META and -DCONFIG_TFM_ENABLE_MEMORY_PROTECT all present.
+#
+# A second, independent contributor: platform_s PRIVATE-links tfm_sprt - which PUBLIC-links
+# psa_interface - but only when PLATFORM_DEFAULT_ATTEST_HAL is ON (platform/CMakeLists.txt:109),
+# and this port sets it OFF, closing that route too. It is not the trigger: mps4 also sets it
+# OFF and still gets the macros, because it uses tfm_spm.
 #
 # What that silently does at isolation 2, measured on RA6M5 2026-10-21:
 #   #if TFM_ISOLATION_LEVEL == 1  -> false -> privileged = IS_PSA_ROT(), so ARoT
@@ -618,11 +631,14 @@ endif()
 # i.e. the isolation is enforced but the peripheral grant that makes it usable is dropped.
 # An ARoT partition touching its own declared mmio_region takes a DACCVIOL. The
 # post-partition MPU dump in tfm_hal_platform.c showed 5 regions where 6 were expected,
-# with nothing covering AGT0 at 0x400E8000.
+# with nothing covering AGT0 (0x400E8000 on RA6M5, 0x40221000 here).
 #
-# Fixed here rather than in platform/CMakeLists.txt to keep the shared-file delta small;
-# logged for upstream in UPSTREAM_CHANGES.md. Linking psa_interface would also work but
-# pulls in far more than one macro.
+# The defines below are the minimal fix and are what this port ships. The cleaner fix is to
+# move the source to tfm_spm and match the other nine platforms, deleting the deviation
+# instead of documenting it - not attempted here. Nothing is owed upstream.
+#
+# NOTE: ra6e1 and ra6m4 compile the shared HAL into platform_s too and have NEITHER define,
+# so they still carry this gap. Harmless while they only run isolation 1 + SFN, but real.
 target_compile_definitions(platform_s
     PRIVATE
         $<$<BOOL:${TFM_ISOLATION_LEVEL}>:TFM_ISOLATION_LEVEL=${TFM_ISOLATION_LEVEL}>
