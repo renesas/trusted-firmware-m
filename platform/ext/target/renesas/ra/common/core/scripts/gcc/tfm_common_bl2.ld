@@ -61,6 +61,7 @@ SECTIONS
         . = ALIGN(4);
         /* preinit data */
         PROVIDE_HIDDEN (__preinit_array_start = .);
+        PROVIDE(__bothinit_array_start = __preinit_array_start);
         KEEP(*(.preinit_array))
         PROVIDE_HIDDEN (__preinit_array_end = .);
 
@@ -70,6 +71,7 @@ SECTIONS
         KEEP(*(SORT(.init_array.*)))
         KEEP(*(.init_array))
         PROVIDE_HIDDEN (__init_array_end = .);
+        PROVIDE(__bothinit_array_end = __init_array_end);
 
         . = ALIGN(4);
         /* finit data */
@@ -178,6 +180,11 @@ SECTIONS
 
     } > RAM AT > FLASH
     Image$$ER_DATA$$Base = ADDR(.data);
+    /* Symbols picolibc's crt0 reads. TF-M's _start (CONFIG_PICOLIBC branch of
+     * crt_start.c) uses the copy and zero tables instead. */
+    __data_start  = ADDR(.data);
+    __data_source = LOADADDR(.data);
+    __data_size   = SIZEOF(.data);
 
     .bss : ALIGN(4)
     {
@@ -186,7 +193,20 @@ SECTIONS
         *(.bss*)
         *(COMMON)
         . = ALIGN(4);
+        __tls_base = .;
         __bss_end__ = .;
+    } > RAM
+    /* picolibc puts the thread pointer this far below the TLS block */
+    PROVIDE(__arm32_tls_tcb_offset = 8);
+    __bss_start = ADDR(.bss);
+    __bss_size  = SIZEOF(.bss);
+
+    /* Uninitialized RAM is kept out of the zeroed and copied sections so that
+     * values written before the zero table runs survive. */
+    .ram_noinit (NOLOAD) : ALIGN(4)
+    {
+        *(SORT_BY_ALIGNMENT(.noinit*))
+        *(SORT_BY_ALIGNMENT(.ram_noinit*)) /* FSP Renesas RA RAM noinit section */
     } > RAM
 
 #if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
@@ -224,6 +244,10 @@ SECTIONS
         __heap_limit = .; /* Add for _sbrk */
     } > RAM
     Image$$ARM_LIB_HEAP$$ZI$$Limit = ADDR(.heap) + SIZEOF(.heap);
+    /* Heap bounds picolibc's malloc expects. */
+    __heap_start = ADDR(.heap);
+    __heap_end   = ADDR(.heap) + SIZEOF(.heap);
+    __heap_size  = SIZEOF(.heap);
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 }

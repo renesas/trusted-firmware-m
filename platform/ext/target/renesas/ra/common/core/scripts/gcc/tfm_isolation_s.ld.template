@@ -276,6 +276,7 @@ SECTIONS
         . = ALIGN(4);
         /* preinit data */
         PROVIDE_HIDDEN (__preinit_array_start = .);
+        PROVIDE(__bothinit_array_start = __preinit_array_start);
         KEEP(*(.preinit_array))
         PROVIDE_HIDDEN (__preinit_array_end = .);
 
@@ -285,6 +286,7 @@ SECTIONS
         KEEP(*(SORT(.init_array.*)))
         KEEP(*(.init_array))
         PROVIDE_HIDDEN (__init_array_end = .);
+        PROVIDE(__bothinit_array_end = __init_array_end);
 
         . = ALIGN(4);
         /* finit data */
@@ -585,6 +587,10 @@ SECTIONS
         __HeapLimit = .;
         __heap_limit = .; /* Add for _sbrk */
     } > RAM
+    /* Heap bounds picolibc's malloc expects. */
+    __heap_start = ADDR(.heap);
+    __heap_end = ADDR(.heap) + SIZEOF(.heap);
+    __heap_size = SIZEOF(.heap);
 #endif
 
 {% for partition in partitions %}
@@ -644,6 +650,10 @@ SECTIONS
         KEEP(*(.jcr*))
         . = ALIGN(TFM_LINKER_TFM_DATA_ALIGNMENT);
     } > RAM AT > FLASH :tfm_data
+    /* Symbols required by picolibc's crt0 (_start). */
+    __data_start  = ADDR(.TFM_DATA);
+    __data_source = LOADADDR(.TFM_DATA);
+    __data_size   = SIZEOF(.TFM_DATA);
 
 #ifdef S_RUNTIME_ITCM_START
     .ER_ITCM_CODE :
@@ -688,12 +698,25 @@ SECTIONS
         *(SORT_BY_ALIGNMENT(.bss*))
         *(COMMON)
 
-        *(SORT_BY_ALIGNMENT(.noinit*))       /* Uninitialized RAM */
         *(SORT_BY_ALIGNMENT(.cy_sharedmem*)) /* Cypress shared memory */
 
         . = ALIGN(TFM_LINKER_TFM_BSS_ALIGNMENT);
+        __tls_base = .;
         __bss_end__ = .;
     } > RAM
+    /* picolibc puts the thread pointer this far below the TLS block */
+    PROVIDE(__arm32_tls_tcb_offset = 8);
+    /* Symbols required by picolibc's crt0 (_start). */
+    __bss_start = ADDR(.TFM_BSS);
+    __bss_size  = SIZEOF(.TFM_BSS);
+
+    .TFM_NOINIT ALIGN(TFM_LINKER_TFM_BSS_ALIGNMENT) (NOLOAD) :
+    {
+        /* Uninitialized RAM */
+        *(SORT_BY_ALIGNMENT(.noinit*))
+        *(SORT_BY_ALIGNMENT(.ram_noinit*)) /* FSP Renesas RA RAM noinit section */
+    } > RAM
+
     Image$$ER_PART_RT_POOL$$ZI$$Base = __partition_runtime_start__;
     Image$$ER_PART_RT_POOL$$ZI$$Limit = __partition_runtime_end__;
     Image$$ER_SERV_RT_POOL$$ZI$$Base = __service_runtime_start__;
