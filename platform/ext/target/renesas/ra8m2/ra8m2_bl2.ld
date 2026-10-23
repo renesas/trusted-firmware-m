@@ -30,7 +30,7 @@ MEMORY
     /* RA8M2 option-setting memory - one DISCRETE region per register group, the
      * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
      * region is sized to exactly its register group, so ld emits a separate
-     * PT_LOAD per group and CANNOT zero-fill the FCU config bytes in between.
+     * PT_LOAD per group and CANNOT zero-fill the reserved bytes in between.
      * Merging these into one region/segment permanently bricks the part - see
      * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
     /* Exactly the groups this solution emits - see bl2_option_setting.c. Addresses come
@@ -319,7 +319,7 @@ SECTIONS
      * ⚠ DO NOT rewrite these as bare addressed sections:
      *       .option_setting_ofs0 0x02c9f040 : { KEEP(*(.option_setting_ofs0)) }
      *   With no '> REGION', ld coalesces them into ONE PT_LOAD spanning the whole
-     *   range and zero-fills the FCU configuration bytes in the gaps, including the
+     *   range and zero-fills the reserved bytes in the gaps, including the
      *   block-protect permanence word. Flashing that from a debugger permanently
      *   bricks the part - it cost two EK-RA6M4 boards on 2026-07-21. The gaps are
      *   wider here than on RA6: OFS0 is 0x02c9f040 and OFS3_SEL 0x02c9f124, with

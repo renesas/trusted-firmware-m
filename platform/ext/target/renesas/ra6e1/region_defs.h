@@ -270,8 +270,8 @@
  *
  * Byte-identical to RA6M4. These MUST stay thirteen separate MEMORY regions in
  * ra6e1_bl2.ld, each section assigned with '> REGION'. Emitting them as one
- * coalesced PT_LOAD zero-fills the 368 bytes of FCU config in the gaps - including
- * WHICH field dies is unknown, D094 - and permanently bricks the part. That destroyed two
+ * coalesced PT_LOAD zero-fills the 368 reserved bytes in the gaps - which the
+ * hardware manual requires be left unwritten, D132 - and bricks the part. That destroyed two
  * EK-RA6M4 boards on 2026-07-21.
  *
  * The fill is invisible in the srec (it lives in the program header, and objcopy -O

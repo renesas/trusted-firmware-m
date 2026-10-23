@@ -173,7 +173,7 @@ if(BL2)
         #
         # SAFETY: this is only sound because ra6m4_bl2.ld gives each option-setting
         # group its OWN MEMORY region, so ld emits one PT_LOAD per group and cannot
-        # zero-fill the FCU config bytes in the gaps. Emitting these
+        # zero-fill the reserved bytes in the gaps. Emitting these
         # sections without per-group regions permanently bricks the part - it cost
         # two EK-RA6M4 boards on 2026-07-21. If you touch the OFS placement, verify
         # with `arm-none-eabi-readelf -l bin/bl2.axf` (13 small LOAD segments, never
@@ -334,8 +334,8 @@ endif()
 # by ld into ONE PT_LOAD spanning 0x0100A100-0x0100A284, with the 368 bytes between them
 # zero-filled. A debugger flashes by program header, so it wrote 0x00000000 over the FCU
 # configuration in those gaps, and the parts were gone. WHICH zeroed field killed them is
-# unknown - D094 withdrew the FSPR attribution this comment used to make (RA6M4 has no
-# Flash Access Window, so FSPR does not exist here) and disproved OFS1_SEL. The mechanism
+# reserved, and the hardware manual requires that they are never written (D132). D094
+# withdrew the earlier FSPR and OFS1_SEL attributions and holds the measurement. The fill
 # is proven byte-exact; the field is not. DESIGN.md 8.4.
 #
 # The defence is in ra6m4_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
@@ -385,7 +385,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     # word sits at 0x0100A280 produces a ~16 MB .bin spanning 0x00000000-0x0100A284 over a few
     # tens of KB of real content.
     #
-    # That fill covers PBPS at 0x0100A1E0 - the one-time Permanent Block Protect word, and the
+    # That fill covers reserved bytes the hardware manual requires be left unwritten, and the
     # exact word that destroyed two EK-RA6M4 boards on 2026-07-21. Flashing such a .bin at 0
     # reconstitutes the original brick from a build that passed every check.
     #
