@@ -33,7 +33,7 @@
 #endif
 
 #ifndef CMSE_NONSECURE
-#define CMSE_NONSECURE 1
+#define CMSE_NONSECURE 18 /* ACLE: AU_NONSECURE | MPU_NONSECURE. NOT 1 (D134) */
 #endif
 
 /*

@@ -65,16 +65,16 @@
  * where RM_MCUBOOT_PORT_FLASH_NS_START is BSP_FEATURE_FLASH_CODE_FLASH_START | (1 << 28)
  * and RM_MCUBOOT_PORT_INTERNAL_FLASH_BLOCK_SIZE is 0x8000 on MRAM parts.
  *
- * Taken verbatim because it is TIGHTER than the architectural alias bounds: CFSAMONA.CFS2 is
+ * Taken from FSP because it is TIGHTER than the architectural alias bounds: CFSAMONA.CFS2 is
  * the Code Flash Secure boundary RDPM programmed, counted in 32 KB blocks, so the region
  * starts exactly where the non-secure half does rather than at the alias base. The IDAU
  * enforces the real split either way, but a region that starts at the boundary cannot mark
  * secure bytes non-secure even transiently.
  *
- * RESTATED rather than included, because rm_mcuboot_port is not built in this configuration:
- * TF-M supplies the MCUboot flash backend (DEFAULT_MCUBOOT_FLASH_MAP=ON) and this is the one
- * piece of that module BL2 still needs. If FSP changes the expression this copy must follow -
- * it is listed in fsp_cmake/BRIDGING_FILES.md for that reason.
+ * ONE DELIBERATE DEVIATION: RLAR.LADDR is the INCLUSIVE limit of the 32-byte block it names,
+ * so FSP's ns_end runs the region 32 bytes past the end of MRAM. This writes ns_end - 1 (D134).
+ * RESTATED rather than included because rm_mcuboot_port is not built here - TF-M supplies the
+ * MCUboot flash backend (DEFAULT_MCUBOOT_FLASH_MAP=ON). BRIDGING_FILES.md lists this copy.
  * ================================================================================
  */
 #define BL2_SAU_REGION_CODE_FLASH   (0U)
@@ -90,7 +90,7 @@ static void bl2_sau_init(void)
 
     SAU->RNR  = BL2_SAU_REGION_CODE_FLASH;
     SAU->RBAR = ns_start & SAU_RBAR_BADDR_Msk;
-    SAU->RLAR = (ns_end & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
+    SAU->RLAR = ((ns_end - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
 
     SAU->CTRL = SAU_CTRL_ENABLE_Msk;
 
