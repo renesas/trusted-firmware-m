@@ -102,7 +102,7 @@ Revision: $Rev: 23635 $
 // image uses ~16 KB of 128 KB, the secure image ~48 KB of 127 KB.
 //
 // This reduces drops, it does not eliminate them. If a transcript still comes back with
-// holes, the reliable fix is blocking mode for the capture run - deliberately NOT the
+// holes, the reliable fix is blocking mode for the capture run - NOT the
 // default here, because f7acfd0fc made channel 0 non-blocking so an image with no host
 // attached cannot hang in a log call.
 #ifndef   BUFFER_SIZE_UP
@@ -123,7 +123,7 @@ Revision: $Rev: 23635 $
 // NO_BLOCK_SKIP: when the 1 KB up-buffer is full, drop the write and carry on.
 // BLOCK_IF_FIFO_FULL: spin in _WriteBlocking() until the host drains the buffer.
 //
-// This defaults to NO_BLOCK_SKIP deliberately. Under BLOCK_IF_FIFO_FULL, firmware
+// This defaults to NO_BLOCK_SKIP by design. Under BLOCK_IF_FIFO_FULL, firmware
 // running without an attached RTT reader wedges the moment the buffer fills - nothing
 // ever drains it. That cost us a debug session: TF-M's boot output filled the buffer and
 // the secure image then hung inside LOG_INFFMT("Creating an empty ITS flash layout.")

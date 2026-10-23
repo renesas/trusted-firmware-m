@@ -34,7 +34,7 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
  *            {aka 'volatile int'} was expected
  * The default FIH profile is OFF, which is why this compiled until the first
  * profile_large build. Upstream platforms (an521) never compile this file into BL2 at
- * all; here it cannot simply be dropped, because __STACK_SEAL would go with it and
+ * all; here it cannot be dropped, because __STACK_SEAL would go with it and
  * ra6m5_bl2.ld resolves FSP's __StackSeal from the section it anchors.
  *
  * The discriminator is RA6M5_BUILDING_BL2, set by CMakeLists.txt on platform_bl2 alone -
@@ -106,7 +106,7 @@ static void ra_ram_code_init(void)
  *      tfm_hal_set_up_static_boundaries() against MPU->TYPE, and over-budget is a panic, so
  *      a successful boot only ever proved ">= the number needed" - never the actual count.
  *      "Eight" came from the Cortex-M33 configuration, not from a measurement.
- *   2. How many regions TF-M actually programmed. The static table in
+ *   2. How many regions TF-M programmed. The static table in
  *      tfm_hal_isolation_v8m.c is five entries on an M33 (PXN needs armv8.1-m.main, so the
  *      combined-code branch is taken), plus one reserved for private data at isolation 3,
  *      plus one per named MMIO region. Counting source branches is not the same as reading
@@ -149,7 +149,7 @@ static void ra_mpu_report(void)
 /*
  * Per-region dump. Separate from the summary above because it is only worth printing at the
  * second call site - after the SPM has bound every partition - where the question is not how
- * many regions exist but which ranges they actually cover.
+ * many regions exist but which ranges they cover.
  *
  * RBAR[31:5] is the base and RLAR[31:5] the limit, both with the low 5 bits used for
  * attributes, so each is masked before printing. The limit is inclusive and reads back with
@@ -214,7 +214,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * value. Idempotent.
      *
      * NOTE: this is the SECURE path only - tfm_hal_platform_init() is an SPM hook and
-     * BL2 never calls it. BL2 runs TF-M's startup too and is the image that actually
+     * BL2 never calls it. BL2 runs TF-M's startup too and is the image that
      * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
      */
 #if defined(__ICCARM__)
@@ -254,7 +254,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      *     because bl2_main.c calls stdio_init() itself.
      *   - UART backend: Driver_USART is never opened, so output goes nowhere.
      *
-     * Deliberately after SystemCoreClockUpdate(): the UART backend derives its baud
+     * After SystemCoreClockUpdate() by design: the UART backend derives its baud
      * divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
      */
     stdio_init();

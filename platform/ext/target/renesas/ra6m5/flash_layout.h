@@ -91,7 +91,7 @@
 /* The solution is configured overwrite-only, so there is no scratch area.
  *
  * The RA6M5 layout does reserve the block for it: UNUSED_SCRATCH, 32 KB of SECURE flash
- * at 0x18000, immediately after BL2. It is deliberately not wired up here - declaring a
+ * at 0x18000, immediately after BL2. It is not wired up here, by design - declaring a
  * scratch area to MCUboot while the upgrade mode is overwrite-only only costs code. To
  * switch to swap-using-scratch, set the mode in e2 and point these three macros at that
  * partition. It is secure on purpose: during a swap the scratch holds fragments of the
@@ -225,7 +225,7 @@
 
 /* Flash device IDs used by the CMSIS flash driver shim.
  *
- * Deliberately NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1. Those are per-flash-area driver
+ * NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1, by design. Those are per-flash-area driver
  * overrides for a target whose images live on different devices; both our images are on
  * code flash, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
  * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips

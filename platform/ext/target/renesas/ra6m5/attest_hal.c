@@ -85,7 +85,7 @@ enum tfm_plat_err_t tfm_attest_hal_get_verification_service(uint32_t *size,
         return err;
     }
 
-    /* Actually copied data is always the smaller */
+    /* The copied length is always the smaller */
     copy_size = *size < otp_size ? *size : otp_size;
     /* String content - get actual string length */
     *size = tfm_strnlen((char *)buf, copy_size);
@@ -118,7 +118,7 @@ enum tfm_plat_err_t tfm_attest_hal_get_profile_definition(uint32_t *size,
         return err;
     }
 
-    /* Actually copied data is always the smaller */
+    /* The copied length is always the smaller */
     copy_size = *size < otp_size ? *size : otp_size;
     /* String content - get actual string length */
     *size = tfm_strnlen((char *)buf, copy_size);
@@ -176,7 +176,7 @@ enum tfm_plat_err_t tfm_plat_get_implementation_id(uint32_t *size,
         return err;
     }
 
-    /* Actually copied data is always the smaller */
+    /* The copied length is always the smaller */
     copy_size = *size < otp_size ? *size : otp_size;
     /* Binary data - return actual size */
     *size = copy_size;
@@ -208,7 +208,7 @@ enum tfm_plat_err_t tfm_plat_get_cert_ref(uint32_t *size, uint8_t *buf)
         return err;
     }
 
-    /* Actually copied data is always the smaller */
+    /* The copied length is always the smaller */
     copy_size = *size < otp_size ? *size : otp_size;
     /* String content - get actual string length */
     *size = tfm_strnlen((char *)buf, copy_size);

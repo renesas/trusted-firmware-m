@@ -9,7 +9,7 @@
  * bodies below are split. GCC/newlib calls the _close/_fstat/_isatty/_lseek/_read/_write
  * syscall family; IAR's DLIB calls __write()/__read() from LowLevelIOInterface.h and has
  * no <sys/stat.h> at all - that header does not exist anywhere in the IAR installation,
- * so it cannot simply be included conditionally, it has to be out of the IAR branch.
+ * so it cannot be included conditionally, it has to be out of the IAR branch.
  *
  * The weak stubs are shared: TF-M's IAR builds compile with -e (language extensions), so
  * the GCC __attribute__((weak)) spelling is accepted by iccarm too. Without -e it is not -
@@ -119,7 +119,7 @@ int _read(int file, char *ptr, int len) {
 int _write(int file, char *ptr, int len) {
     (void)file;
 #ifdef RA6M5_STDOUT_RTT
-    /* Route the NS application's printf() to RTT. This is deliberately here rather than in
+    /* Route the NS application's printf() to RTT. This is here rather than in
      * rtt/rtt_stdout.c: that file defines _write() too, and adding it to tfm_ns collides
      * with this one at link. The secure side uses rtt_stdout.c because it also needs the
      * stdio_* backend API that TF-M's SPM logging calls; NS needs only the newlib hook.

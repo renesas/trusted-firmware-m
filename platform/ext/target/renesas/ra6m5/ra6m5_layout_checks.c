@@ -22,7 +22,7 @@
  * Vector table size
  *
  * startup_ra6m5.c sizes __VECTOR_TABLE from its own RA6M5_VECTOR_TABLE_ENTRIES literal
- * (112) and deliberately includes only CMSIS headers, so it cannot check itself against
+ * (112) and includes only CMSIS headers by design, so it cannot check itself against
  * the generated BSP config. This file can, and the invariant that matters is that the
  * table fits its linker region rather than the literal itself.
  *
@@ -40,7 +40,7 @@ _Static_assert(S_CODE_VECTOR_TABLE_SIZE >= (BSP_VECTOR_TABLE_MAX_ENTRIES * 4),
  * Main stack
  *
  * bsp_init_stub.c aliases FSP's g_main_stack onto Image$$ARM_LIB_STACK$$ZI$$Base, so
- * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is really running on.
+ * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is running on.
  * The other thing it does with that symbol is write its stack seal at
  * &g_main_stack[BSP_CFG_STACK_MAIN_BYTES]. The generated scatter file sizes .msp_stack
  * as S_MSP_STACK_SIZE - STACKSEAL_SIZE and reserves STACKSEAL_SIZE above it, so the two
