@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <RTE_PinCfg.h>
 #include <bsp_api.h>
 #include <r_ioport.h>
-#include <RTE_PinCfg.h>
 
 const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
 #if _RTE_HAS_USART0

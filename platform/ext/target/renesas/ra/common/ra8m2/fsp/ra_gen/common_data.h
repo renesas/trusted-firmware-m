@@ -7,17 +7,17 @@
 #ifndef COMMON_DATA_H_
 #define COMMON_DATA_H_
 
-#include <stdint.h>
 #include <RTE_Device.h>
+#include <stdint.h>
 #include "bsp_api.h"
+#include "bsp_pin_cfg.h"
 
 #if (RTE_FLASH0 == 1)
-#include "r_mram.h"
 #include "r_flash_api.h"
+#include "r_mram.h"
 #endif
 
 #include "r_ioport.h"
-#include "bsp_pin_cfg.h"
 
 FSP_HEADER
 

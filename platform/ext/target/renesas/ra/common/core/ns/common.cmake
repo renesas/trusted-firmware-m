@@ -22,6 +22,8 @@ target_sources(platform_ns
     PRIVATE
         ${RENESAS_RA_COMMON_SOURCE_DIR}/core/Device/Source/startup.c
         ${RENESAS_RA_COMMON_SOURCE_DIR}/core/CMSIS_Driver/Driver_USART.c
+        ${RENESAS_RA_COMMON_SOURCE_DIR}/core/ns/tfm_platform_ns_init.c
+        ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_ioctl_ns_api.c
 )
 
 target_include_directories(platform_ns

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#include "tfm_ns_mailbox.h"
 #include "tfm_multi_core_api.h"
+#include "tfm_ns_mailbox.h"
 
 int32_t tfm_ns_mailbox_hal_init(struct ns_mailbox_queue_t *queue)
 {

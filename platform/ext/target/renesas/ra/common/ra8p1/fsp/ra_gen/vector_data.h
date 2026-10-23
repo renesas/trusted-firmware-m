@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 /* The number of entries required for the ICU vector table. */
-#define BSP_ICU_VECTOR_NUM_ENTRIES (1)
+#define BSP_ICU_VECTOR_NUM_ENTRIES (96)
 
 #ifdef __cplusplus
 }

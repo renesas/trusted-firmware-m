@@ -187,6 +187,15 @@ if(RA_CM33_NS_PRESENT)
     )
 endif()
 
+# NS-side RA ioctl interface, installed so it can be reused outside the TF-M NS build (e.g. Zephyr driver init)
+install(FILES       ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/inc/tfm_ioctl_api.h
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR}/../interface/include
+)
+
+install(FILES       ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_ioctl_ns_api.c
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR}/../interface/src
+)
+
 # Install test configs if present
 if(EXISTS ${TARGET_PLATFORM_PATH}/tests)
     install(DIRECTORY   ${TARGET_PLATFORM_PATH}/tests

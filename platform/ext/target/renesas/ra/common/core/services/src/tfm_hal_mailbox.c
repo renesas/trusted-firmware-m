@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#include "tfm_hal_mailbox.h"
+#include "load/interrupt_defs.h"
 #include "tfm_hal_device_header.h"
 #include "tfm_hal_interrupt.h"
-#include "load/interrupt_defs.h"
+#include "tfm_hal_mailbox.h"
 #include "tfm_multi_core.h"
 
 int32_t tfm_mailbox_hal_init(struct secure_mailbox_queue_t *s_queue)
