@@ -5,8 +5,8 @@
  *
  */
 
-#include "tfm_hal_multi_core.h"
 #include "tfm_hal_device_header.h"
+#include "tfm_hal_multi_core.h"
 
 #if !defined(BSP_PARTITION_FLASH_CPU1_S_START)
 #error "BSP_PARTITION_FLASH_CPU1_S_START is not defined."
