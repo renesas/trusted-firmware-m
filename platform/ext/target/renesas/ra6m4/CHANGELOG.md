@@ -22,11 +22,11 @@ Complete platform port of ARM Trusted Firmware-M (TF-M) to Renesas RA6M4 (R7FA6M
 - [x] Platform HAL implementation
 
 #### PSA Services
-- [x] **Crypto Partition** - Full PSA Crypto API with MbedTLS 3.6.3
-- [x] **Internal Trusted Storage (ITS)** - 2 KB in data flash
-- [x] **Protected Storage (PS)** - 3 KB with AES-GCM encryption
-- [x] **Initial Attestation** - Device identity with 256-bit key
-- [x] **Platform Services** - System reset and IOCTL
+- [x] Crypto Partition - Full PSA Crypto API with MbedTLS 3.6.3
+- [x] Internal Trusted Storage (ITS) - 2 KB in data flash
+- [x] Protected Storage (PS) - 3 KB with AES-GCM encryption
+- [x] Initial Attestation - Device identity with 256-bit key
+- [x] Platform Services - System reset and IOCTL
 
 #### Bootloader
 - [x] MCUboot (BL2) integration

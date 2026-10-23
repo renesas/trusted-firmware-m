@@ -18,12 +18,12 @@ See [BUILD.md](BUILD.md) for detailed build instructions.
 
 ## Enabled Services
 
-✅ **Crypto** - PSA Crypto API with MbedTLS 3.6.3  
-✅ **ITS** - Internal Trusted Storage (2 KB in data flash)  
-✅ **PS** - Protected Storage with AES-GCM encryption (3 KB)  
-✅ **Attestation** - Device identity with 256-bit key  
-✅ **Platform** - System reset and IOCTL services  
-✅ **MCUboot** - Secure bootloader with OTA support (Renesas fork v2.1.0+renesas.3)
+✅ Crypto - PSA Crypto API with MbedTLS 3.6.3  
+✅ ITS - Internal Trusted Storage (2 KB in data flash)  
+✅ PS - Protected Storage with AES-GCM encryption (3 KB)  
+✅ Attestation - Device identity with 256-bit key  
+✅ Platform - System reset and IOCTL services  
+✅ MCUboot - Secure bootloader with OTA support (Renesas fork v2.1.0+renesas.3)
 
 ## Build Results
 
@@ -101,9 +101,9 @@ Modular Renesas FSP libraries:
 
 ### SPM Backend: SFN (Secure Function Model)
 - **Lightweight execution model** with direct function calls (no IPC overhead)
-- Services run in **handler mode** with shared stack
+- Services run in handler mode with shared stack
 - **Lower memory footprint** than IPC model (~20% less RAM usage)
-- Best for **resource-constrained devices** like RA6M4
+- Best for resource-constrained devices like RA6M4
 - Trade-off: No inter-partition isolation (only Secure vs Non-Secure)
 
 ### Isolation Level: 1
@@ -113,9 +113,9 @@ Modular Renesas FSP libraries:
 - SAU/IDAU/MPC/PPC configured for peripheral protection
 
 ### Profile: Custom
-This port uses a **custom service configuration** (not a predefined profile):
+This port uses a custom service configuration (not a predefined profile):
 - ✅ Crypto + ITS + PS + Attestation + Platform
-- Closest to **Profile Medium** with Initial Attestation added
+- Closest to Profile Medium with Initial Attestation added
 - More capable than Small, lighter than Large
 
 **Comparison to standard profiles:**
