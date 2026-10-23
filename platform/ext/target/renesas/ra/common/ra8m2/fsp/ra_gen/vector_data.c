@@ -7,7 +7,8 @@
 #include <bsp_api.h>
 
 /* Do not build these data structures if no interrupts are currently allocated because IAR will have
- * build errors. */
+ * build errors.
+ */
 
 /* Skip -Wmissing-prototypes for the weak default IRQ handlers. They have no prototypes because the
  * WEAK_IRQ_HANDLER macro in vector_data.h defines them only.

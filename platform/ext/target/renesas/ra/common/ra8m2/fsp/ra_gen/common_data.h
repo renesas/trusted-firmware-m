@@ -27,7 +27,8 @@ FSP_HEADER
 extern const flash_instance_t g_mram0;
 
 /* Access the MRAM instance using these structures when calling API functions directly (::p_api is
- * not used). */
+ * not used).
+ */
 extern mram_instance_ctrl_t g_mram0_ctrl;
 extern const flash_cfg_t g_mram0_cfg;
 
