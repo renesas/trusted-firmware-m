@@ -274,9 +274,9 @@
  * the generated ra6m5_gcc_mcuboot/Debug/memory_regions.ld - do not carry the RA6E1 numbers
  * over. These MUST stay thirteen separate MEMORY regions in
  * ra6m5_bl2.ld, each section assigned with '> REGION'. Emitting them as one
- * coalesced PT_LOAD zero-fills the reserved bytes in the gaps (352 B here; 368 on RA6E1/
+ * coalesced PT_LOAD zero-fills the gaps (352 B here; 368 on RA6E1/
  * RA6M4, whose block-protect words are narrower) and permanently bricks the part.
- * Reserved areas must never be written (D132). That destroyed two
+ * That reaches eight DEFINED registers, BPS and PBPS among them (D133). That destroyed two
  * EK-RA6M4 boards on 2026-07-21.
  *
  * The fill is invisible in the srec (it lives in the program header, and objcopy -O

@@ -575,7 +575,7 @@ if(BL2)
     # OFS goes in BL2 only, and ONLY with the discrete per-group MEMORY regions in
     # ra6e1_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the configuration
     # memory BETWEEN the option groups and permanently bricks the part - it cost two
-    # EK-RA6M4 boards. Those bytes are RESERVED and must never be written: D132. D094
+    # EK-RA6M4 boards. The fill reaches eight DEFINED registers too: D133. D094
     # (RA6M4 has no Flash Access Window) and disproved OFS1_SEL.
     # See DESIGN.md 8.4 and verify with: arm-none-eabi-readelf -l bin/bl2.axf
     target_sources(bl2 PRIVATE
@@ -702,8 +702,8 @@ endif()
 # This one is not a style check. Two EK-RA6M4 boards were destroyed on 2026-07-21 by an
 # image whose option-setting words had been coalesced by ld into ONE PT_LOAD spanning
 # 0x0100A100-0x0100A284, with the gaps zero-filled. A debugger flashes by program header,
-# so it wrote 0x00000000 over reserved bytes the manual requires be left alone, and the
-# parts were gone. DESIGN.md 8.4, DECISIONS D132.
+# so it wrote 0x00000000 over eight defined option registers - BPS and PBPS among them - and
+# the parts were gone. DESIGN.md 8.4, DECISIONS D133.
 #
 # The defence is in ra6e1_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
 # each with its own '> REGION'. That produces one tiny PT_LOAD per word instead of a span.
@@ -775,7 +775,7 @@ endfunction()
 # word sits at 0x0100A280 produces a ~16 MB .bin spanning 0x00000000-0x0100A284 over a few
 # tens of KB of real content.
 #
-# That fill covers reserved bytes the hardware manual requires be left unwritten, and the
+# That fill covers eight defined option registers and the reserved bytes between them, and the
 # exact word that destroyed two EK-RA6M4 boards on 2026-07-21. Flashing such a .bin at 0
 # reconstitutes the original brick from a build that passed every check.
 #

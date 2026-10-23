@@ -30,7 +30,7 @@ MEMORY
     /* RA6M5 option-setting memory - one DISCRETE region per register group, the
      * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
      * region is sized to exactly its register group, so ld emits a separate
-     * PT_LOAD per group and CANNOT zero-fill the reserved bytes in between.
+     * PT_LOAD per group and CANNOT zero-fill the registers in between.
      * Merging these into one region/segment permanently bricks the part - see
      * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
     OPTION_SETTING_OFS0        (r) : ORIGIN = OPTION_SETTING_OFS0_START,        LENGTH = OPTION_SETTING_OFS0_LENGTH
@@ -295,8 +295,8 @@ SECTIONS
      * ⚠ DO NOT rewrite these as bare addressed sections:
      *       .option_setting_ofs0 0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
      *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
-     *   0x0100A100..0x0100A2CC and zero-fills the 368 reserved bytes in the
-     *   gaps, which are reserved and must never be written. Flashing from a debugger
+     *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes in the gaps - eight
+     *   DEFINED registers plus reserved bytes, D133. Flashing from a debugger
      *   permanently bricks the part - it cost two EK-RA6M4 boards on 2026-07-21.
      *   The zero fill is invisible in the srec; check readelf -l. Full rationale
      *   and the verification command are in region_defs.h (OPTION_SETTING_* block).

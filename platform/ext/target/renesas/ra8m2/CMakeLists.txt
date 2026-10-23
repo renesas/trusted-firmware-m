@@ -837,8 +837,8 @@ if(BL2)
     # OFS goes in BL2 only, and ONLY with the discrete per-group MEMORY regions in
     # ra8m2_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the configuration
     # memory BETWEEN the option groups and permanently bricks the part - it cost two
-    # EK-RA6M4 boards. Those bytes are RESERVED and must never be written (D132); D094
-    # holds the measurement and withdrew the earlier FSPR and OFS1_SEL attributions.
+    # EK-RA6M4 boards. The fill reaches eight DEFINED registers as well as the reserved
+    # bytes between them (D133); D094 holds the measurement.
     # See DESIGN.md 8.4 and verify with: arm-none-eabi-readelf -l bin/bl2.axf
     target_sources(bl2 PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/startup_ra8m2.c
@@ -982,8 +982,8 @@ endif()
 # This one is not a style check. Two EK-RA6M4 boards were destroyed on 2026-07-21 by an
 # image whose option-setting words had been coalesced by ld into ONE PT_LOAD spanning
 # 0x0100A100-0x0100A284, with the gaps zero-filled. A debugger flashes by program header,
-# so it wrote 0x00000000 over reserved bytes the manual requires be left alone, and the
-# parts were gone. DESIGN.md 8.4, DECISIONS D132.
+# so it wrote 0x00000000 over eight defined option registers - BPS and PBPS among them - and
+# the parts were gone. DESIGN.md 8.4, DECISIONS D133.
 #
 # The defence is in ra8m2_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
 # each with its own '> REGION'. That produces one tiny PT_LOAD per word instead of a span.

@@ -5,8 +5,8 @@ check_ofs.py - BRICK GUARD for Renesas RA option-setting (OFS) memory.
 Root cause of the two bricked EK-RA6M4 boards on 2026-07-21 (DESIGN.md 8.4): the OFS words
 were placed so GNU ld coalesced them into ONE PT_LOAD segment spanning
 0x0100A100-0x0100A284 with the gaps ZERO-FILLED. A debugger flashes by program header, so it
-wrote 0x00000000 into the gaps. Those bytes are RESERVED and the hardware manual requires
-that they are never written; writing them bricks the part (DECISIONS D132).
+wrote 0x00000000 across the span - eight DEFINED option registers (BPS/PBPS among them) plus
+the reserved bytes between them - and the parts never came back (DECISIONS D133).
 
 Having OFS in an image is FINE and expected. What bricks the part is a LOAD segment spanning more
 than one option word (i.e. covers gaps that get zero-filled and programmed). FSP's fsp_gen.ld

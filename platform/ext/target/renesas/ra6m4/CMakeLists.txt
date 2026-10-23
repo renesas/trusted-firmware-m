@@ -173,7 +173,7 @@ if(BL2)
         #
         # SAFETY: this is only sound because ra6m4_bl2.ld gives each option-setting
         # group its OWN MEMORY region, so ld emits one PT_LOAD per group and cannot
-        # zero-fill the reserved bytes in the gaps. Emitting these
+        # zero-fill the registers and reserved bytes in the gaps. Emitting these
         # sections without per-group regions permanently bricks the part - it cost
         # two EK-RA6M4 boards on 2026-07-21. If you touch the OFS placement, verify
         # with `arm-none-eabi-readelf -l bin/bl2.axf` (13 small LOAD segments, never
@@ -334,7 +334,7 @@ endif()
 # by ld into ONE PT_LOAD spanning 0x0100A100-0x0100A284, with the 368 bytes between them
 # zero-filled. A debugger flashes by program header, so it wrote 0x00000000 over the FCU
 # configuration in those gaps, and the parts were gone. WHICH zeroed field killed them is
-# reserved, and the hardware manual requires that they are never written (D132). D094
+# eight DEFINED option registers plus the reserved bytes between them (D133). D094
 # withdrew the earlier FSPR and OFS1_SEL attributions and holds the measurement. The fill
 # is proven byte-exact; the field is not. DESIGN.md 8.4.
 #
@@ -385,7 +385,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     # word sits at 0x0100A280 produces a ~16 MB .bin spanning 0x00000000-0x0100A284 over a few
     # tens of KB of real content.
     #
-    # That fill covers reserved bytes the hardware manual requires be left unwritten, and the
+    # That fill covers eight defined option registers and the reserved bytes between them, and the
     # exact word that destroyed two EK-RA6M4 boards on 2026-07-21. Flashing such a .bin at 0
     # reconstitutes the original brick from a build that passed every check.
     #

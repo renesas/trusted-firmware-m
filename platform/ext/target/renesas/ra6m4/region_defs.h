@@ -177,16 +177,16 @@
  *
  * The option-setting map is sparse: the thirteen groups below hold 92 bytes of
  * real data spread across a 460-byte span (0x0100A100..0x0100A2CC). The 368
- * bytes in between are RESERVED, and the hardware manual requires that reserved
- * areas are never written (D132). An earlier revision named the Flash Access
- * Window / FSPR permanence word here; D094 withdrew that, because RA6M4 does not
- * implement the Flash Access Window.
+ * bytes in between hold eight DEFINED registers - DUALSEL, OFS1, BANKSEL, BPS,
+ * PBPS and their _SEC copies - and reserved bytes; a coalesced segment writes
+ * 0x00 to all of them (D133). An earlier revision named the Flash Access Window /
+ * FSPR permanence word here; D094 withdrew that, RA6M4 has no such window.
  *
  * If these sections are emitted with plain addressed section statements and no
  * '> REGION' assignment, GNU ld coalesces them into ONE PT_LOAD segment spanning
  * the whole 460 bytes and zero-fills the gaps. A debugger (J-Link/Ozone) loading
- * the ELF writes that entire span -> the part is PERMANENTLY bricked, because the
- * write lands on reserved areas (D132). This destroyed two EK-RA6M4 boards on 2026-07-21. The fill lives
+ * the ELF writes that entire span -> the part is PERMANENTLY bricked. Which of the
+ * eight zeroed registers does it is not established (D133). This destroyed two EK-RA6M4 boards on 2026-07-21. The fill lives
  * in the program header, not in any section, so `objcopy -O srec` does NOT show
  * it - an srec diff will not catch a regression here. Verify with:
  *     arm-none-eabi-readelf -l bin/bl2.axf   # expect 13 separate LOAD segments,
