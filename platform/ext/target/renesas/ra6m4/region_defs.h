@@ -185,7 +185,7 @@
  * If these sections are emitted with plain addressed section statements and no
  * '> REGION' assignment, GNU ld coalesces them into ONE PT_LOAD segment spanning
  * the whole 460 bytes and zero-fills the gaps. A debugger (J-Link/Ozone) loading
- * the ELF writes that entire span -> the part is PERMANENTLY bricked. Which of the
+ * the ELF writes that entire span -> the part is BRICKED, with no known recovery. Which of the
  * eight zeroed registers does it is not established (D133). This destroyed two EK-RA6M4 boards on 2026-07-21. The fill lives
  * in the program header, not in any section, so `objcopy -O srec` does NOT show
  * it - an srec diff will not catch a regression here. Verify with:

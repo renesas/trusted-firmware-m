@@ -275,7 +275,7 @@
  * over. These MUST stay thirteen separate MEMORY regions in
  * ra6m5_bl2.ld, each section assigned with '> REGION'. Emitting them as one
  * coalesced PT_LOAD zero-fills the gaps (352 B here; 368 on RA6E1/
- * RA6M4, whose block-protect words are narrower) and permanently bricks the part.
+ * RA6M4, whose block-protect words are narrower) and bricks the part, with no known recovery.
  * That reaches eight DEFINED registers, BPS and PBPS among them (D133). That destroyed two
  * EK-RA6M4 boards on 2026-07-21.
  *

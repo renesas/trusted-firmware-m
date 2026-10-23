@@ -719,7 +719,7 @@ if(BL2)
 
     # OFS goes in BL2 only, and ONLY with the discrete per-group MEMORY regions in
     # ra6m5_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the configuration
-    # memory BETWEEN the option groups and permanently bricks the part - it cost two
+    # memory BETWEEN the option groups and bricks the part, with no known recovery - it cost two
     # EK-RA6M4 boards. The fill writes 0x00 into eight DEFINED option registers - DUALSEL,
     # OFS1, BANKSEL, BPS, PBPS, BANKSEL_SEC, BPS_SEC, PBPS_SEC - and into the reserved bytes
     # between them (DECISIONS D133). Which of the eight kills the part is not established.

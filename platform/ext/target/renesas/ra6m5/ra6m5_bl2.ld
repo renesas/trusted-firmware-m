@@ -31,7 +31,7 @@ MEMORY
      * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
      * region is sized to exactly its register group, so ld emits a separate
      * PT_LOAD per group and CANNOT zero-fill the registers in between.
-     * Merging these into one region/segment permanently bricks the part - see
+     * Merging these into one region/segment bricks the part, with no known recovery - see
      * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
     OPTION_SETTING_OFS0        (r) : ORIGIN = OPTION_SETTING_OFS0_START,        LENGTH = OPTION_SETTING_OFS0_LENGTH
     OPTION_SETTING_DUALSEL     (r) : ORIGIN = OPTION_SETTING_DUALSEL_START,     LENGTH = OPTION_SETTING_DUALSEL_LENGTH
@@ -297,7 +297,7 @@ SECTIONS
      *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
      *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes in the gaps - eight
      *   DEFINED registers plus reserved bytes, D133. Flashing from a debugger
-     *   permanently bricks the part - it cost two EK-RA6M4 boards on 2026-07-21.
+     *   bricks the part, with no known recovery - it cost two EK-RA6M4 boards on 2026-07-21.
      *   The zero fill is invisible in the srec; check readelf -l. Full rationale
      *   and the verification command are in region_defs.h (OPTION_SETTING_* block).
      *

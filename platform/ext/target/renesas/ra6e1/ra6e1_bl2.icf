@@ -21,7 +21,7 @@
  *    DO NOT collapse these into one region spanning 0x0100A100..0x0100A2CC. Under GNU ld
  *    that mistake produced a single PT_LOAD across the range and zero-filled the 368 bytes
  *    in the gaps - eight DEFINED option registers plus reserved bytes, D133 - and flashing
- *    it permanently bricked two EK-RA6M4 boards on 2026-07-21. The zero fill is invisible
+ *    it bricked two EK-RA6M4 boards on 2026-07-21. The zero fill is invisible
  *    in the srec; only the program headers show it. check_ofs.py runs post-link on this
  *    image and is not optional.
  *

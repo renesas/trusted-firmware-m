@@ -174,7 +174,7 @@ if(BL2)
         # SAFETY: this is only sound because ra6m4_bl2.ld gives each option-setting
         # group its OWN MEMORY region, so ld emits one PT_LOAD per group and cannot
         # zero-fill the registers and reserved bytes in the gaps. Emitting these
-        # sections without per-group regions permanently bricks the part - it cost
+        # sections without per-group regions bricks the part, with no known recovery - it cost
         # two EK-RA6M4 boards on 2026-07-21. If you touch the OFS placement, verify
         # with `arm-none-eabi-readelf -l bin/bl2.axf` (13 small LOAD segments, never
         # one 0x1CC-byte span); an srec diff will NOT show the fill. Rationale in
@@ -330,7 +330,7 @@ endif()
 # OFS brick guard (post-link)
 #
 # This is the part that was destroyed. On 2026-07-21 two EK-RA6M4 boards were
-# permanently bricked by a bl2 image whose thirteen option-setting words had been coalesced
+# bricked by a bl2 image whose thirteen option-setting words had been coalesced
 # by ld into ONE PT_LOAD spanning 0x0100A100-0x0100A284, with the 368 bytes between them
 # zero-filled. A debugger flashes by program header, so it wrote 0x00000000 over the FCU
 # configuration in those gaps, and the parts were gone. WHICH zeroed field killed them is

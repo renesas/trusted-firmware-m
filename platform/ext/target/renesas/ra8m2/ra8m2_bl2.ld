@@ -31,7 +31,7 @@ MEMORY
      * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
      * region is sized to exactly its register group, so ld emits a separate
      * PT_LOAD per group and CANNOT zero-fill the registers in between.
-     * Merging these into one region/segment permanently bricks the part - see
+     * Merging these into one region/segment bricks the part, with no known recovery - see
      * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
     /* Exactly the groups this solution emits - see bl2_option_setting.c. Addresses come
      * from the generated option_settings.h, never from here.

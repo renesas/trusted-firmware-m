@@ -157,7 +157,7 @@ if(NOT _ns_dir_real STREQUAL _spe_dir_real)
     message(FATAL_ERROR
         "RA6E1: FSP_NS_APP_DIR (${_ns_dir_real}) is not the project the SPE was built "
         "against (${_spe_dir_real}). The layout comes from the solution, so these must be "
-        "the same project. Override it by setting RA6E1_SPE_FSP_NS_APP_DIR too.")
+        "the same project. Override deliberately by setting RA6E1_SPE_FSP_NS_APP_DIR too.")
 endif()
 
 # The APPLICATION only.

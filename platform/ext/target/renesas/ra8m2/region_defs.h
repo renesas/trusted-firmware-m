@@ -292,7 +292,7 @@
  * WHAT HAS NOT CHANGED - the placement rule, which is the actual brick hazard. These MUST
  * stay SEPARATE regions in ra8m2_bl2.ld / .icf, each section assigned with '> REGION'.
  * Emitting them as one coalesced PT_LOAD zero-fills every register and reserved byte in the gaps,
- * including the block-protect permanence word, and permanently bricks the part. That
+ * including the block-protect permanence word, and bricks the part, with no known recovery. That
  * destroyed two EK-RA6M4 boards on 2026-07-21 (DECISIONS D002).
  *
  * The fill is INVISIBLE in the srec - it lives in the program header, and an srec is

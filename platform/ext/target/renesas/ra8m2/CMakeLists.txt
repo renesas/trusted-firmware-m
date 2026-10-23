@@ -836,7 +836,7 @@ if(BL2)
 
     # OFS goes in BL2 only, and ONLY with the discrete per-group MEMORY regions in
     # ra8m2_bl2.ld. Emitting it as one coalesced PT_LOAD zero-fills the configuration
-    # memory BETWEEN the option groups and permanently bricks the part - it cost two
+    # memory BETWEEN the option groups and bricks the part, with no known recovery - it cost two
     # EK-RA6M4 boards. The fill reaches eight DEFINED registers as well as the reserved
     # bytes between them (D133); D094 holds the measurement.
     # See DESIGN.md 8.4 and verify with: arm-none-eabi-readelf -l bin/bl2.axf
