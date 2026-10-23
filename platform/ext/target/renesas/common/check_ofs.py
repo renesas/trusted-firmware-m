@@ -58,7 +58,10 @@ Usage:
                         the image that carries the option words; a CLEAN result there means
                         either the sections were dropped or the window is wrong.
     --max-word N        largest single option word in bytes (default 0x80: RA8M2's BPS is
-                        0x80, RA6's largest is 0xC).
+                        0x80, RA6M5's BPS and PBPS are 0x10, RA6E1's and RA6M4's are 0xC).
+                        Take it from the part's own region_defs.h. Too small is not safe
+                        either: a legitimately placed BPS group then reads as SPANNING and
+                        fails the build.
     --check-flat-bin    also FAIL if the sibling <image>.bin spans from the image base up
                         into an OFS region. See the note above - the ELF can be correct and
                         the .bin still brick the part.
@@ -67,6 +70,16 @@ Exit: 0 = safe, 1 = a spanning OFS segment (DO NOT FLASH) or a required segment 
       2 = tool error.
 """
 import os, re, shutil, subprocess, sys
+
+
+def die(msg):
+    """A TOOL error: exit 2, never 1.
+
+    Exit 1 is this guard's DO NOT FLASH verdict. A missing readelf or a bad argument
+    must not be readable as a finding about the image, so they exit 2 instead.
+    """
+    print(msg, file=sys.stderr)
+    raise SystemExit(2)
 
 RA6_REGION = (0x0100A100, 0x0100A2D0)
 READELF    = os.environ.get("READELF", "arm-none-eabi-readelf")
@@ -84,12 +97,12 @@ def parse_args(argv):
         if a == "--region":
             i += 1
             if i >= len(argv):
-                sys.exit("ERROR: --region needs START:END")
+                die("ERROR: --region needs START:END")
             try:
                 s, e = argv[i].split(":")
                 regions.append((int(s, 0), int(e, 0)))
             except ValueError:
-                sys.exit(f"ERROR: cannot parse --region {argv[i]!r}, want 0xSTART:0xEND")
+                die(f"ERROR: cannot parse --region {argv[i]!r}, want 0xSTART:0xEND")
         elif a == "--ra6-default":
             regions.append(RA6_REGION)
         elif a == "--require-segments":
@@ -99,27 +112,27 @@ def parse_args(argv):
         elif a == "--emit-safe-bin":
             i += 1
             if i >= len(argv):
-                sys.exit("ERROR: --emit-safe-bin needs an output path")
+                die("ERROR: --emit-safe-bin needs an output path")
             emit = argv[i]
         elif a == "--max-word":
             i += 1
             max_word = int(argv[i], 0)
         elif a.startswith("--"):
-            sys.exit(f"ERROR: unknown option {a}")
+            die(f"ERROR: unknown option {a}")
         else:
             images.append(a)
         i += 1
 
     if not regions:
-        sys.exit("ERROR: no OFS region given. Pass --region 0xSTART:0xEND (repeatable), or\n"
+        die("ERROR: no OFS region given. Pass --region 0xSTART:0xEND (repeatable), or\n"
                  "       --ra6-default for RA6E1/RA6M4/RA6M5. This is deliberately not\n"
                  "       optional: a guard pointed at the wrong window reports PASS on an\n"
                  "       unsafe image. See the note at the top of this file.")
     if not images:
-        sys.exit("ERROR: no images given")
+        die("ERROR: no images given")
     for s, e in regions:
         if e <= s:
-            sys.exit(f"ERROR: region 0x{s:X}:0x{e:X} is empty or reversed")
+            die(f"ERROR: region 0x{s:X}:0x{e:X} is empty or reversed")
     return regions, images, max_word, require, flat, emit
 
 
@@ -135,7 +148,7 @@ def all_load_segments(elf):
         out = subprocess.run([READELF, "-l", elf], capture_output=True, text=True,
                              check=True).stdout
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        sys.exit(f"ERROR: readelf failed on {elf}: {e}")
+        die(f"ERROR: readelf failed on {elf}: {e}")
     segs = []
     for m in re.finditer(
             r"LOAD\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)"
@@ -176,7 +189,7 @@ def emit_safe_bin(elf, regions, outpath):
     segs = all_load_segments(elf)
     keep = [(o, p, f) for (o, v, p, f) in segs if not in_regions(v, f, regions)]
     if not keep:
-        sys.exit(f"ERROR: {elf} has no loadable content outside the OFS regions")
+        die(f"ERROR: {elf} has no loadable content outside the OFS regions")
 
     lo = min(p for (_o, p, _f) in keep)
     hi = max(p + f for (_o, p, f) in keep)
@@ -186,7 +199,7 @@ def emit_safe_bin(elf, regions, outpath):
             fh.seek(off)
             chunk = fh.read(filesz)
             if len(chunk) != filesz:
-                sys.exit(f"ERROR: {elf} truncated reading segment at offset 0x{off:X}")
+                die(f"ERROR: {elf} truncated reading segment at offset 0x{off:X}")
             image[paddr - lo:paddr - lo + filesz] = chunk
 
     with open(outpath, "wb") as fh:
@@ -238,7 +251,7 @@ def flat_bin_verdict(elf, regions):
 
 def main():
     if not shutil.which(READELF):
-        sys.exit(f"ERROR: readelf '{READELF}' not on PATH (set $READELF)")
+        die(f"ERROR: readelf '{READELF}' not on PATH (set $READELF)")
     regions, images, max_word, require, flat, emit = parse_args(sys.argv[1:])
 
     # Emit first, then check what was emitted. Doing both in one invocation is what makes
@@ -246,13 +259,13 @@ def main():
     # whatever a separate target left on disk.
     if emit:
         if len(images) != 1:
-            sys.exit("ERROR: --emit-safe-bin takes exactly one image")
+            die("ERROR: --emit-safe-bin takes exactly one image")
         emit_safe_bin(images[0], regions, emit)
 
     where = ", ".join(f"{hex(s)}-{hex(e - 1)}" for s, e in regions)
     print(f"OFS brick guard: no PT_LOAD segment across {where} may exceed {max_word} bytes")
-    print("(a span => zero-filled gaps => block-protect programmed to 0 => permanent brick, "
-          "DESIGN.md 8.4)\n")
+    print("(a span => zero-filled gaps => eight defined option registers written to 0 "
+          "=> two boards bricked, no recovery known. DESIGN.md 8.4)\n")
 
     bad = 0
     for elf in images:
@@ -302,7 +315,8 @@ def main():
     if bad:
         print(f"FAIL: {bad} image(s).")
         print("A spanning segment means the linker coalesced option words into one gap-filled")
-        print("PT_LOAD; flashing it programs the block-protect words to 0 -> permanent brick.")
+        print("PT_LOAD; flashing it writes 0 to eight defined option registers. That is what")
+        print("destroyed two EK-RA6M4 boards on 2026-07-21, and no recovery is known (D133).")
         print("Give each OFS word its OWN region (FSP's fsp_gen.ld does; so do the ra*_bl2.ld")
         print("and ra*_bl2.icf in each platform). A missing-but-required segment means the")
         print("option words are not in the image, or this guard was given the wrong window.")

@@ -916,7 +916,7 @@ function(ra6m5_add_ofs_check target)
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6M5_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
-                --ra6-default --max-word 0xC
+                --ra6-default --max-word 0x10
                 ${ARGN}
                 $<TARGET_FILE:${target}>
         DEPENDS $<TARGET_FILE:${target}>
@@ -959,7 +959,7 @@ function(ra6m5_strip_ofs_from_bin target)
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6M5_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
-                --ra6-default --max-word 0xC
+                --ra6-default --max-word 0x10
                 --emit-safe-bin ${_bindir}/${target}.bin
                 $<TARGET_FILE:${target}>
         VERBATIM
