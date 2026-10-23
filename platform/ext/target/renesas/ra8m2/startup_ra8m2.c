@@ -143,7 +143,7 @@ extern const VECTOR_TABLE_Type __VECTOR_TABLE[RA8M2_VECTOR_TABLE_ENTRIES];
      * the SPM.
      *
      * 16 + VECTOR_NUMBER_AGT0_INT, which is 16 + 0. Written out rather than included from
-     * the generated vector_data.h because this file keeps to CMSIS headers;
+     * the generated vector_data.h because this file deliberately keeps to CMSIS headers;
      * plat_test.c #errors if the generated number is no longer 0.
      */
     [16 + 0] = TFM_TIMER0_IRQ_Handler,

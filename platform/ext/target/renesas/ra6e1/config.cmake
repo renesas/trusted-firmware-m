@@ -25,7 +25,7 @@
 #
 # NOTE: RA6E1 DOES have SCE9 (bsp_feature.h: BSP_FEATURE_RSIP_SCE9_SUPPORTED == 1), same
 # as RA6M4. Ciphers still run in software here - only the TRNG is taken from hardware, see
-# the crypto block below - so hardware acceleration remains a later project.
+# the crypto block below - so hardware acceleration remains a deliberate later project.
 #-------------------------------------------------------------------------------
 
 set(BL2                                 ON          CACHE BOOL      "Build BL2")
@@ -114,7 +114,7 @@ set(TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH
 # Fault diagnosis. Both default OFF upstream; both are on here because a fault on this
 # port is otherwise undiagnosable - every panic and every fault funnels into the same
 # tfm_hal_system_halt() spin with no detail, which is what made a HardFault look like a
-# SPM panic during bring-up and cost a long detour into the ITS filesystem.
+# deliberate SPM panic during bring-up and cost a long detour into the ITS filesystem.
 #
 # Set HERE rather than left in a build directory's cache: a cache value survives rebuilds
 # but not a clean reconfigure, so the next person to configure would silently get a

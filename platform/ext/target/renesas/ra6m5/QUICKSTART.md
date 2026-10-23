@@ -177,7 +177,7 @@ suffix — is documented at the top of
 worked example: `fsp_cmake/ADDING_FSP_MODULES.md`, "Adding New FSP Modules" (written
 for the earlier RA6M4 port, so the surrounding CMake differs from the current per-role pattern).
 
-Three modules are never built from the e2 projects — `r_sce`, `rm_psa_crypto`
+Three modules are deliberately never built from the e2 projects — `r_sce`, `rm_psa_crypto`
 and `rm_mcuboot_port` — because FSP's own crypto and flash-map configuration collides with
 TF-M's. `FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) enforces that, and
 `fsp_cmake/DESIGN.md` §4–6 explains why. The SCE9 accelerator reaches FSP's `*_ALT` sources by

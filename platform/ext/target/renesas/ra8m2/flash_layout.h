@@ -237,7 +237,7 @@
  *
  * FSP computes its own as RM_MCUBOOT_LARGEST_SECTOR / FLASH_AREA_IMAGE_SECTOR_SIZE,
  * over FSP's partition view. TF-M has its own flash map, so this one is derived from
- * TF-M's areas - the sector SIZE is shared, the sector COUNT is not. */
+ * TF-M's areas - the sector SIZE is shared, the sector COUNT deliberately is not. */
 #define MCUBOOT_MAX_IMG_SECTORS         ((FLASH_MAX_PARTITION_SIZE + \
                                           FLASH_AREA_IMAGE_SECTOR_SIZE - 1) / \
                                          FLASH_AREA_IMAGE_SECTOR_SIZE)

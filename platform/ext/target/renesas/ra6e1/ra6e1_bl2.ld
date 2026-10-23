@@ -185,7 +185,7 @@ SECTIONS
      *
      * Kept out of .data because it is executable (the RAM region is declared rwx above), and
      * copied by the CMSIS copy-table entry added beside .data's, which TF-M's startup already
-     * runs. That avoids adding a MEMORY region or PT_LOAD - see the
+     * runs. That deliberately avoids adding a MEMORY region or PT_LOAD - see the
      * OPTION_SETTING note below for why segment layout in this file is handled with care.
      */
     .ram_from_flash : ALIGN(4)

@@ -17,7 +17,7 @@
  * DATA FLASH (flash_layout.h), so FLASH1 is a second view of the same MRAM array, bounded to
  * the DF_EMULATION partition. Their address ranges therefore OVERLAP by design: FLASH0's
  * range spans the whole device, DF_EMULATION included. Nothing arbitrates that - BL2 only
- * ever hands FLASH0 offsets inside a slot, and DF_EMULATION is outside every
+ * ever hands FLASH0 offsets inside a slot, and DF_EMULATION is deliberately outside every
  * slot (asserted in ra8m2_layout_checks.c), so the two never write the same bytes.
  *
  * ============================ THE OFFSET / ADDRESS TRAP ============================

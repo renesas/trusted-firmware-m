@@ -261,7 +261,7 @@ enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
     /* Nothing to do. RA has no MPC/PPC fault IRQ for the SPM to own, and a
      * partition-owned IRQ must NOT be enabled here: FF-M 1.1 interrupts are
-     * left disabled by load_irqs_assuredly() so the partition can
+     * deliberately left disabled by load_irqs_assuredly() so the partition can
      * enable its own with psa_irq_enable(). */
     return TFM_PLAT_ERR_SUCCESS;
 }

@@ -112,7 +112,7 @@ def parse_args(argv):
 
     if not regions:
         sys.exit("ERROR: no OFS region given. Pass --region 0xSTART:0xEND (repeatable), or\n"
-                 "       --ra6-default for RA6E1/RA6M4/RA6M5. This is not\n"
+                 "       --ra6-default for RA6E1/RA6M4/RA6M5. This is deliberately not\n"
                  "       optional: a guard pointed at the wrong window reports PASS on an\n"
                  "       unsafe image. See the note at the top of this file.")
     if not images:

@@ -143,7 +143,7 @@ extern const VECTOR_TABLE_Type __VECTOR_TABLE[RA6M5_VECTOR_TABLE_ENTRIES];
      * spin loop instead of reaching the SPM.
      *
      * 16 + VECTOR_NUMBER_AGT0_INT, which is 16 + 0. Written out rather than included
-     * from the generated vector_data.h because this file keeps to CMSIS
+     * from the generated vector_data.h because this file deliberately keeps to CMSIS
      * headers; plat_test.c #errors if the generated number is no longer 0.
      *
      * Unconditional. The handler is only defined when tfm_timer0_irq.c is compiled

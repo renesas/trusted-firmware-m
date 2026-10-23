@@ -69,7 +69,7 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
  *
  *     -Wl,--defsym=g_main_stack=Image$$ARM_LIB_STACK$$ZI$$Base
  *
- * and not here. __attribute__((alias)) needs the target defined in the same
+ * and deliberately not here. __attribute__((alias)) needs the target defined in the same
  * translation unit, and an assembler .set against a linker-defined symbol leaves
  * g_main_stack undefined at link time. So there is no definition in this file - the
  * symbol arrives from the link line for both the secure image and BL2.

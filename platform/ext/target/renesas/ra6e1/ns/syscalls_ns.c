@@ -119,7 +119,7 @@ int _read(int file, char *ptr, int len) {
 int _write(int file, char *ptr, int len) {
     (void)file;
 #ifdef RA6E1_STDOUT_RTT
-    /* Route the NS application's printf() to RTT. This is here rather than in
+    /* Route the NS application's printf() to RTT. This is deliberately here rather than in
      * rtt/rtt_stdout.c: that file defines _write() too, and adding it to tfm_ns collides
      * with this one at link. The secure side uses rtt_stdout.c because it also needs the
      * stdio_* backend API that TF-M's SPM logging calls; NS needs only the newlib hook.

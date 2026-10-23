@@ -660,7 +660,7 @@ endif()
 #       allowlisted, by design: if that placement ever regresses, this check should say so.
 #
 #   bl2 .msp_stack_seal_res - bl2 is a flat build, so __ARM_FEATURE_CMSE != 3 and
-#       ra6e1_bl2.ld takes the non-CMSE arm, which has no seal section.
+#       ra6e1_bl2.ld deliberately takes the non-CMSE arm, which has no seal section.
 #       startup_ra6e1.c still emits the 8-byte __StackSeal, which then orphans away from
 #       the stack top. Inert: FSP writes the seal only when BSP_TZ_SECURE_BUILD, and TF-M's
 #       startup only under CMSE. Both are false here.

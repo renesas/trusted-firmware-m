@@ -53,7 +53,7 @@ mismatched project produces an image that links cleanly and boots nowhere.
 | `tfm_ns_signed.bin` | `build_ra8m2_ns/bin/` |
 
 The combined `tfm_s_ns_signed.bin` that TF-M's NSPE rules would otherwise build is
-excluded — see the comment in `CMakeLists.txt`. It is byte-for-byte the two
+deliberately excluded — see the comment in `CMakeLists.txt`. It is byte-for-byte the two
 signed images end to end, nothing consumes it at runtime, and as an extra row in the debug
 session's program list it invites an address mistake that silently overwrites the secure
 slot and the NSC veneers.

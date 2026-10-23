@@ -17,7 +17,7 @@
 # Interrupt tests - NOT YET SUPPORTED
 #-------------------------------------------------------------------------------
 #
-# PLATFORM_FLIH_IRQ_TEST_SUPPORT / PLATFORM_SLIH_IRQ_TEST_SUPPORT are left
+# PLATFORM_FLIH_IRQ_TEST_SUPPORT / PLATFORM_SLIH_IRQ_TEST_SUPPORT are deliberately
 # NOT set. tests_reg/test/config/config.cmake:78-86 auto-enables TEST_NS_FLIH_IRQ /
 # TEST_NS_SLIH_IRQ whenever the corresponding flag is ON and TEST_NS is requested, so
 # turning either on before the platform side exists would break every TEST_NS build.

@@ -31,7 +31,7 @@ set(TFM_SYSTEM_FP           ON)
 set(CONFIG_TFM_FP_ARCH      "fpv5-d16")
 set(CONFIG_TFM_FP_ARCH_ASM  "FPv5_D16")
 
-# Helium (MVE) and PACBTI are left at their defaults for bring-up.
+# Helium (MVE) and PACBTI are deliberately left at their defaults for bring-up.
 # Both are M85 features FSP's BSP can enable, and both change the ABI, so they are
 # a second step once the port boots - not part of the first bring-up, where the aim
 # is to differ from the validated RA6M5 configuration as little as possible.
