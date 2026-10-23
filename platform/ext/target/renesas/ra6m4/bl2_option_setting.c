@@ -11,7 +11,7 @@
  * C-runtime init tables and MCUboot parameters (MCUBOOT_IMAGE_NUMBER, OSPI/
  * nocache copy-table symbols) that conflict with TF-M's BL2 startup/linker/
  * MCUboot config. So we cannot compile bsp_linker.c wholesale here. Instead we
- * emit ONLY the OFS sections, and - crucially - the VALUES come straight from
+ * emit ONLY the OFS sections, and the VALUES come straight from
  * the RASC config (BSP_CFG_OPTION_SETTING_* in ra_cfg .../bsp_mcu_ofs_cfg.h,
  * reached via bsp_api.h). A user who reconfigures clocks/OFS/watchdog in RASC
  * and regenerates flows through here unchanged - no hand-authored OFS values.

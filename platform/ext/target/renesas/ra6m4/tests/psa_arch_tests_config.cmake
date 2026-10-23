@@ -18,5 +18,5 @@ set(PSA_API_TEST_TARGET              renesas_ra   CACHE STRING  "PSA_API_TARGET 
 # tgt_ff_tfm_${PSA_API_TEST_TARGET} (tests_psa_arch/CMakeLists.txt:59-63) and only
 # tgt_dev_apis_tfm_renesas_ra exists. An FF target additionally needs a secure-side
 # pal_driver_intf.c backed by a real secure UART and watchdog, neither of which the RA
-# secure project instantiates. That suite is the only one that provokes deliberate
+# secure project instantiates. That suite is the only one that provokes intentional
 # cross-partition boundary violations, so it is the main gap in isolation coverage.

@@ -329,7 +329,7 @@ endif()
 #-------------------------------------------------------------------------------
 # OFS brick guard (post-link)
 #
-# This is the part that was actually destroyed. On 2026-07-21 two EK-RA6M4 boards were
+# This is the part that was destroyed. On 2026-07-21 two EK-RA6M4 boards were
 # permanently bricked by a bl2 image whose thirteen option-setting words had been coalesced
 # by ld into ONE PT_LOAD spanning 0x0100A100-0x0100A284, with the 368 bytes between them
 # zero-filled. A debugger flashes by program header, so it wrote 0x00000000 over the FCU
@@ -380,7 +380,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     # THE FLAT .bin IS THE SECOND WAY TO BRICK THE PART, AND THE GUARD ABOVE CANNOT SEE IT.
     #
     # The ELF can be entirely CORRECT - discrete per-word OFS PT_LOADs, the check above PASSing
-    # - and `objcopy -O binary` still yields a lethal image. objcopy flattens from the lowest
+    # - and `objcopy -O binary` still yields an image that bricks the part. objcopy flattens
     # load address to the highest and ZERO-FILLS everything between, so a bl2 whose last option
     # word sits at 0x0100A280 produces a ~16 MB .bin spanning 0x00000000-0x0100A284 over a few
     # tens of KB of real content.
@@ -424,7 +424,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         # window both print as CLEAN - the false negative that read as verification on RA8M2
         # until 2026-09-24.
         #
-        # --check-flat-bin: verifies the stripped binary above is what actually landed on
+        # --check-flat-bin: verifies the stripped binary above is what landed on
         # disk. It checks the FILE, so the guard has to be sequenced after the strip.
         ra6m4_strip_ofs_from_bin(bl2)
         ra6m4_add_ofs_check(bl2 --require-segments --check-flat-bin)

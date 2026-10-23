@@ -33,7 +33,7 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
  *            {aka 'volatile int'} was expected
  * The default FIH profile is OFF, which is why this compiled until the first
  * profile_large build. Upstream platforms (an521) never compile this file into BL2 at
- * all; here it cannot simply be dropped, because __STACK_SEAL would go with it.
+ * all; here it cannot be dropped, because __STACK_SEAL would go with it.
  *
  * The discriminator is RA6M4_BUILDING_BL2, set by CMakeLists.txt on platform_bl2 alone -
  * NOT the plain BL2 macro, which is defined for every image in the build whenever BL2 is
@@ -91,7 +91,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      *   - UART backend: Driver_USART is never opened, so output goes nowhere.
      *
      * Diagnosed on RA6E1 2026-08-29; fixed here at the same time as the two ports share
-     * the defect. Deliberately after SystemCoreClockUpdate(): the UART backend derives its
+     * the defect. After SystemCoreClockUpdate() by design: the UART backend derives its
      * baud divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
      */
     stdio_init();

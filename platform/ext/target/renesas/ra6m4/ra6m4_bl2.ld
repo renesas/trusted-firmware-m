@@ -188,7 +188,7 @@ SECTIONS
      * C-runtime init neither copies nor zeroes it. Because the zero table only
      * covers ADDR(.bss)..SIZEOF(.bss), this region is never cleared.
      *
-     * NOTE: for SystemCoreClock et al. to actually carry the .ram_noinit
+     * NOTE: for SystemCoreClock et al. to carry the .ram_noinit
      * attribute, the RASC config must have BSP_CFG_EARLY_INIT = 1. With
      * BSP_CFG_EARLY_INIT = 0 they have no section attribute and still land in
      * .bss - the platform code additionally calls SystemCoreClockUpdate()
