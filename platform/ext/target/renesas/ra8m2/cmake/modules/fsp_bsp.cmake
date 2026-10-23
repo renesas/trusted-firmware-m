@@ -73,7 +73,7 @@ endif()
 # pulls "rm_mcuboot_port.h", which pulls "bootutil/image.h". Those headers must be
 # resolvable to parse the generated files.
 #
-# They are PRIVATE, deliberately. FSP ships its own ra/arm/mbedtls/include/psa/crypto.h;
+# They are PRIVATE, by design. FSP ships its own ra/arm/mbedtls/include/psa/crypto.h;
 # exporting it would shadow TF-M's psa/crypto.h for sce_trng.c, attest_hal.c and the rest
 # of the secure image. Confining the FSP sources to this library is what makes that safe -
 # it is the main reason this is a library and not target_sources(platform_s ...).

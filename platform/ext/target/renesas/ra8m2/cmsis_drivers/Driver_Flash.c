@@ -17,7 +17,7 @@
  * DATA FLASH (flash_layout.h), so FLASH1 is a second view of the same MRAM array, bounded to
  * the DF_EMULATION partition. Their address ranges therefore OVERLAP by design: FLASH0's
  * range spans the whole device, DF_EMULATION included. Nothing arbitrates that - BL2 only
- * ever hands FLASH0 offsets inside a slot, and DF_EMULATION is deliberately outside every
+ * ever hands FLASH0 offsets inside a slot, and DF_EMULATION is outside every
  * slot (asserted in ra8m2_layout_checks.c), so the two never write the same bytes.
  *
  * ============================ THE OFFSET / ADDRESS TRAP ============================
@@ -430,7 +430,7 @@ static int32_t ARM_Flash_EraseChip(void)
 {
     /* Erases the WHOLE device, DF_EMULATION and BL2 included. Present because
      * DriverCapabilities advertises erase_chip and nothing in this port calls it; if
-     * something ever does, note that it destroys ITS, PS and the NV counters too. */
+     * something ever does, it destroys ITS, PS and the NV counters too. */
     for (uint32_t off = 0U; off < FLASH_TOTAL_SIZE; off += FLASH_AREA_IMAGE_SECTOR_SIZE) {
         if (ARM_Flash_EraseSector(off) != ARM_DRIVER_OK) {
             return ARM_DRIVER_ERROR;
@@ -472,7 +472,7 @@ static int32_t ARM_DataFlash_Initialize(ARM_Flash_SignalEvent_t cb_event)
 
 static int32_t ARM_DataFlash_Uninitialize(void)
 {
-    /* Deliberately does NOT close: FLASH0 may still be using the controller, and on this
+    /* Does NOT close, by design: FLASH0 may still be using the controller, and on this
      * part they are the same device rather than two peripherals. */
     return ARM_DRIVER_OK;
 }

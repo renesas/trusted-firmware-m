@@ -11,7 +11,7 @@
 #include "tfm_plat_defs.h"
 #include "cmsis.h"
 #include "bsp_api.h"
-/* Deliberately NOT hal_data.h: nothing here uses it, and once the Crypto stack is in the
+/* NOT hal_data.h, by design: nothing here uses it, and once the Crypto stack is in the
  * e2 project the generated ra_gen/common_data.h it pulls in includes FSP's own
  * psa/crypto.h, which would shadow TF-M's for everything in platform_s. */
 
@@ -34,7 +34,7 @@ const struct memory_region_limits memory_regions = {
 };
 
 /*
- * Deliberately EMPTY - FSP programs the SAU, not TF-M.
+ * EMPTY by design - FSP programs the SAU, not TF-M.
  *
  * The earlier comment here claimed "SAU configuration is handled by TF-M's common ARMv8-M
  * isolation framework". That is not what happens. TF-M's common code calls this hook and
@@ -259,7 +259,7 @@ enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
     /* Nothing to do. RA has no MPC/PPC fault IRQ for the SPM to own, and a
      * partition-owned IRQ must NOT be enabled here: FF-M 1.1 interrupts are
-     * deliberately left disabled by load_irqs_assuredly() so the partition can
+     * left disabled by load_irqs_assuredly() so the partition can
      * enable its own with psa_irq_enable(). */
     return TFM_PLAT_ERR_SUCCESS;
 }

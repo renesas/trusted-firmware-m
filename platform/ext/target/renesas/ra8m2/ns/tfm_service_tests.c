@@ -18,7 +18,7 @@
  * the RTT channel is the only evidence, so it has to name the call that did not come back
  * rather than the last one that did.
  *
- * Output goes to RTT channel 0 via SEGGER_RTT_WriteString. Deliberately not printf: the NS
+ * Output goes to RTT channel 0 via SEGGER_RTT_WriteString. Not printf: the NS
  * image is built with nano.specs and its heap is whatever the FSP project configured, and
  * a smoke test that needs a working heap to report a broken heap is no use. The formatting
  * here is a hand-rolled hex conversion for the same reason - no varargs, no reentrancy,
@@ -410,7 +410,7 @@ static void test_ps(void)
 /*
  * 12: attestation, asked only for the token SIZE.
  *
- * Deliberately not a full token: fetching one needs a
+ * Not a full token: fetching one needs a
  * PSA_INITIAL_ATTEST_MAX_TOKEN_SIZE buffer on the NS stack and pulls in COSE signing over
  * the attestation key. The size query still proves the partition is alive, that its HAL
  * answers (this port supplies attest_hal.c), and that the boundary carries an

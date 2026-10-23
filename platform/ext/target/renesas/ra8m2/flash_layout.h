@@ -237,7 +237,7 @@
  *
  * FSP computes its own as RM_MCUBOOT_LARGEST_SECTOR / FLASH_AREA_IMAGE_SECTOR_SIZE,
  * over FSP's partition view. TF-M has its own flash map, so this one is derived from
- * TF-M's areas - the sector SIZE is shared, the sector COUNT deliberately is not. */
+ * TF-M's areas - the sector SIZE is shared, the sector COUNT is not. */
 #define MCUBOOT_MAX_IMG_SECTORS         ((FLASH_MAX_PARTITION_SIZE + \
                                           FLASH_AREA_IMAGE_SECTOR_SIZE - 1) / \
                                          FLASH_AREA_IMAGE_SECTOR_SIZE)
@@ -258,9 +258,9 @@
  * ra8m2_layout_checks.c asserts DF_EMULATION is a whole number of 0x8000 MRAM sectors,
  * so this size cannot drift from the solution without failing the build.
  *
- * DF_EMULATION is deliberately OUTSIDE every MCUboot area. An update overwrites a whole
+ * DF_EMULATION is OUTSIDE every MCUboot area, by design. An update overwrites a whole
  * slot, so storage placed inside one would be destroyed by the first image upgrade -
- * which is also why it cannot simply be carved out of the slack in a slot.
+ * which is also why it cannot be carved out of the slack in a slot.
  *
  * The split follows RA6M5's proportions: NV counters 2048 B, then PS and ITS take half the
  * remainder each. At DF_EMULATION 0x10000 that is PS and ITS 31,744 B apiece, about 10x what
@@ -369,7 +369,7 @@
 
 /* DF_EMULATION must hold NV counters + PS + ITS with room for wear levelling. If this
  * fires, give DF_EMULATION more space in the solution rather than shrinking the
- * services here - and note that on a 1 MB device the space has to come from a slot, so
+ * services here - and on a 1 MB device the space has to come from a slot, so
  * check the image sizes still fit (RA8M2_SOLUTION.md has the measured figures). */
 #if (BSP_PARTITION_DF_EMULATION_SIZE) < 0x1000
 #error "RA8M2: DF_EMULATION is too small for NV counters + PS + ITS"
@@ -383,7 +383,7 @@
 
 /* Flash device IDs used by the CMSIS flash driver shim.
  *
- * Deliberately NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1. Those are per-flash-area driver
+ * NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1, by design. Those are per-flash-area driver
  * overrides for a target whose images live on different devices; all four of our areas
  * are in MRAM, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
  * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips

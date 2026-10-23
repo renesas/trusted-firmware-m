@@ -22,7 +22,7 @@
  * Main stack
  *
  * bsp_init_stub.c aliases FSP's g_main_stack onto Image$$ARM_LIB_STACK$$ZI$$Base, so
- * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is really running on.
+ * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is running on.
  * The other thing it does with that symbol is write its stack seal at
  * &g_main_stack[BSP_CFG_STACK_MAIN_BYTES]. The generated scatter file sizes .msp_stack
  * as S_MSP_STACK_SIZE - STACKSEAL_SIZE and reserves STACKSEAL_SIZE above it, so the two
@@ -74,9 +74,9 @@ _Static_assert(S_MSP_STACK_SIZE == (BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE),
  * Vector table size
  *
  * startup_ra8m2.c sizes __VECTOR_TABLE from its own RA8M2_VECTOR_TABLE_ENTRIES literal
- * (112) and deliberately includes only CMSIS headers, so it cannot check itself against
+ * (112) and includes only CMSIS headers by design, so it cannot check itself against
  * the generated BSP config. This file can - it already has bsp_api.h - and the invariant
- * that actually matters is that the table fits its linker region, not the literal itself.
+ * that matters is that the table fits its linker region, not the literal itself.
  *
  * It was 496 once (RA6M4's table, 0x7C0) and overflowed .TFM_VECTORS into
  * .ER_UNPRIV_CODE. A device change that grows the ICU is the way this recurs.

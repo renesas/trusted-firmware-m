@@ -105,7 +105,7 @@ set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the
 # so the two parts' images are not interchangeable even setting the addresses aside.
 set(MCUBOOT_ALIGN_VAL                   32          CACHE STRING    "RA8M2 MRAM programming size")
 set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
-# MEASURED BOOT. Both ON - DATA_SHARING is the one that actually matters, because without it
+# MEASURED BOOT. Both ON - DATA_SHARING is the one that matters, because without it
 # BL2 writes no boot record at all and MEASURED_BOOT has nothing to carry.
 #
 # These were OFF until 2026-10-02, described as "disabled in the solution", and the PSA Arch
@@ -176,7 +176,7 @@ set(TFM_MBEDCRYPTO_PLATFORM_EXTRA_CONFIG_PATH
 # Fault diagnosis. Both default OFF upstream; both are on here because a fault on this
 # port is otherwise undiagnosable - every panic and every fault funnels into the same
 # tfm_hal_system_halt() spin with no detail, which is what made a HardFault look like a
-# deliberate SPM panic during bring-up and cost a long detour into the ITS filesystem.
+# SPM panic during bring-up and cost a long detour into the ITS filesystem.
 #
 # Set HERE rather than left in a build directory's cache: a cache value survives rebuilds
 # but not a clean reconfigure, so the next person to configure would silently get a

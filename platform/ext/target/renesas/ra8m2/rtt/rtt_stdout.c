@@ -86,7 +86,7 @@ int _write(int fd, char *str, int len)
  *     printf -> _Prout -> fputc -> fflushOne -> __write_buffered -> __dwrite -> __iar_sh_stdout
  *
  * ending in SEMIHOSTING - silent with no debugger attached, and a halt on the semihosting
- * breakpoint with one. __dwrite() is the hook that path actually calls; it is declared in
+ * breakpoint with one. __dwrite() is the hook that path calls; it is declared in
  * <LowLevelIOInterface.h> with __write's signature, and defining it here keeps the library's
  * dwrite.o and iarwstd.o out of the link entirely.
  *

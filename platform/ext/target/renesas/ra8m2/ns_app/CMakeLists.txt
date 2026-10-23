@@ -116,7 +116,7 @@ endif()
 # Upstream, tfm_ns_signed_bin is NOT an ALL target - only tfm_s_ns_signed_bin is, and the
 # NS image gets signed purely as a side effect of the combined image depending on it.
 # Excluding the combined target therefore silently stops producing tfm_ns_signed.bin, which
-# is the one file BL2 actually verifies. Put the signing target into ALL on its own.
+# is the one file BL2 verifies. Put the signing target into ALL on its own.
 #
 # add_dependencies() on the TARGET, not DEPENDS on the output file: the custom command that
 # writes tfm_ns_signed.bin is declared in the SPE subdirectory (${CMAKE_BINARY_DIR}/spe),
@@ -157,14 +157,14 @@ if(NOT _ns_dir_real STREQUAL _spe_dir_real)
     message(FATAL_ERROR
         "RA8M2: FSP_NS_APP_DIR (${_ns_dir_real}) is not the project the SPE was built "
         "against (${_spe_dir_real}). The layout comes from the solution, so these must be "
-        "the same project. Override deliberately by setting RA8M2_SPE_FSP_NS_APP_DIR too.")
+        "the same project. Override it by setting RA8M2_SPE_FSP_NS_APP_DIR too.")
 endif()
 
 # The APPLICATION only.
 #
 # The FSP BSP - startup, vectors, clocks, drivers, and every module the e2 project enables -
 # lives in platform_ns, installed with the SPE. See <api_ns>/platform/CMakeLists.txt for why
-# and for what it deliberately excludes. Adding an FSP module in e2 needs no edit here.
+# and for what it excludes. Adding an FSP module in e2 needs no edit here.
 #
 #   ra_gen/main.c     FSP's generated entry point: main() { hal_entry(); }. Compiled here
 #                     rather than in platform_ns because a stock NSPE application brings its
@@ -182,7 +182,7 @@ add_executable(tfm_ns
 # objects are pulled in only to resolve an undefined symbol, and libc is what references
 # _write - reached after the linker has finished with platform_ns, so nosys.specs' stubs
 # would be used instead and warn, which -Wl,-fatal-warnings turns into a failure. Compiled
-# here the symbols are simply present, and platform_ns' copy then goes unextracted rather
+# here the symbols are present, and platform_ns' copy then goes unextracted rather
 # than colliding.
 target_sources(tfm_ns PRIVATE ${CONFIG_SPE_PATH}/platform/ns/syscalls_ns.c)
 

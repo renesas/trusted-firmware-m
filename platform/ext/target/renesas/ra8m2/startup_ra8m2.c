@@ -105,7 +105,7 @@ void TFM_TIMER0_IRQ_Handler(void)           __attribute__((weak, alias("Default_
  * Source of truth is the generated BSP config, ra_cfg/fsp_cfg/bsp/bsp_mcu_family_cfg.h:
  *     BSP_CORTEX_VECTOR_TABLE_ENTRIES  (16U)
  *     BSP_VECTOR_TABLE_MAX_ENTRIES    (112U)
- * Not included directly - this file deliberately keeps to CMSIS headers. The check lives
+ * Not included directly - this file keeps to CMSIS headers by design. The check lives
  * in ra8m2_layout_checks.c instead, which asserts that the device's
  * BSP_VECTOR_TABLE_MAX_ENTRIES still fits S_CODE_VECTOR_TABLE_SIZE.
  *
@@ -143,7 +143,7 @@ extern const VECTOR_TABLE_Type __VECTOR_TABLE[RA8M2_VECTOR_TABLE_ENTRIES];
      * the SPM.
      *
      * 16 + VECTOR_NUMBER_AGT0_INT, which is 16 + 0. Written out rather than included from
-     * the generated vector_data.h because this file deliberately keeps to CMSIS headers;
+     * the generated vector_data.h because this file keeps to CMSIS headers;
      * plat_test.c #errors if the generated number is no longer 0.
      */
     [16 + 0] = TFM_TIMER0_IRQ_Handler,

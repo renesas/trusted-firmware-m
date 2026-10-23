@@ -37,7 +37,7 @@ set(FSP_NS_APP_DIR  "" CACHE PATH "e2 solution non-secure project (ra8m2_nonsecu
 #-------------------------------------------------------------------------------
 
 # The generated layout (bsp_linker_info.h, memory_regions.ld, fsp_gen.ld) is emitted
-# into <project>/Debug/ by the e2 build, and is deliberately NOT committed. So the
+# into <project>/Debug/ by the e2 build, and is NOT committed, by design. So the
 # solution must have been built in e2 at least once. Fail loudly rather than let the
 # user hit a confusing "bsp_linker_info.h: No such file" deep in the compile.
 function(fsp_validate_project dir role)
@@ -227,7 +227,7 @@ set(FSP_COMPILE_DEFS _RA_CORE=CPU0 _RENESAS_RA_)
 list(APPEND FSP_COMPILE_DEFS BSP_TZ_CFG_MSAR=0)
 
 # TrustZone build flavour, PER ROLE. The secure image declares itself secure to FSP; BL2
-# is deliberately FLAT, matching how the e2 solution template defines the bootloader.
+# is FLAT by design, matching how the e2 solution template defines the bootloader.
 #
 # This is not cosmetic - it selects the OFS1_SEL formula. Generated bsp_mcu_ofs_cfg.h:
 #
@@ -296,7 +296,7 @@ set(FSP_MODULE_DIRS_flash  r_mram)      # MRAM, not r_flash_hp - see fsp_flash.c
 set(FSP_MODULE_DIRS_sce    r_sce)
 set(FSP_MODULE_DIRS_agt    r_agt)
 
-# Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
+# Present in the e2 projects but never built: TF-M supplies its own. Their
 # HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
 # them unconditionally.
 #   rm_psa_crypto, ra/arm/mbedtls - FSP's PSA core and its mbedTLS CONFIG, which wires PSA
@@ -553,7 +553,7 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ra8m2_layout_checks.c
     # bsp_init_stub.c is NOT here - it lives in the fsp_bsp module, beside the FSP
     # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
-    # The common ARMv8-M isolation HAL is deliberately NOT here. It is added to tfm_spm
+    # The common ARMv8-M isolation HAL is NOT here, by design. It is added to tfm_spm
     # instead - see the target_sources(tfm_spm) note below for why that placement is
     # load-bearing, and do not move it back. DECISIONS D120.
 
@@ -656,7 +656,7 @@ target_sources(tfm_spm
 # platform/CMakeLists.txt:126 emits it PUBLIC on platform_s, on the line immediately after
 # CONFIG_TFM_ENABLE_MEMORY_PROTECT. It reaches the isolation HAL, the PXN arms of the static
 # table are live, and that is how the four Arm platforms setting TFM_PXN_ENABLE=ON in their
-# config.cmake actually get PXN attributes.
+# config.cmake get PXN attributes.
 #
 # The define was absent from the compile lines inspected here only because TFM_PXN_ENABLE
 # defaults OFF, which collapses the generator expression to nothing. Absent because unset,
@@ -672,7 +672,7 @@ target_sources(tfm_spm
 # commit did TWO things, and an earlier revision of this comment recorded only one of them:
 #   - it REMOVED the architecture test from the generator expression, which had been
 #     $<$<AND:$<BOOL:${TFM_PXN_ENABLE}>,$<STREQUAL:${TFM_SYSTEM_ARCHITECTURE},armv8.1-m.main>>:...>
-#     and is now simply $<$<BOOL:${TFM_PXN_ENABLE}>:TFM_PXN_ENABLE>;
+#     and is now $<$<BOOL:${TFM_PXN_ENABLE}>:TFM_PXN_ENABLE>;
 #   - it ADDED tfm_invalid_config() in check_config.cmake, so the bad pairing now fails the
 #     configure loudly instead of silently dropping the define.
 # So the define has existed since 2021, but its present unconditional form dates from 2023.
@@ -737,7 +737,7 @@ target_add_scatter_file(tfm_s
 
 # Point FSP's g_main_stack at the image's real stack. FSP's SystemInit() sets MSPLIM from
 # &g_main_stack[0] and writes its stack seal at &g_main_stack[BSP_CFG_STACK_MAIN_BYTES],
-# both of which describe the stack the CPU is actually running on - and that stack belongs
+# both of which describe the stack the CPU is running on - and that stack belongs
 # to TF-M, not to FSP. See the long note in bsp_init_stub.c: a private array there put
 # MSPLIM 44 KB above the live SP and hard-faulted the first push inside SystemInit().
 #
@@ -929,18 +929,18 @@ endif()
 # $<TARGET_OBJECTS:<target>_scatter> is the PREPROCESSED script. target_add_scatter_file()
 # in toolchain_GNUARM.cmake compiles the .ld with -E -P -xc into that object library and
 # passes it to the linker as -T, so this is the same text ld saw - macros expanded, and
-# with the #if branches that actually applied. Reading the source .ld instead would give
+# with the #if branches that applied. Reading the source .ld instead would give
 # the wrong answer for bl2, whose script has both a CMSE and a non-CMSE arm.
 #
 # Known-benign orphans are listed per image rather than silenced globally, so a NEW one is
 # still reported. Each entry needs a reason.
 #
 #   tfm_s had .ram_noinit here until 2026-08-30. It is now handled properly, via
-#       S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h -> .TFM_NOINIT. Deliberately NOT
-#       allowlisted any more: if that placement ever regresses, this check should say so.
+#       S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h -> .TFM_NOINIT. No longer
+#       allowlisted, by design: if that placement ever regresses, this check should say so.
 #
 #   bl2 .msp_stack_seal_res - bl2 is a flat build, so __ARM_FEATURE_CMSE != 3 and
-#       ra8m2_bl2.ld deliberately takes the non-CMSE arm, which has no seal section.
+#       ra8m2_bl2.ld takes the non-CMSE arm, which has no seal section.
 #       startup_ra8m2.c still emits the 8-byte __StackSeal, which then orphans away from
 #       the stack top. Inert: FSP writes the seal only when BSP_TZ_SECURE_BUILD, and TF-M's
 #       startup only under CMSE. Both are false here.
@@ -988,10 +988,10 @@ endif()
 # The defence is in ra8m2_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
 # each with its own '> REGION'. That produces one tiny PT_LOAD per word instead of a span.
 # check_ofs.py asserts the outcome on the linked ELF, which is the only place the mistake
-# is actually visible - it does NOT show up in the srec, and a plausible-looking linker
+# is visible - it does NOT show up in the srec, and a plausible-looking linker
 # script can still emit a spanning segment.
 #
-# Deliberately a hard failure, unlike the orphan check above, and deliberately not
+# A hard failure by design, unlike the orphan check above, and not
 # switchable: the failure mode is silent, instant and unrecoverable. Nothing this build
 # produces is worth flashing if it trips.
 #
@@ -1114,7 +1114,7 @@ if(BL2)
     # print as CLEAN - which is exactly how this guard was silently inert on RA8M2 until
     # 2026-09-24.
     #
-    # --check-flat-bin: verifies the stripped binary above is what actually landed on disk.
+    # --check-flat-bin: verifies the stripped binary above is what landed on disk.
     # Checks the FILE, so the guard has to wait for it.
     ra8m2_strip_ofs_from_bin(bl2)
     ra8m2_add_ofs_check(bl2 --require-segments --check-flat-bin)

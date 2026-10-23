@@ -46,7 +46,7 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
  *   system.c:221  *(uint32_t *)&g_main_stack[BSP_CFG_STACK_MAIN_BYTES] = seal
  *   system.c:349  __set_MSPLIM((uint32_t)&g_main_stack[0])
  *
- * both of which describe whatever stack the CPU is actually running on. TF-M owns that
+ * both of which describe whatever stack the CPU is running on. TF-M owns that
  * stack - the linker script places it and the vector table's initial SP points at its
  * limit - so a separate array here is not merely redundant, it is wrong in both
  * directions. It used to be a 0x400 array wherever the linker happened to drop it:
@@ -69,7 +69,7 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
  *
  *     -Wl,--defsym=g_main_stack=Image$$ARM_LIB_STACK$$ZI$$Base
  *
- * and deliberately not here. __attribute__((alias)) needs the target defined in the same
+ * and not here. __attribute__((alias)) needs the target defined in the same
  * translation unit, and an assembler .set against a linker-defined symbol leaves
  * g_main_stack undefined at link time. So there is no definition in this file - the
  * symbol arrives from the link line for both the secure image and BL2.

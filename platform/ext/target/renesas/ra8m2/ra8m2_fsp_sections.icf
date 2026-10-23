@@ -18,7 +18,7 @@
  * matters under one toolchain matters under both.
  *
  * ---------------------------------------------------------------------------------------
- * .ram_from_flash IS DELIBERATELY ABSENT, unlike the RA6E1/RA6M5 version of this file.
+ * .ram_from_flash IS ABSENT BY DESIGN, unlike the RA6E1/RA6M5 version of this file.
  *
  * Those parts place FSP's code-flash program/erase routines in RAM, because the FCU makes the
  * whole code flash unreadable during a P/E and a routine fetching from flash would

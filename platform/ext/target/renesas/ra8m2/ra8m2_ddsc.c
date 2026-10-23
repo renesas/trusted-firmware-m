@@ -42,7 +42,7 @@
  * part in this port with TCM, which is what makes these four load-bearing here.
  *
  * SECURE ROLE ONLY. R_BSP_SecurityInit lives inside #if BSP_TZ_SECURE_BUILD, and BL2 is
- * deliberately built FLAT (CMakeLists.txt, FSP_TZ_DEFS_BL2 is empty), so the bootloader
+ * built FLAT by design (CMakeLists.txt, FSP_TZ_DEFS_BL2 is empty), so the bootloader
  * compiles none of this and must not link this file.
  *
  * ============================== WHAT THE VALUES MEAN ==============================

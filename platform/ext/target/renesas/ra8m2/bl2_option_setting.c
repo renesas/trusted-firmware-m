@@ -11,7 +11,7 @@
  * C-runtime init tables and MCUboot parameters (MCUBOOT_IMAGE_NUMBER, OSPI/
  * nocache copy-table symbols) that conflict with TF-M's BL2 startup/linker/
  * MCUboot config. So we cannot compile bsp_linker.c wholesale here. Instead we
- * emit ONLY the OFS sections, and - crucially - the VALUES come straight from
+ * emit ONLY the OFS sections, and the VALUES come straight from
  * the RASC config (BSP_CFG_OPTION_SETTING_* in ra_cfg .../bsp_mcu_ofs_cfg.h,
  * reached via bsp_api.h). A user who reconfigures clocks/OFS/watchdog in RASC
  * and regenerates flows through here unchanged - no hand-authored OFS values.
@@ -22,7 +22,7 @@
  * mirror FSP's (#ifndef BSP_BOOTLOADED_APPLICATION for the secure/TZ variants).
  *
  * ------------------------------------------------------------------------------------------
- * WHICH PROJECT'S OFS SETTINGS ACTUALLY LAND: THE BOOTLOADER'S. ONLY THE BOOTLOADER'S.
+ * WHICH PROJECT'S OFS SETTINGS LAND: THE BOOTLOADER'S. ONLY THE BOOTLOADER'S.
  *
  * This file is compiled into platform_bl2, so BSP_CFG_OPTION_SETTING_* resolves through the
  * include path of FSP_BL2_APP_DIR - ra8m2_iar_mcuboot. The ADDRESSES likewise come from that
@@ -68,7 +68,7 @@
  * OFS2, OFS3_SEC and OFS3_SEL DID NOT EXIST on RA6E1/RA6M5 and were missing here until
  * 2026-09-24: this file was seeded from RA6M5, so those three settings were configured in e2
  * and then silently dropped from the image - no error anywhere, because the RA6 groups they
- * were replaced by are simply #undef on this part and compiled out. Conversely DUALSEL,
+ * were replaced by are #undef on this part and compiled out. Conversely DUALSEL,
  * BANKSEL and the non-OTP PBPS have been removed; RA8M2 has none of them.
  *
  * ADDING A GROUP TAKES THREE EDITS, and the linker ones are not optional: an emitted section
@@ -117,7 +117,7 @@ BSP_DONT_REMOVE static const uint32_t BSP_PLACE_IN_SECTION(".option_setting_ofs3
  * see the note at the top of this file - and deleting the line here is the fourth, which is
  * the point: you cannot enable one without being told what else to do.
  *
- * NOTE OFS1_SEC_NO_HOCOFRQ is deliberately absent from this list. It is a VARIANT of
+ * NOTE OFS1_SEC_NO_HOCOFRQ is absent from this list by design. It is a VARIANT of
  * BSP_CFG_OPTION_SETTING_OFS1_SEC (the same word with the HOCO frequency field left alone),
  * not a separate option word, and the solution defines both. It is consumed through the
  * OFS1_SEC emission above.

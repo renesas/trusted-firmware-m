@@ -72,7 +72,7 @@ psa_status_t mbedtls_psa_external_get_random(
         size_t chunk = (remaining < SCE_TRNG_BLOCK_BYTES) ? remaining : SCE_TRNG_BLOCK_BYTES;
 
         if (FSP_SUCCESS != HW_SCE_RNG_Read(block)) {
-            /* Report what we actually produced; do not hand back a partly-filled buffer
+            /* Report what was produced; do not hand back a partly-filled buffer
              * as if it were good. */
             (void)memset(output, 0, output_size);
             (void)memset(block, 0, sizeof(block));

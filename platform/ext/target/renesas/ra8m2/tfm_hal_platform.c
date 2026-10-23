@@ -34,7 +34,7 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
  *            {aka 'volatile int'} was expected
  * The default FIH profile is OFF, which is why this compiled until the first
  * profile_large build. Upstream platforms (an521) never compile this file into BL2 at
- * all; here it cannot simply be dropped, because __STACK_SEAL would go with it and
+ * all; here it cannot be dropped, because __STACK_SEAL would go with it and
  * ra8m2_bl2.ld resolves FSP's __StackSeal from the section it anchors.
  *
  * The discriminator is RA8M2_BUILDING_BL2, set by CMakeLists.txt on platform_bl2 alone -
@@ -111,14 +111,14 @@ static void ra_ram_code_init(void)
  *      over from RA6M5 and the count had never been checked against this silicon.
  *      MEASURED: MPU->TYPE reads 8. The number was right, the core name was not; both have
  *      been corrected in config.cmake.
- *   2. How many regions TF-M actually programmed. On an M85 TFM_PXN_ENABLE is permitted -
+ *   2. How many regions TF-M programmed. On an M85 TFM_PXN_ENABLE is permitted -
  *      check_config.cmake:91 allows it only for armv8.1-m.main - and with it the combined
  *      unprivileged/ARoT code region splits in two, giving six static entries rather than
  *      five. PXN defaults OFF, so the shipping configuration should still report five.
  *      MEASURED: five static at both isolation 2 and 3, so the combined-code branch is
  *      taken here exactly as on the M33 - because PXN is OFF, not because PXN is broken.
  *      platform/CMakeLists.txt:126 does emit TFM_PXN_ENABLE PUBLIC on platform_s, so setting
- *      it ON for this part would really split that region and report six static entries.
+ *      it ON for this part would split that region and report six static entries.
  *      D115 corrects D114, which claimed the macro never reaches the HAL.
  *      At isolation 2 a sixth appears when the FLIH service binds AGT0 (0x40221000); at
  *      isolation 3 MMIO is reprogrammed per context switch, so the post-partition hook
@@ -162,7 +162,7 @@ static void ra_mpu_report(void)
 /*
  * Per-region dump. Separate from the summary above because it is only worth printing at the
  * second call site - after the SPM has bound every partition - where the question is not how
- * many regions exist but which ranges they actually cover.
+ * many regions exist but which ranges they cover.
  *
  * RBAR[31:5] is the base and RLAR[31:5] the limit, both with the low 5 bits used for
  * attributes, so each is masked before printing. The limit is inclusive and reads back with
@@ -227,7 +227,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * value. Idempotent.
      *
      * NOTE: this is the SECURE path only - tfm_hal_platform_init() is an SPM hook and
-     * BL2 never calls it. BL2 runs TF-M's startup too and is the image that actually
+     * BL2 never calls it. BL2 runs TF-M's startup too and is the image that
      * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
      */
 #if defined(__ICCARM__)
@@ -267,7 +267,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      *     because bl2_main.c calls stdio_init() itself.
      *   - UART backend: Driver_USART is never opened, so output goes nowhere.
      *
-     * Deliberately after SystemCoreClockUpdate(): the UART backend derives its baud
+     * After SystemCoreClockUpdate() by design: the UART backend derives its baud
      * divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
      */
     stdio_init();

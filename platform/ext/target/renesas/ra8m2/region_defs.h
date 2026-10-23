@@ -94,7 +94,7 @@
  *   - tfm_hal_platform.c    - no ra_ram_code_init() helper and no call
  * They were briefly left in place as inert no-ops; that is worse than removing them, because
  * __section_begin() on a section nothing creates is a link-time question rather than a
- * no-op, and a reader cannot tell a deliberate stub from an oversight. The restore recipe is
+ * no-op, and a reader cannot tell an intentional stub from an oversight. The recipe is
  * at the top of ra8m2_fsp_sections.icf.
  *
  * SYMPTOM IF THIS IS WRONG: a hang, not a fault, on the first Protected Storage or ITS

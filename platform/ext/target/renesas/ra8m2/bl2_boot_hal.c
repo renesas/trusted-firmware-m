@@ -39,7 +39,7 @@
  *
  * FSP does this in R_BSP_SAUInit(), reached from SystemInit() via R_BSP_SecurityInit() - but
  * that call sits inside #if BSP_TZ_SECURE_BUILD, and BL2 is built as the flat FSP role
- * (fsp_bsp.cmake), deliberately, so BL2 gets neither. Confirm with
+ * (fsp_bsp.cmake) by design, so BL2 gets neither. Confirm with
  * `arm-none-eabi-nm bl2.elf | grep SAUInit`: absent in BL2, present in tfm_s.
  *
  * RA6M5 needs none of this. __SAUREGION_PRESENT is 0 there - an SAU with no regions, not

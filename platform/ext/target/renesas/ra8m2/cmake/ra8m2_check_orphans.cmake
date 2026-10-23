@@ -38,7 +38,7 @@
 # ------------------------------
 # ld has that flag, and it is the same idea, but it reports every non-allocatable orphan
 # too - .debug_*, .comment and .ARM.attributes from every object. On tfm_s that is hundreds
-# of lines, and TF-M links with -Wl,-fatal-warnings, so it cannot simply be switched on.
+# of lines, and TF-M links with -Wl,-fatal-warnings, so it cannot be switched on as is.
 #
 # How it decides
 # --------------

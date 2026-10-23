@@ -15,7 +15,7 @@
  * so those are absent here rather than stubbed.
  *
  * --------------------------------------------------------------------------------------
- * THIS USES THE FSP DRIVER, DELIBERATELY.
+ * THIS USES THE FSP DRIVER, BY DESIGN.
  *
  * An earlier revision drove the AGT registers directly, on the reasoning that R_AGT_Open()
  * installs a callback that can never fire (TF-M owns the vector) and that tracking the
@@ -122,7 +122,7 @@ _Static_assert((int)TFM_TIMER0_IRQ == (int)VECTOR_NUMBER_AGT0_INT,
  * Called from the partition thread - UNPRIVILEGED from isolation 2. AGT0 registers only.
  *
  * The timer was opened and configured (16-bit, periodic, PCLKB) by tfm_timer0_irq_init().
- * If that did not happen the counter simply never starts and the test times out, which is
+ * If that did not happen the counter never starts and the test times out, which is
  * diagnosable; starting an unconfigured timer would not be.
  *
  * No ICU/NVIC clear here - it needs privilege, and TFM_TIMER0_IRQ_Handler() does it on
@@ -136,7 +136,7 @@ void tfm_plat_test_secure_timer_start(void)
      * waits on it in R_AGT_Start() and so must we, or a stop() immediately following a
      * start() can be lost. */
     while (0U == R_AGT0->AGT16.CTRL.AGTCR_b.TCSTF) {
-        /* wait for the counter to actually be running */
+        /* wait for the counter to be running */
     }
 }
 
@@ -176,6 +176,6 @@ void tfm_plat_test_secure_timer_stop(void)
     R_AGT0->AGT16.CTRL.AGTCR = PLAT_TEST_AGTCR_STOP;
 
     while (0U != R_AGT0->AGT16.CTRL.AGTCR_b.TCSTF) {
-        /* wait for the counter to actually be stopped */
+        /* wait for the counter to be stopped */
     }
 }
