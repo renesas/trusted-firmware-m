@@ -3,7 +3,7 @@
 From a fresh clone to a running secure boot chain on a CK-RA6M5 V2, and the four changes
 people most often need afterwards.
 
-Companion repository: **`fsp_cmake`**, cloned beside this one. It holds the generated e2 studio
+Companion repository: `fsp_cmake`, cloned beside this one. It holds the generated e2 studio
 projects, the debug launches, the build scripts and the design and decision documents this
 guide links to.
 
@@ -30,7 +30,7 @@ when that matters).
 
 **Program the TrustZone boundaries once per board** with the Renesas Device Partition Manager,
 before the first flash. The values are in `fsp_cmake/RA6M5_SOLUTION.md`; RDPM erases the part,
-so do it first. Every launch configuration must keep `setTZBoundaries` **false** so nothing
+so do it first. Every launch configuration must keep `setTZBoundaries` `false` so nothing
 else writes them.
 
 ---
@@ -66,7 +66,7 @@ cmake --build build_ra6m5_sce9_ns
 `fsp_cmake/scripts/app_build_iar.bat` runs both steps. It exists because IAR needs things GCC
 does not: `iccarm` on `PATH` (TF-M's toolchain file names it without a path) and
 `-DCMAKE_ASM_COMPILER_ARCHITECTURE_ID=ARM`, which CMake 4.1 cannot detect and which fails on
-the *second* configure pass, after the first has succeeded.
+the second configure pass, after the first has succeeded.
 
 ```bat
 fsp_cmake\scripts\app_build_iar.bat
@@ -108,14 +108,14 @@ peripherals, clocks, pins or partitioning:
 2. Open the solution — `fsp_cmake/ra6m5_gcc/solution.xml` — which owns the memory partitioning
    for all three projects.
 3. Edit the project you need (`ra6m5_gcc_secure`, `ra6m5_gcc_mcuboot`, `ra6m5_gcc_nonsecure`),
-   **Generate Project Content**, and build once in e2 so the generated headers exist.
+   Generate Project Content, and build once in e2 so the generated headers exist.
 4. Point the TF-M build at it with `-DFSP_S_APP_DIR` / `-DFSP_BL2_APP_DIR` / `-DFSP_NS_APP_DIR`,
    as in step 2. Any directory works; they need not live in `fsp_cmake`.
 
 What a solution must emit for TF-M to build against it — partition names, sizes, the settings
-that are load-bearing — is in **`fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md`**, with the RA6M5
-specifics and the RDPM values in **`fsp_cmake/RA6M5_SOLUTION.md`**. Recreating a project from
-scratch: **`fsp_cmake/RASC_PROJECT_SETUP.md`**.
+that are load-bearing — is in `fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md`, with the RA6M5
+specifics and the RDPM values in `fsp_cmake/RA6M5_SOLUTION.md`. Recreating a project from
+scratch: `fsp_cmake/RASC_PROJECT_SETUP.md`.
 
 Several settings are load-bearing and guarded at build time rather than left to fail on the
 board — `BSP_CFG_EARLY_INIT` must be 1, the main stack must match `S_MSP_STACK_SIZE`, the flash
@@ -137,7 +137,7 @@ builds are profile_large / isolation 3 / IPC. Both are just CMake options:
 | `TFM_SPM_DEBUG_TRACE` | `ON` | `OFF` (required at L3 + IPC) |
 | `CMAKE_BUILD_TYPE` | `Debug` | `MinSizeRel` for the NS side |
 
-Change them on a **clean build directory** — most are cached and several others derive from
+Change them on a clean build directory — most are cached and several others derive from
 them. `fsp_cmake/scripts/README.md` tabulates both configurations; the options themselves are
 documented in TF-M's `docs/configuration/`, and the platform's own defaults and their reasons
 are in [config.cmake](config.cmake), which is commented throughout.
@@ -174,10 +174,10 @@ than one shared target.
 The contract a module file works inside — the variables it is handed, why targets carry a role
 suffix — is documented at the top of
 [cmake/modules/fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake). Background and a
-worked example: **`fsp_cmake/ADDING_FSP_MODULES.md`**, "Adding New FSP Modules" (written
+worked example: `fsp_cmake/ADDING_FSP_MODULES.md`, "Adding New FSP Modules" (written
 for the earlier RA6M4 port, so the surrounding CMake differs from the current per-role pattern).
 
-Three modules are deliberately **never** built from the e2 projects — `r_sce`, `rm_psa_crypto`
+Three modules are never built from the e2 projects — `r_sce`, `rm_psa_crypto`
 and `rm_mcuboot_port` — because FSP's own crypto and flash-map configuration collides with
 TF-M's. `FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) enforces that, and
 `fsp_cmake/DESIGN.md` §4–6 explains why. The SCE9 accelerator reaches FSP's `*_ALT` sources by

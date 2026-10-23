@@ -3,7 +3,7 @@
 From a fresh clone to a running secure boot chain on a CK-RA8M2 V2, and the four changes
 people most often need afterwards.
 
-Companion repository: **`fsp_cmake`**, cloned beside this one. It holds the generated e2 studio
+Companion repository: `fsp_cmake`, cloned beside this one. It holds the generated e2 studio
 projects, the debug launches, the build scripts and the design and decision documents this
 guide links to.
 
@@ -30,7 +30,7 @@ when that matters).
 
 **Program the TrustZone boundaries once per board** with the Renesas Device Partition Manager,
 before the first flash. The values are in `fsp_cmake/RA8M2_SOLUTION.md`; RDPM erases the part,
-so do it first. Every launch configuration must keep `setTZBoundaries` **false** so nothing
+so do it first. Every launch configuration must keep `setTZBoundaries` `false` so nothing
 else writes them.
 
 ---
@@ -51,7 +51,7 @@ To add one: generate a `ra8m2_gcc_*` solution in e2 with the toolchain set to
 constrained - see [flash_layout.h](flash_layout.h) and DECISIONS D054), then copy the IAR
 recipe below substituting `toolchain_GNUARM.cmake` and the new project paths.
 
-Pointing a GNUARM TF-M build at the **IAR** projects mostly works - `ra_gen/` and `ra_cfg/` are
+Pointing a GNUARM TF-M build at the IAR projects mostly works - `ra_gen/` and `ra_cfg/` are
 toolchain-neutral and TF-M supplies its own linker script - but it is not the intended pairing,
 and a failure there is as likely to be the mismatch as a real defect.
 
@@ -60,7 +60,7 @@ and a failure there is as likely to be the mismatch as a real defect.
 `fsp_cmake/scripts/app_build_ra8m2_iar.bat` runs both steps - note the part in the name; `app_build_iar.bat` is RA6M5's. It exists because IAR needs things GCC
 does not: `iccarm` on `PATH` (TF-M's toolchain file names it without a path) and
 `-DCMAKE_ASM_COMPILER_ARCHITECTURE_ID=ARM`, which CMake 4.1 cannot detect and which fails on
-the *second* configure pass, after the first has succeeded.
+the second configure pass, after the first has succeeded.
 
 ```bat
 fsp_cmake\scripts\app_build_ra8m2_iar.bat
@@ -103,14 +103,14 @@ peripherals, clocks, pins or partitioning:
    for all three projects.
 3. Edit the project you need (`ra8m2_iar_CPU0_secure`, `ra8m2_iar_mcuboot`,
    `ra8m2_iar_CPU0_nonsecure`),
-   **Generate Project Content**, and build once in e2 so the generated headers exist.
+   Generate Project Content, and build once in e2 so the generated headers exist.
 4. Point the TF-M build at it with `-DFSP_S_APP_DIR` / `-DFSP_BL2_APP_DIR` / `-DFSP_NS_APP_DIR`,
    as in step 2. Any directory works; they need not live in `fsp_cmake`.
 
 What a solution must emit for TF-M to build against it — partition names, sizes, the settings
-that are load-bearing — is in **`fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md`**, with the RA8M2
-specifics and the RDPM values in **`fsp_cmake/RA8M2_SOLUTION.md`**. Recreating a project from
-scratch: **`fsp_cmake/RASC_PROJECT_SETUP.md`**.
+that are load-bearing — is in `fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md`, with the RA8M2
+specifics and the RDPM values in `fsp_cmake/RA8M2_SOLUTION.md`. Recreating a project from
+scratch: `fsp_cmake/RASC_PROJECT_SETUP.md`.
 
 Several settings are load-bearing and guarded at build time rather than left to fail on the
 board — `BSP_CFG_EARLY_INIT` must be 1, the main stack must match `S_MSP_STACK_SIZE`, the flash
@@ -132,7 +132,7 @@ builds are profile_large / isolation 3 / IPC. Both are just CMake options:
 | `TFM_SPM_DEBUG_TRACE` | `ON` | `OFF` (required at L3 + IPC) |
 | `CMAKE_BUILD_TYPE` | `Debug` | `MinSizeRel` for the NS side |
 
-Change them on a **clean build directory** — most are cached and several others derive from
+Change them on a clean build directory — most are cached and several others derive from
 them. `fsp_cmake/scripts/README.md` tabulates both configurations; the options themselves are
 documented in TF-M's `docs/configuration/`, and the platform's own defaults and their reasons
 are in [config.cmake](config.cmake), which is commented throughout.
@@ -148,22 +148,22 @@ Platform-specific options worth knowing:
 
 ### Secure storage sizing — there is much more room here than on RA6M5
 
-RA8M2 has **no data flash**. ITS, PS and the MCUboot NV counters live in `DF_EMULATION`, a
-reserved region of secure MRAM declared in the e2 solution. It is **64 KB**, against the 8 KB
+RA8M2 has no data flash. ITS, PS and the MCUboot NV counters live in `DF_EMULATION`, a
+reserved region of secure MRAM declared in the e2 solution. It is 64 KB, against the 8 KB
 of secure data flash RA6E1 and RA6M5 share, which makes the per-partition budgets about 10x
 larger:
 
 | | RA6M5 (8 KB data flash) | RA8M2 (64 KB DF_EMULATION) |
 |---|---|---|
 | MCUboot NV counters | 2,048 B | 2,048 B |
-| Protected Storage | 3,072 B | **31,744 B** |
-| Internal Trusted Storage | 3,072 B | **31,744 B** |
+| Protected Storage | 3,072 B | 31,744 B |
+| Internal Trusted Storage | 3,072 B | 31,744 B |
 
-**The shipped defaults do not use that room.** `PS_MAX_ASSET_SIZE` (512) and `PS_NUM_ASSETS`
+The shipped defaults do not use that room. `PS_MAX_ASSET_SIZE` (512) and `PS_NUM_ASSETS`
 (5) in [config_tfm_target.h](config_tfm_target.h) are carried over from RA6M5, where they were
 pinned by a 1,536-byte PS block — the header there explains the arithmetic, and on that part
 the two were genuinely in tension. Here the PS block is 15,872 B and the budget assertion in
-[ra8m2_layout_checks.c](ra8m2_layout_checks.c) clears by **15,008 bytes** rather than 88.
+[ra8m2_layout_checks.c](ra8m2_layout_checks.c) clears by 15,008 bytes rather than 88.
 
 So both can be raised substantially. The binding relation is unchanged —
 
@@ -177,16 +177,16 @@ free for one asset = PS_BLOCK_SIZE - fs_metadata - object_tables - resident
 assertions fail the build rather than the board if a combination does not fit, so raising them
 is safe to try.
 
-They are left at the RA6M5 values deliberately, so the first RA8M2 bring-up is comparable to
+They are left at the RA6M5 values so the first RA8M2 bring-up is comparable to
 the validated one. Raise them once the port boots, not before.
 
 Two further notes:
 
-- **Program unit is 32 B, not 4.** MRAM's write granularity
+- Program unit is 32 B, not 4. MRAM's write granularity
   (`BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES`) is 8x the data flash's, so the flash filesystem
   rounds every write up to 32 B. At this region size that rounding is immaterial; it would not
   have been at 8 KB.
-- **Resizing `DF_EMULATION` is not free.** It sits between BL2 and the first MCUboot slot, so
+- Resizing `DF_EMULATION` is not free. It sits between BL2 and the first MCUboot slot, so
   its size shifts every slot after it, and on a 1 MB device 64 KB is the only value that keeps
   all four slots a whole number of FSP's 32 KB MRAM sectors. See
   [flash_layout.h](flash_layout.h) and DECISIONS D054 before changing it.
@@ -214,10 +214,10 @@ than one shared target.
 The contract a module file works inside — the variables it is handed, why targets carry a role
 suffix — is documented at the top of
 [cmake/modules/fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake). Background and a
-worked example: **`fsp_cmake/ADDING_FSP_MODULES.md`**, "Adding New FSP Modules" (written
+worked example: `fsp_cmake/ADDING_FSP_MODULES.md`, "Adding New FSP Modules" (written
 for the earlier RA6M4 port, so the surrounding CMake differs from the current per-role pattern).
 
-Three modules are deliberately **never** built from the e2 projects — `r_sce`, `rm_psa_crypto`
+Three modules are never built from the e2 projects — `r_sce`, `rm_psa_crypto`
 and `rm_mcuboot_port` — because FSP's own crypto and flash-map configuration collides with
 TF-M's. `FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) enforces that, and
 `fsp_cmake/DESIGN.md` §4–6 explains why. The SCE9 accelerator reaches FSP's `*_ALT` sources by

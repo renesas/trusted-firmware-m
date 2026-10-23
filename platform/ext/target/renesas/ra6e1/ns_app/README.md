@@ -6,12 +6,12 @@ build produces an installed `api_ns/` tree, and this project is configured again
 ## Why the split exists
 
 The single-build arrangement — `tfm_ns` defined inside the SPE build — was only ever viable
-while the non-secure image made *no PSA calls*. `tfm_api_ns` is created by the NSPE build
+while the non-secure image made no PSA calls. `tfm_api_ns` is created by the NSPE build
 from the installed tree and does not exist in an SPE build, so linking it there yields
 `cannot find -ltfm_api_ns`. The moment NS code calls a PSA API, the split is required.
 
 It is also the prerequisite for running the official `tf-m-tests` regression suite, which
-is built as an NSPE application against exactly this interface.
+is built as an NSPE application against this interface.
 
 ## Building
 
@@ -41,7 +41,7 @@ cmake --build build_ra6e1_ns
 ```
 
 `FSP_NS_APP_DIR` is not needed in step 3: the SPE records which project it was built
-against and this build defaults to it. Passing a *different* one is a hard error, not a
+against and this build defaults to it. Passing a different one is a hard error, not a
 warning — the NS image is placed by that project's generated `memory_regions.ld`, so a
 mismatched project produces an image that links cleanly and boots nowhere.
 
@@ -53,7 +53,7 @@ mismatched project produces an image that links cleanly and boots nowhere.
 | `tfm_ns_signed.bin` | `build_ra6e1_ns/bin/` |
 
 The combined `tfm_s_ns_signed.bin` that TF-M's NSPE rules would otherwise build is
-deliberately excluded — see the comment in `CMakeLists.txt`. It is byte-for-byte the two
+excluded — see the comment in `CMakeLists.txt`. It is byte-for-byte the two
 signed images end to end, nothing consumes it at runtime, and as an extra row in the debug
 session's program list it invites an address mistake that silently overwrites the secure
 slot and the NSC veneers.
