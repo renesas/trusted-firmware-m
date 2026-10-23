@@ -37,8 +37,8 @@ no longer print as PASS.
 
 ---------------------------------------------------------------------------------------------
 THE FLAT .bin IS A SECOND WAY IN, AND THE ELF CHECK DOES NOT COVER IT. An image whose ELF is
-perfectly correct - discrete per-word OFS segments, this guard PASSing - still yields a lethal
-`objcopy -O binary`. objcopy flattens from the lowest load address to the highest, ZERO-FILLING
+perfectly correct - discrete per-word OFS segments, this guard PASSing - and `objcopy -O
+binary` still bricks the part. objcopy flattens from the lowest load address to the highest, ZERO-FILLING
 everything between, so RA8M2's bl2, whose last OFS word sits at 0x02c9f124, produces a
 13,234,472-byte bl2.bin spanning 0x02000000-0x02c9f128. Flash that at the MRAM base and the
 zero fill lands on the option memory: the brick, reconstituted, from a build that passed.
@@ -112,7 +112,7 @@ def parse_args(argv):
 
     if not regions:
         sys.exit("ERROR: no OFS region given. Pass --region 0xSTART:0xEND (repeatable), or\n"
-                 "       --ra6-default for RA6E1/RA6M4/RA6M5. This is deliberately not\n"
+                 "       --ra6-default for RA6E1/RA6M4/RA6M5. This is not\n"
                  "       optional: a guard pointed at the wrong window reports PASS on an\n"
                  "       unsafe image. See the note at the top of this file.")
     if not images:
@@ -198,13 +198,13 @@ def emit_safe_bin(elf, regions, outpath):
 
 
 def flat_bin_verdict(elf, regions):
-    """Check the FLAT BINARY actually on disk, not what the ELF implies.
+    """Check the FLAT BINARY on disk, not what the ELF implies.
 
     `objcopy -O binary` spans lowest paddr to highest and zero-fills the gaps, so an ELF
     whose OFS words sit far above the image produces a flat binary tens of MB long whose
     fill covers the option memory. The platform build defeats that by regenerating the
-    .bin with --remove-section=.option_setting*, and this checks that it actually did:
-    the safe binary is exactly the non-OFS span, anything longer still reaches the
+    .bin with --remove-section=.option_setting*, and this checks that it did:
+    the safe binary is the non-OFS span, and anything longer still reaches the
     option words.
 
     A MISSING .bin is a FAILURE, never a pass. The guard target depends on the bin target
