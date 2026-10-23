@@ -202,8 +202,8 @@ set(CONFIG_TFM_SPM_BACKEND              "SFN"       CACHE STRING    "SFN - no IP
 # (per-partition MPU regions programmed on each context switch), and the RA8M2's CPU0 - a
 # Cortex-M85, not the Cortex-M33 an earlier revision of this comment inherited from RA6M5 -
 # has the 8-region ARMv8-M MPU it assumes. The count is measured, not assumed: MPU->TYPE
-# reads 8 on silicon, with 5 static regions programmed at both levels 2 and 3 (no PXN, which
-# needs armv8.1-m.main) and a sixth appended at level 2 when the FLIH service binds AGT0.
+# reads 8 on silicon, with 5 static regions at both levels 2 and 3 and a sixth appended at
+# level 2 when the FLIH binds AGT0. TFM_PXN_ENABLE is OFF but available here (D134).
 # The flag is a statement that the port has been built and run that way, so keep it honest.
 #
 # The isolation level does NOT change the TrustZone boundaries programmed with the Renesas
