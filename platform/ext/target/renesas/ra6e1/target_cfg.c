@@ -11,7 +11,7 @@
 #include "tfm_plat_defs.h"
 #include "cmsis.h"
 #include "bsp_api.h"
-/* Deliberately NOT hal_data.h: nothing here uses it, and once the Crypto stack is in the
+/* NOT hal_data.h, by design: nothing here uses it, and once the Crypto stack is in the
  * e2 project the generated ra_gen/common_data.h it pulls in includes FSP's own
  * psa/crypto.h, which would shadow TF-M's for everything in platform_s. */
 
@@ -36,7 +36,7 @@ const struct memory_region_limits memory_regions = {
 void sau_and_idau_cfg(void)
 {
     /*
-     * Deliberately empty, and NOT because the generic framework does it elsewhere.
+     * Empty by design, and NOT because the generic framework does it elsewhere.
      *
      * RA6E1 has an SAU with ZERO REGIONS, which is not the same as having no SAU.
      * __SAUREGION_PRESENT is 0 in the device header, so SAU_TYPE.SREGION reads 0 and there
@@ -57,7 +57,7 @@ void sau_and_idau_cfg(void)
      * An earlier revision of this comment said the reverse: "RA6M4 doesn't have IDAU -
      * security attribution is done entirely via SAU". That is backwards on both halves. The
      * part in this port with __SAUREGION_PRESENT 1 is RA8M2; ra8m2/target_cfg.c states it
-     * correctly and ra8m2/bl2_boot_hal.c is where an SAU actually gets programmed.
+     * correctly and ra8m2/bl2_boot_hal.c is where an SAU gets programmed.
      * DECISIONS D117.
      */
 }
@@ -259,7 +259,7 @@ enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
     /* Nothing to do. RA has no MPC/PPC fault IRQ for the SPM to own, and a
      * partition-owned IRQ must NOT be enabled here: FF-M 1.1 interrupts are
-     * deliberately left disabled by load_irqs_assuredly() so the partition can
+     * left disabled by load_irqs_assuredly() so the partition can
      * enable its own with psa_irq_enable(). */
     return TFM_PLAT_ERR_SUCCESS;
 }

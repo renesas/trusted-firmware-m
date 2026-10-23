@@ -18,7 +18,7 @@
 #     appends uart_stdout.c (only if PLATFORM_DEFAULT_UART_STDOUT) and links
 #     platform_ns_definitions into it.
 #
-# WHAT IS DELIBERATELY NOT HERE
+# WHAT IS NOT HERE, AND WHY
 #
 # The FSP BSP. On this port the non-secure image is a whole FSP application - it keeps
 # FSP's startup and FSP's linker script - so the BSP belongs to the APPLICATION, built by
@@ -63,14 +63,14 @@ add_library(platform_ns STATIC)
 # costs nothing with RTT output and is a baffling failure the moment a test touches a
 # peripheral.
 #
-# THE GLOB IS DELIBERATELY WIDE
+# THE GLOB IS WIDE BY DESIGN
 #
 # r_*/ and rm_*/ pick up every driver and middleware module, so a module ADDED IN e2 is
 # compiled with no edit here. The narrow bsp+r_ioport list this replaces silently ignored
 # anything else, which defeats the whole point of generating the project in e2.
 #
 # No opt-in registry, unlike FSP_MODULES_S on the secure side. That exists so nothing is
-# dragged into a SIGNED SECURE image by accident; the NS image simply is the FSP
+# dragged into a SIGNED SECURE image by accident; the NS image is the FSP
 # application, so there is nothing to protect against and --gc-sections drops whatever is
 # unreferenced.
 #
@@ -94,7 +94,7 @@ list(REMOVE_ITEM RA6E1_FSP_NS_SOURCES
 # a section that is already there, it does not pull an archive member in.
 #
 # PUBLIC therefore, so the consuming executable compiles them directly. Same reason
-# nxp/lpcxpresso55s69 marks its startup PUBLIC. The library's own copies simply go
+# nxp/lpcxpresso55s69 marks its startup PUBLIC. The library's own copies go
 # unextracted, because the executable has already defined the symbols.
 set(RA6E1_FSP_NS_MUST_LINK
     ${RA6E1_SPE_FSP_NS_APP_DIR}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c
@@ -128,7 +128,7 @@ target_include_directories(platform_ns
 # it skips the stack seal, the SAU setup and R_BSP_NonSecureEnter() - all of which belong to
 # the secure side and have already run.
 #
-# BSP_TZ_NONSECURE_BUILD is deliberately NOT defined here. The generated
+# BSP_TZ_NONSECURE_BUILD is NOT defined here, by design. The generated
 # bsp_mcu_family_cfg.h derives it from _RA_TZ_NONSECURE and defines it as `(1)`, so passing
 # `BSP_TZ_NONSECURE_BUILD=1` on the command line is both redundant and a token mismatch:
 #     bsp_mcu_family_cfg.h:37: error: "BSP_TZ_NONSECURE_BUILD" redefined [-Werror]

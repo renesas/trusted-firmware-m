@@ -96,7 +96,7 @@ void SysTick_Handler(void)                  __attribute__((weak, alias("Default_
  * Source of truth is the generated BSP config, ra_cfg/fsp_cfg/bsp/bsp_mcu_family_cfg.h:
  *     BSP_CORTEX_VECTOR_TABLE_ENTRIES  (16U)
  *     BSP_VECTOR_TABLE_MAX_ENTRIES    (112U)
- * Not included directly - this file deliberately keeps to CMSIS headers - so re-check
+ * Not included directly - this file keeps to CMSIS headers by design - so re-check
  * these two macros if the device ever changes.
  *
  * 112 * 4 = 0x1C0, which must fit S_CODE_VECTOR_TABLE_SIZE (0x200) in region_defs.h.

@@ -185,7 +185,7 @@ SECTIONS
      *
      * Kept out of .data because it is executable (the RAM region is declared rwx above), and
      * copied by the CMSIS copy-table entry added beside .data's, which TF-M's startup already
-     * runs. That deliberately avoids adding a MEMORY region or PT_LOAD - see the
+     * runs. That avoids adding a MEMORY region or PT_LOAD - see the
      * OPTION_SETTING note below for why segment layout in this file is handled with care.
      */
     .ram_from_flash : ALIGN(4)
@@ -223,7 +223,7 @@ SECTIONS
      * C-runtime init neither copies nor zeroes it. Because the zero table only
      * covers ADDR(.bss)..SIZEOF(.bss), this region is never cleared.
      *
-     * NOTE: for SystemCoreClock et al. to actually carry the .ram_noinit
+     * NOTE: for SystemCoreClock et al. to carry the .ram_noinit
      * attribute, the RASC config must have BSP_CFG_EARLY_INIT = 1. With
      * BSP_CFG_EARLY_INIT = 0 they have no section attribute and still land in
      * .bss - the platform code additionally calls SystemCoreClockUpdate()

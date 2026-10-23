@@ -37,7 +37,7 @@ set(FSP_NS_APP_DIR  "" CACHE PATH "e2 solution non-secure project (ra6e1_nonsecu
 #-------------------------------------------------------------------------------
 
 # The generated layout (bsp_linker_info.h, memory_regions.ld, fsp_gen.ld) is emitted
-# into <project>/Debug/ by the e2 build, and is deliberately NOT committed. So the
+# into <project>/Debug/ by the e2 build, and is NOT committed, by design. So the
 # solution must have been built in e2 at least once. Fail loudly rather than let the
 # user hit a confusing "bsp_linker_info.h: No such file" deep in the compile.
 function(fsp_validate_project dir role)
@@ -90,7 +90,7 @@ function(fsp_collect_sources out_var dir role)
     # set must keep working standalone - so drop them here rather than reconfiguring it.
     #   rm_psa_crypto, ra/arm/mbedtls - FSP's PSA core and its mbedTLS config. On THIS
     #       part CRYPTO_HW_ACCELERATOR is OFF (config.cmake:102) and there is no
-    #       fsp_mbedtls.cmake, so TF-M's own mbedcrypto really is the crypto library
+    #       fsp_mbedtls.cmake, so TF-M's own mbedcrypto is the crypto library
     #       here - unlike ra6m5/ra8m2, which build FSP's via an overlay. Wiring the
     #       ciphers up is the future HW-crypto switch (DESIGN.md 6).
     #
@@ -178,7 +178,7 @@ endif()
 set(FSP_COMPILE_DEFS _RA_CORE=CM33 _RENESAS_RA_)
 
 # TrustZone build flavour, PER ROLE. The secure image declares itself secure to FSP; BL2
-# is deliberately FLAT, matching how the e2 solution template defines the bootloader.
+# is FLAT by design, matching how the e2 solution template defines the bootloader.
 #
 # This is not cosmetic - it selects the OFS1_SEL formula. Generated bsp_mcu_ofs_cfg.h:
 #
@@ -235,7 +235,7 @@ set(FSP_MODULE_DIRS_bsp    bsp r_ioport)
 set(FSP_MODULE_DIRS_flash  r_flash_hp)
 set(FSP_MODULE_DIRS_sce    r_sce)
 
-# Present in the e2 projects, deliberately never built: TF-M supplies its own. Their
+# Present in the e2 projects but never built: TF-M supplies its own. Their
 # HEADERS still resolve (see fsp_bsp.cmake) because the generated ra_gen files include
 # them unconditionally.
 #   rm_psa_crypto, ra/arm/mbedtls - FSP's PSA core and its mbedTLS config, which wires PSA
@@ -384,7 +384,7 @@ target_sources(platform_s PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ra6e1_layout_checks.c
     # bsp_init_stub.c is NOT here - it lives in the fsp_bsp module, beside the FSP
     # system.c that needs it. See the note in cmake/modules/fsp_bsp.cmake.
-    # The common ARMv8-M isolation HAL is deliberately NOT here. It is added to tfm_spm
+    # The common ARMv8-M isolation HAL is NOT here, by design. It is added to tfm_spm
     # instead - see the target_sources(tfm_spm) note below for why that placement is
     # load-bearing, and do not move it back. DECISIONS D120.
 
@@ -478,7 +478,7 @@ target_add_scatter_file(tfm_s
 
 # Point FSP's g_main_stack at the image's real stack. FSP's SystemInit() sets MSPLIM from
 # &g_main_stack[0] and writes its stack seal at &g_main_stack[BSP_CFG_STACK_MAIN_BYTES],
-# both of which describe the stack the CPU is actually running on - and that stack belongs
+# both of which describe the stack the CPU is running on - and that stack belongs
 # to TF-M, not to FSP. See the long note in bsp_init_stub.c: a private array there put
 # MSPLIM 44 KB above the live SP and hard-faulted the first push inside SystemInit().
 #
@@ -649,18 +649,18 @@ endif()
 # $<TARGET_OBJECTS:<target>_scatter> is the PREPROCESSED script. target_add_scatter_file()
 # in toolchain_GNUARM.cmake compiles the .ld with -E -P -xc into that object library and
 # passes it to the linker as -T, so this is the same text ld saw - macros expanded, and
-# with the #if branches that actually applied. Reading the source .ld instead would give
+# with the #if branches that applied. Reading the source .ld instead would give
 # the wrong answer for bl2, whose script has both a CMSE and a non-CMSE arm.
 #
 # Known-benign orphans are listed per image rather than silenced globally, so a NEW one is
 # still reported. Each entry needs a reason.
 #
 #   tfm_s had .ram_noinit here until 2026-08-30. It is now handled properly, via
-#       S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h -> .TFM_NOINIT. Deliberately NOT
-#       allowlisted any more: if that placement ever regresses, this check should say so.
+#       S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h -> .TFM_NOINIT. No longer
+#       allowlisted, by design: if that placement ever regresses, this check should say so.
 #
 #   bl2 .msp_stack_seal_res - bl2 is a flat build, so __ARM_FEATURE_CMSE != 3 and
-#       ra6e1_bl2.ld deliberately takes the non-CMSE arm, which has no seal section.
+#       ra6e1_bl2.ld takes the non-CMSE arm, which has no seal section.
 #       startup_ra6e1.c still emits the 8-byte __StackSeal, which then orphans away from
 #       the stack top. Inert: FSP writes the seal only when BSP_TZ_SECURE_BUILD, and TF-M's
 #       startup only under CMSE. Both are false here.
@@ -708,10 +708,10 @@ endif()
 # The defence is in ra6e1_bl2.ld: thirteen DISCRETE MEMORY regions, one per option word,
 # each with its own '> REGION'. That produces one tiny PT_LOAD per word instead of a span.
 # check_ofs.py asserts the outcome on the linked ELF, which is the only place the mistake
-# is actually visible - it does NOT show up in the srec, and a plausible-looking linker
+# is visible - it does NOT show up in the srec, and a plausible-looking linker
 # script can still emit a spanning segment.
 #
-# Deliberately a hard failure, unlike the orphan check above, and deliberately not
+# A hard failure by design, unlike the orphan check above, and not
 # switchable: the failure mode is silent, instant and unrecoverable. Nothing this build
 # produces is worth flashing if it trips.
 #
@@ -770,7 +770,7 @@ endfunction()
 # THE FLAT .bin IS THE SECOND WAY TO BRICK THE PART, AND THE GUARD ABOVE CANNOT SEE IT.
 #
 # The ELF can be entirely CORRECT - discrete per-word OFS PT_LOADs, the check above PASSing
-# - and `objcopy -O binary` still yields a lethal image. objcopy flattens from the lowest
+# - and `objcopy -O binary` still yields an image that bricks the part. objcopy flattens
 # load address to the highest and ZERO-FILLS everything between, so a bl2 whose last option
 # word sits at 0x0100A280 produces a ~16 MB .bin spanning 0x00000000-0x0100A284 over a few
 # tens of KB of real content.
@@ -814,7 +814,7 @@ if(BL2)
     # window both print as CLEAN - the false negative that read as verification on RA8M2
     # until 2026-09-24.
     #
-    # --check-flat-bin: verifies the stripped binary above is what actually landed on
+    # --check-flat-bin: verifies the stripped binary above is what landed on
     # disk. It checks the FILE, so the guard has to be sequenced after the strip.
     ra6e1_strip_ofs_from_bin(bl2)
     ra6e1_add_ofs_check(bl2 --require-segments --check-flat-bin)

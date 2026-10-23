@@ -220,7 +220,7 @@
 
 /* Flash device IDs used by the CMSIS flash driver shim.
  *
- * Deliberately NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1. Those are per-flash-area driver
+ * NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1, by design. Those are per-flash-area driver
  * overrides for a target whose images live on different devices; both our images are on
  * code flash, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
  * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips

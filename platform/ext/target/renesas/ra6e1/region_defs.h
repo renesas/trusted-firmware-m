@@ -65,7 +65,7 @@
  * S_RAM_CODE is FSP's .ram_from_flash: the r_flash_hp code-flash program/erase routines,
  * which carry PLACE_IN_RAM_SECTION because the FCU makes the ENTIRE code flash unreadable
  * while a code-flash P/E is in progress. Running them from code flash is a prefetch abort
- * mid-operation, with the FCU left in P/E mode. The data-flash path is deliberately NOT
+ * mid-operation, with the FCU left in P/E mode. The data-flash path is NOT
  * RAM-placed by FSP (flash_hp_df_write/df_erase/enter_pe_df_mode have no attribute) -
  * code flash stays readable during data-flash P/E.
  *

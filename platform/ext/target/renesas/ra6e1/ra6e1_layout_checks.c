@@ -22,7 +22,7 @@
  * Main stack
  *
  * bsp_init_stub.c aliases FSP's g_main_stack onto Image$$ARM_LIB_STACK$$ZI$$Base, so
- * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is really running on.
+ * FSP's SystemInit() sets MSPLIM to the base of the stack the CPU is running on.
  * The other thing it does with that symbol is write its stack seal at
  * &g_main_stack[BSP_CFG_STACK_MAIN_BYTES]. The generated scatter file sizes .msp_stack
  * as S_MSP_STACK_SIZE - STACKSEAL_SIZE and reserves STACKSEAL_SIZE above it, so the two
