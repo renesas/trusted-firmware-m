@@ -232,3 +232,16 @@ set(ITS_RAM_FS                          OFF         CACHE BOOL      "")
 set(CONFIG_TFM_USE_TRUSTZONE            ON          CACHE BOOL      "")
 set(TFM_MULTI_CORE_TOPOLOGY             OFF         CACHE BOOL      "")
 set(CONFIG_TFM_ENABLE_CP10CP11          OFF         CACHE BOOL      "Soft float, matches TF-M")
+
+# ------------------------------------------------------------------------------------------
+# SUPPORTED TOOLCHAINS. The port is built and run with GNUARM and IAR only (D125 section 4).
+# ARMClang and Clang are not rejected anywhere else, so a third toolchain used to fail
+# later and less clearly - in the FSP module scaffolding or at link, with a message about
+# something else. Fail here, by name. (R116)
+# ------------------------------------------------------------------------------------------
+if(DEFINED TFM_TOOLCHAIN_FILE AND NOT TFM_TOOLCHAIN_FILE MATCHES "(GNUARM|IAR)")
+    get_filename_component(_ra_tc "${TFM_TOOLCHAIN_FILE}" NAME)
+    message(FATAL_ERROR
+        "RA6M5 supports GNUARM and IAR only; TFM_TOOLCHAIN_FILE is '${_ra_tc}'. "
+        "Use toolchain_GNUARM.cmake or toolchain_IAR.cmake.")
+endif()

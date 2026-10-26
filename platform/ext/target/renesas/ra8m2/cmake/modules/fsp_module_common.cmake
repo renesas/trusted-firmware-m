@@ -77,5 +77,5 @@ endmacro()
 # module convention allows: the module is opt-in, but naming each generated .c inside it
 # would drift on every FSP bump.
 macro(fsp_module_glob _out _subdir)
-    file(GLOB_RECURSE ${_out} "${FSP_MODULE_BASE_DIR}/${_subdir}/*.c")
+    file(GLOB_RECURSE ${_out} CONFIGURE_DEPENDS "${FSP_MODULE_BASE_DIR}/${_subdir}/*.c")
 endmacro()

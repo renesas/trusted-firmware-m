@@ -128,7 +128,7 @@ set(MCUBOOT_HW_KEY                      OFF         CACHE BOOL      "")
 set(MCUBOOT_MEASURED_BOOT               ON          CACHE BOOL      "Boot record of each image")
 set(MCUBOOT_DATA_SHARING                ON          CACHE BOOL      "BL2 -> secure boot record")
 
-# SCE9 cipher acceleration: platform/ext/accelerator/renesas/sce9. FSP's rm_psa_crypto
+# RSIP-E50D cipher acceleration: platform/ext/accelerator/renesas/rsip_e50d. FSP's rm_psa_crypto
 # *_ALT sources (AES, AES-GCM, SHA-256, ECDSA/ECDH P-256, plaintext keys) compiled into
 # TF-M's Mbed TLS for the secure crypto partition, and SHA-256 for BL2's image hash. The
 # engine here is RSIP-E50D, not SCE9 - FSP reaches it through the same r_sce driver
@@ -140,9 +140,9 @@ set(MCUBOOT_DATA_SHARING                ON          CACHE BOOL      "BL2 -> secu
 # configuration enables MBEDTLS_CCM_ALT. Whether E50D shares the 110 B associated-data cap
 # that broke Protected Storage on SCE9 is unmeasured on this engine (DECISIONS D043, D051).
 #
-# KNOWN: the E50D pack is missing both rm_psa_crypto session-leak fixes that the SCE9 pack
-# has, so the PSA Arch crypto suite is expected to cascade until an updated pack lands
-# (DECISIONS D052).
+# The E50D pack carried neither rm_psa_crypto session-leak fix when D052 was written, and a
+# PSA Arch crypto cascade was expected on that basis. The 6.7.0-beta0+20260924.4dfe9b7f pack
+# carries both, so that no longer holds (DECISIONS D053 supersedes D052).
 #
 # Needs the Crypto stack (rm_psa_crypto) in the secure e2 project.
 # -DCRYPTO_HW_ACCELERATOR=OFF returns to all-software ciphers. The TRNG is hardware either
@@ -258,3 +258,16 @@ set(ITS_RAM_FS                          OFF         CACHE BOOL      "")
 set(CONFIG_TFM_USE_TRUSTZONE            ON          CACHE BOOL      "")
 set(TFM_MULTI_CORE_TOPOLOGY             OFF         CACHE BOOL      "")
 set(CONFIG_TFM_ENABLE_CP10CP11          OFF         CACHE BOOL      "Soft float, matches TF-M")
+
+# ------------------------------------------------------------------------------------------
+# SUPPORTED TOOLCHAINS. The port is built and run with GNUARM and IAR only (D126 section 4).
+# ARMClang and Clang are not rejected anywhere else, so a third toolchain used to fail
+# later and less clearly - in the FSP module scaffolding or at link, with a message about
+# something else. Fail here, by name. (R116)
+# ------------------------------------------------------------------------------------------
+if(DEFINED TFM_TOOLCHAIN_FILE AND NOT TFM_TOOLCHAIN_FILE MATCHES "(GNUARM|IAR)")
+    get_filename_component(_ra_tc "${TFM_TOOLCHAIN_FILE}" NAME)
+    message(FATAL_ERROR
+        "RA8M2 supports GNUARM and IAR only; TFM_TOOLCHAIN_FILE is '${_ra_tc}'. "
+        "Use toolchain_GNUARM.cmake or toolchain_IAR.cmake.")
+endif()
