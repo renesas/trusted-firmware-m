@@ -9,6 +9,8 @@
 #ifndef __TFM_PERIPHERALS_DEF_H__
 #define __TFM_PERIPHERALS_DEF_H__
 
+#include "bsp_api.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,12 +25,14 @@ extern "C" {
 struct platform_data_t;
 
 extern struct platform_data_t tfm_peripheral_std_uart;
+extern struct platform_data_t tfm_peripheral_timer0;
 
 #define TFM_PERIPHERAL_STD_UART (&tfm_peripheral_std_uart)
+#define TFM_PERIPHERAL_TIMER0   (&tfm_peripheral_timer0)
+
+#define TFM_TIMER0_IRQ 0
 
 #ifdef TFM_MULTI_CORE_TOPOLOGY
-#include "bsp_api.h"
-
 /*
  * ns_agent_mailbox.yaml declares an IRQ with "source": "MAILBOX_IRQ", so the
  * manifest tool needs this symbol to resolve.

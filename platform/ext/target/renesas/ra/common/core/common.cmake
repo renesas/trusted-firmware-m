@@ -135,6 +135,7 @@ target_sources(platform_s
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/CMSIS_Driver/Driver_USART.c
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/CMSIS_Driver/Driver_Flash.c
     ${PLATFORM_DIR}/ext/common/uart_stdout.c
+    $<$<OR:$<BOOL:${TFM_S_REG_TEST}>,$<BOOL:${TFM_NS_REG_TEST}>>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/plat_test.c>
 )
 
 #========================= tfm_spm ============================================#
@@ -149,6 +150,7 @@ target_sources(tfm_spm
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_peripherals_def.c
     $<$<BOOL:${TFM_MULTI_CORE_TOPOLOGY}>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_hal_multi_core.c>
     $<$<BOOL:${TFM_MULTI_CORE_TOPOLOGY}>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_hal_mailbox.c>
+    $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_interrupts.c>
 )
 
 #========================= Files for building NS side platform ================#

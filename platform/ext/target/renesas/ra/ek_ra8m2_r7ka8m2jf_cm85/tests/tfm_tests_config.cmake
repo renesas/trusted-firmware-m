@@ -26,3 +26,12 @@ endif()
 if(NOT RA_NS_INTERFACE_MAILBOX)
     set(TEST_NS_MULTI_CORE OFF CACHE BOOL "Whether to build NS regression multi-core tests" FORCE)
 endif()
+
+# Make FLIH IRQ test as the default IRQ test
+set(TEST_NS_SLIH_IRQ                  OFF   CACHE BOOL    "Whether to build NS regression Second-Level Interrupt Handling tests")
+
+set(PLATFORM_SLIH_IRQ_TEST_SUPPORT    ON)
+set(PLATFORM_FLIH_IRQ_TEST_SUPPORT    ON)
+
+# Make AGT0 peripheral (for IRQ test) become Secure
+set(RENESAS_RA_PSAR_NS_AGT0 OFF CACHE BOOL "" FORCE)
