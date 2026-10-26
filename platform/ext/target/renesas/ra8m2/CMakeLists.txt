@@ -1034,31 +1034,37 @@ endif()
 
 
 
+# RA8M2's option memory, in five disjoint windows. Addresses from the generated
+# option_settings.h; kept as literals here only because a CMake custom command cannot read a
+# generated header. If they ever disagree, the header is right.
+#
+# Defined ONCE. Both the guard and the safe-binary emitter take the list from here: when they
+# were two hand-kept copies, editing one and not the other left the emitter stripping a
+# different set of windows from the one the guard then checked (R098).
+set(RA8M2_OFS_REGIONS
+    #   secure OFS0/OFS2/SAS/OFS1_SEC/OFS3_SEC/OFS1_SEL/OFS3_SEL + BPS_SEC(0x80)
+    --region 0x02c9f040:0x02c9f280
+    #   non-secure alias OFS1/OFS3 + BPS(0x80)
+    --region 0x12c9f4c0:0x12c9f680
+    #   OTP FSBLCTRL0-2, SAMR, SACC00-03/10-13
+    --region 0x02e07600:0x02e07698
+    #   OTP PBPS_SEC(0x80) and ZHUK
+    --region 0x02e17700:0x02e17924
+    #   OTP PBPS, non-secure alias
+    --region 0x12e17780:0x12e17800)
+
 function(ra8m2_add_ofs_check target)
     # ARGN: extra guard flags, e.g. --require-segments for the image that carries the words.
     add_custom_target(ra8m2_ofs_check_${target} ALL
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA8M2_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
-                # RA8M2's option memory, in five disjoint windows. Addresses from the
-                # generated option_settings.h; kept as literals here only because a CMake
-                # custom command cannot read a generated header. If they ever disagree, the
-                # header is right.
-                #   secure OFS0/OFS2/SAS/OFS1_SEC/OFS3_SEC/OFS1_SEL/OFS3_SEL + BPS_SEC(0x80)
-                --region 0x02c9f040:0x02c9f280
-                #   non-secure alias OFS1/OFS3 + BPS(0x80)
-                --region 0x12c9f4c0:0x12c9f680
-                #   OTP FSBLCTRL0-2, SAMR, SACC00-03/10-13
-                --region 0x02e07600:0x02e07698
-                #   OTP PBPS_SEC(0x80) and ZHUK
-                --region 0x02e17700:0x02e17924
-                #   OTP PBPS, non-secure alias
-                --region 0x12e17780:0x12e17800
+                ${RA8M2_OFS_REGIONS}
                 # This port places only 4-byte words (bl2_option_setting.c emits six), so
                 # ANY segment larger than that in these windows is a coalescing failure.
                 # Tighter than the 0x80 a BPS word would need - raise it if BPS/PBPS are
                 # ever placed, and not before.
-                --max-word 4
+                --max-word 4 --quarantine
                 ${ARGN}
                 $<TARGET_FILE:${target}>
         DEPENDS $<TARGET_FILE:${target}>
@@ -1089,14 +1095,7 @@ function(ra8m2_strip_ofs_from_bin target)
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA8M2_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
-                # Same five windows as ra8m2_add_ofs_check(). Kept in step by hand;
-                # they disagree only if someone edits one and not the other, and the
-                # guard would then fail on the emitted binary.
-                --region 0x02c9f040:0x02c9f280
-                --region 0x12c9f4c0:0x12c9f680
-                --region 0x02e07600:0x02e07698
-                --region 0x02e17700:0x02e17924
-                --region 0x12e17780:0x12e17800
+                ${RA8M2_OFS_REGIONS}
                 --max-word 4
                 --emit-safe-bin ${_bindir}/${target}.bin
                 $<TARGET_FILE:${target}>
@@ -1107,7 +1106,7 @@ endfunction()
 
 # tfm_s must carry NO option words at all, so no --require-segments here: a CLEAN result is
 # the expected and correct outcome for the secure image.
-ra8m2_add_ofs_check(tfm_s)
+ra8m2_add_ofs_check(tfm_s --forbid-segments)
 if(BL2)
     # --require-segments: BL2 is the image that carries the option words, so an empty result
     # is a failure, not a pass. Without it, dropped sections or a wrong region window both

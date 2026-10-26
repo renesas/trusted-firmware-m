@@ -916,7 +916,7 @@ function(ra6m5_add_ofs_check target)
         COMMAND ${CMAKE_COMMAND} -E env READELF=${RA6M5_OFS_READELF}
                 ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../common/check_ofs.py
-                --ra6-default --max-word 0x10
+                --ra6-default --max-word 0x10 --quarantine
                 ${ARGN}
                 $<TARGET_FILE:${target}>
         DEPENDS $<TARGET_FILE:${target}>
@@ -967,7 +967,7 @@ function(ra6m5_strip_ofs_from_bin target)
     add_dependencies(ra6m5_safe_bin_${target} ${target}_bin)
 endfunction()
 
-ra6m5_add_ofs_check(tfm_s)
+ra6m5_add_ofs_check(tfm_s --forbid-segments)
 if(BL2)
     # --require-segments: BL2 is the image that carries the option words, so an empty
     # result is a failure, not a pass. Without it, a dropped section or a wrong region

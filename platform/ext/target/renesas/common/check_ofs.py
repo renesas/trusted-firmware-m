@@ -57,6 +57,10 @@ Usage:
     --require-segments  FAIL if an image has no OFS segment at all. Use for BL2, which is
                         the image that carries the option words; a CLEAN result there means
                         either the sections were dropped or the window is wrong.
+    --forbid-segments   FAIL if an image has ANY OFS segment. Use for tfm_s, which must
+                        never carry option words: without it a secure image that picked
+                        one up passes as "1 discrete OFS segment", because discrete is all
+                        the default check asks for.
     --max-word N        largest single option word in bytes (default 0x80: RA8M2's BPS is
                         0x80, RA6M5's BPS and PBPS are 0x10, RA6E1's and RA6M4's are 0xC).
                         Take it from the part's own region_defs.h. Too small is not safe
@@ -65,6 +69,11 @@ Usage:
     --check-flat-bin    also FAIL if the sibling <image>.bin spans from the image base up
                         into an OFS region. See the note above - the ELF can be correct and
                         the .bin still brick the part.
+    --quarantine        on FAIL, rename the image and every flashable sibling (.axf .bin
+                        .elf .hex .srec) to *.UNSAFE. A failing build still leaves those
+                        files on disk, and the committed debug launches flash bl2.elf with
+                        ATTR_BUILD_BEFORE_LAUNCH disabled - so a failed guard does not stop
+                        the next launch from programming the image it just rejected.
 
 Exit: 0 = safe, 1 = a spanning OFS segment (DO NOT FLASH) or a required segment missing,
       2 = tool error.
@@ -85,12 +94,42 @@ RA6_REGION = (0x0100A100, 0x0100A2D0)
 READELF    = os.environ.get("READELF", "arm-none-eabi-readelf")
 
 
+QUARANTINE_EXTS = (".axf", ".bin", ".elf", ".hex", ".srec")
+
+
+def quarantine(elf):
+    """Rename the image and its flashable siblings to *.UNSAFE. Returns what moved.
+
+    Renamed, not deleted: the image is the evidence. bringup/bricking_evidence holds the
+    one that destroyed two EK-RA6M4 boards, and it is the reason D133 could be written at
+    all. What has to stop is a rejected image staying in bin/ under the name a launch
+    expects.
+    """
+    stem = os.path.splitext(elf)[0]
+    moved = []
+    for ext in QUARANTINE_EXTS:
+        src = stem + ext
+        if not os.path.isfile(src):
+            continue
+        dest = src + ".UNSAFE"
+        try:
+            if os.path.exists(dest):
+                os.remove(dest)
+            os.replace(src, dest)
+            moved.append(os.path.basename(dest))
+        except OSError as e:
+            print(f"  *** QUARANTINE FAILED for {os.path.basename(src)}: {e} ***")
+    return moved
+
+
 def parse_args(argv):
     regions, images = [], []
     max_word = 0x80
     require = False
+    forbid = False
     flat = False
     emit = None
+    quar = False
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -107,6 +146,10 @@ def parse_args(argv):
             regions.append(RA6_REGION)
         elif a == "--require-segments":
             require = True
+        elif a == "--forbid-segments":
+            forbid = True
+        elif a == "--quarantine":
+            quar = True
         elif a == "--check-flat-bin":
             flat = True
         elif a == "--emit-safe-bin":
@@ -133,7 +176,9 @@ def parse_args(argv):
     for s, e in regions:
         if e <= s:
             die(f"ERROR: region 0x{s:X}:0x{e:X} is empty or reversed")
-    return regions, images, max_word, require, flat, emit
+    if require and forbid:
+        die("ERROR: --require-segments and --forbid-segments are opposites")
+    return regions, images, max_word, require, forbid, flat, emit, quar
 
 
 def all_load_segments(elf):
@@ -252,7 +297,7 @@ def flat_bin_verdict(elf, regions):
 def main():
     if not shutil.which(READELF):
         die(f"ERROR: readelf '{READELF}' not on PATH (set $READELF)")
-    regions, images, max_word, require, flat, emit = parse_args(sys.argv[1:])
+    regions, images, max_word, require, forbid, flat, emit, quar = parse_args(sys.argv[1:])
 
     # Emit first, then check what was emitted. Doing both in one invocation is what makes
     # --check-flat-bin meaningful: it verifies the file this run just wrote, rather than
@@ -270,6 +315,7 @@ def main():
     bad = 0
     for elf in images:
         name = os.path.basename(elf)
+        was = bad
         if not os.path.isfile(elf):
             print(f"  {name:<14} MISSING")
             bad += 1
@@ -280,13 +326,19 @@ def main():
             bad += 1
             det = ", ".join(f"0x{v:08X}+{s}B" for v, s in spanning)
             print(f"  {name:<14} *** SPANNING OFS SEGMENT - DO NOT FLASH *** ({det})")
+        elif segs and forbid:
+            bad += 1
+            det = ", ".join(f"0x{v:08X}({s}B)" for v, s in segs)
+            print(f"  {name:<14} *** OFS SEGMENT IN AN IMAGE THAT MUST CARRY NONE *** "
+                  f"({det}; --forbid-segments)")
         elif not segs:
             if require:
                 bad += 1
                 print(f"  {name:<14} *** NO OFS SEGMENTS, BUT --require-segments *** "
                       f"(sections dropped, or the region is wrong)")
             else:
-                print(f"  {name:<14} CLEAN (no OFS segments, none required)")
+                why = "and none allowed" if forbid else "none required"
+                print(f"  {name:<14} CLEAN (no OFS segments, {why})")
         else:
             det = ", ".join(f"0x{v:08X}({s}B)" for v, s in segs)
             print(f"  {name:<14} OK - {len(segs)} discrete OFS segment(s): {det}")
@@ -311,9 +363,16 @@ def main():
             else:
                 print(f"  {'':<14} flat .bin: n/a (no OFS above the image)")
 
+        if quar and bad > was:
+            moved = quarantine(elf)
+            if moved:
+                print(f"  {'':<14} quarantined: {', '.join(moved)}")
+
     print()
     if bad:
         print(f"FAIL: {bad} image(s).")
+        print("An image that must carry no option words has some: the sections were placed")
+        print("in an image other than BL2. Check which object pulled them in.")
         print("A spanning segment means the linker coalesced option words into one gap-filled")
         print("PT_LOAD; flashing it writes 0 to eight defined option registers. That is what")
         print("destroyed two EK-RA6M4 boards on 2026-07-21, and no recovery is known (D133).")
