@@ -178,7 +178,7 @@ static int collect_image_measurement_and_metadata(
 int boot_save_shared_data(const struct image_header *hdr,
                           const struct flash_area *fap,
                           const uint8_t active_slot,
-                          const int max_app_size)
+                          const struct image_max_size *max_app_sizes)
 {
     const struct flash_area *temp_fap;
     uint8_t mcuboot_image_id = 0;
@@ -201,7 +201,7 @@ int boot_save_shared_data(const struct image_header *hdr,
 #endif /* TFM_MEASURED_BOOT_API */
 
     (void)active_slot;
-    (void)max_app_size;
+    (void)max_app_sizes;
 
     if (hdr == NULL || fap == NULL) {
         return -1;
