@@ -22,9 +22,18 @@ struct platform_data_t tfm_peripheral_std_uart = {
     .periph_ppc_mask = 0,
 };
 
+/* Platform data for the AGT0 timer used by the SLIH/FLIH tests (one 0x100-byte AGT channel block) */
+struct platform_data_t tfm_peripheral_timer0 = {
+    .periph_start = R_AGTX0_BASE,
+    .periph_limit = R_AGTX0_BASE + 0xFF,
+    .periph_ppc_bank = PPC_SP_DO_NOT_CONFIGURE,
+    .periph_ppc_mask = 0,
+};
+
 /* Allowed named MMIO of this platform */
 static const uintptr_t partition_named_mmio_list[] = {
     (uintptr_t)TFM_PERIPHERAL_STD_UART,
+    (uintptr_t)TFM_PERIPHERAL_TIMER0,
 };
 
 void get_partition_named_mmio_list(const uintptr_t **list, size_t *length)
