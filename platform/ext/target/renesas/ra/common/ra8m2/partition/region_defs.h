@@ -56,13 +56,14 @@
 #define S_IMAGE_PRIMARY_PARTITION_OFFSET (0x0)
 #endif /* BL2 */
 
-/* NS_IMAGE_PRIMARY_PARTITION_OFFSET is injected by config.cmake (default:
- * right after the S image in MRAM) so the NS image can be relocated off-chip
- * independently of the S image chain, e.g. onto the EK-RA8M2's OSPI0 CS0
- * external flash via NS_ROM_ALIAS_BASE.
+/* CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET is injected by
+ * common/core/post_config.cmake (default: right after the S image and storage
+ * partition in MRAM) so the NS image can be relocated off-chip independently
+ * of the S image chain, e.g. onto the EK-RA8M2's OSPI0 CS0 external flash via
+ * CPU0_NS_ROM_ALIAS_BASE.
  */
-#ifndef NS_IMAGE_PRIMARY_PARTITION_OFFSET
-#error "NS_IMAGE_PRIMARY_PARTITION_OFFSET must be defined by config.cmake"
+#ifndef CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET
+#error "CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET must be defined by common/core/post_config.cmake"
 #endif
 
 /* Boot partition structure if MCUBoot is used:
@@ -77,7 +78,7 @@
  */
 
 #if (!defined(MCUBOOT_IMAGE_NUMBER) || (MCUBOOT_IMAGE_NUMBER == 1)) &&                             \
-	(NS_IMAGE_PRIMARY_PARTITION_OFFSET > S_IMAGE_PRIMARY_PARTITION_OFFSET)
+	(CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET > S_IMAGE_PRIMARY_PARTITION_OFFSET)
 /* If secure image and nonsecure image are concatenated, and nonsecure image
  * locates at the higher memory range, then the secure image does not need
  * the trailer area.
@@ -87,14 +88,9 @@
 #define IMAGE_S_CODE_SIZE (FLASH_S_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
 #endif
 
-#define IMAGE_NS_CODE_SIZE (FLASH_NS_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
-
-/* Alias definitions for secure and non-secure areas*/
+/* Alias definitions for secure areas*/
 #define S_ROM_ALIAS(x)  (S_ROM_ALIAS_BASE + (x))
-#define NS_ROM_ALIAS(x) (NS_ROM_ALIAS_BASE + (x))
-
 #define S_RAM_ALIAS(x)  (S_RAM_ALIAS_BASE + (x))
-#define NS_RAM_ALIAS(x) (NS_RAM_ALIAS_BASE + (x))
 
 /* Secure regions */
 #define S_IMAGE_PRIMARY_AREA_OFFSET (S_IMAGE_PRIMARY_PARTITION_OFFSET + BL2_HEADER_SIZE)
@@ -124,22 +120,25 @@
  * s_ns_memory.cmake) which occupies the top of the S_DATA_SIZE window.
  * S_RAM_CODE_SIZE is configured via the board config.cmake. If caches are
  * ever enabled, the boot-time copy must flush/invalidate (currently both
- * D/I-Cache are disabled, BSP_CFG_DCACHE_ENABLED=0). */
+ * D/I-Cache are disabled, BSP_CFG_DCACHE_ENABLED=0).
+ */
 #define S_RAM_CODE_START              (S_DATA_START + RAM_CPU0_S_SIZE - S_RAM_CODE_SIZE)
 #define S_RAM_CODE_EXTRA_SECTION_NAME ".ram_from_flash"
 #endif
 
-/* Non-secure regions */
-#define NS_IMAGE_PRIMARY_AREA_OFFSET (NS_IMAGE_PRIMARY_PARTITION_OFFSET + BL2_HEADER_SIZE)
-#define NS_CODE_START                (NS_ROM_ALIAS(NS_IMAGE_PRIMARY_AREA_OFFSET))
-#define NS_CODE_SIZE                 (IMAGE_NS_CODE_SIZE)
-#define NS_CODE_LIMIT                (NS_CODE_START + NS_CODE_SIZE - 1)
+/* Non-secure regions. */
+#if (RA_CORE == RA_CM33) /* CPU1 remote NS (Mailbox Agent) */
+#define NS_CODE_START                 (FLASH_NS_CPU1_N_START + BL2_HEADER_SIZE)
+#define NS_CODE_SIZE                  (FLASH_NS_CPU1_N_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+#define NS_DATA_START                 (RAM_NS_CPU1_N_START)
+#define NS_DATA_SIZE                  (RAM_NS_CPU1_N_SIZE)
+#elif (RA_CORE == RA_CM85) /* CPU0 local NS (TrustZone) */
+#define NS_CODE_START                 (FLASH_NS_CPU0_N_START + BL2_HEADER_SIZE)
+#define NS_CODE_SIZE                  (FLASH_NS_CPU0_N_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+#define NS_DATA_START                 (RAM_NS_CPU0_N_START)
+#define NS_DATA_SIZE                  (RAM_NS_CPU0_N_SIZE)
+#endif /* RA_CORE */
 
-#ifndef NS_DATA_SIZE
-#error "NS_DATA_SIZE must be defined by config.cmake"
-#endif
-
-#define NS_DATA_START (NS_RAM_ALIAS(S_DATA_SIZE))
 #if defined(PSA_API_TEST_NS) && !defined(PSA_API_TEST_IPC)
 #define DEV_APIS_TEST_NVMEM_REGION_SIZE 0x400
 /* Shrink the injected NS_DATA_SIZE by the PSA API test's reserved NVMEM
@@ -150,15 +149,18 @@
 #undef NS_DATA_SIZE
 #define NS_DATA_SIZE (NS_DATA_SIZE_INJECTED - DEV_APIS_TEST_NVMEM_REGION_SIZE)
 #endif
+
+#define NS_CODE_LIMIT (NS_CODE_START + NS_CODE_SIZE - 1)
 #define NS_DATA_LIMIT (NS_DATA_START + NS_DATA_SIZE - 1)
 
 /* NS partition information is used for MPC and SAU configuration */
-#define NS_PARTITION_START (NS_ROM_ALIAS(NS_IMAGE_PRIMARY_PARTITION_OFFSET))
-#define NS_PARTITION_SIZE  (FLASH_NS_PARTITION_SIZE)
+#define NS_PARTITION_START (CPU0_NS_ROM_ALIAS_BASE + CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET)
+#define NS_PARTITION_SIZE  (FLASH_NS_CPU0_N_SIZE + FLASH_NS_CPU1_N_SIZE)
 
+/* TODO: Add support for CPU1 partitions when BL2 is available */
 /* Secondary partition for new images in case of firmware upgrade */
-#define SECONDARY_PARTITION_START (NS_ROM_ALIAS(S_IMAGE_SECONDARY_PARTITION_OFFSET))
-#define SECONDARY_PARTITION_SIZE  (FLASH_S_PARTITION_SIZE + FLASH_NS_PARTITION_SIZE)
+#define SECONDARY_PARTITION_START (CPU0_NS_ROM_ALIAS_BASE + S_IMAGE_SECONDARY_PARTITION_OFFSET)
+#define SECONDARY_PARTITION_SIZE  (FLASH_S_PARTITION_SIZE + FLASH_CPU0_NS_PARTITION_SIZE)
 
 #ifdef BL2
 /* Bootloader regions */

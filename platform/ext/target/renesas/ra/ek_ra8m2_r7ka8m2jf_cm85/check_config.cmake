@@ -5,4 +5,4 @@
 #
 #-------------------------------------------------------------------------------
 
-include(${RENESAS_RA_COMMON_SOURCE_DIR}/ra8m2/check_config.cmake)
+include(${RENESAS_RA_SOC_SOURCE_DIR}/check_config.cmake)
