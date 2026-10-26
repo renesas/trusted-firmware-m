@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * TF-M crypto_hw.h for the Renesas RSIP-E50D - secure crypto partition. (BL2 is not accelerated;
- * bl2/ext/mcuboot/bl2_main.c provides its stubs.)
+ * TF-M crypto_hw.h for the Renesas RSIP-E50D - secure crypto partition only. BL2 takes its
+ * crypto_hw stubs from bl2/ext/mcuboot/bl2_main.c, but it IS accelerated: SHA-256.
  *
  * secure_fw/partitions/crypto/crypto_init.c calls crypto_hw_accelerator_init() before
  * psa_crypto_init() when CRYPTO_HW_ACCELERATOR and LEGACY_DRIVER_API_ENABLED are both

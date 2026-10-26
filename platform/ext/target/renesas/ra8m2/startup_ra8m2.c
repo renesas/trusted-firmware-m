@@ -18,7 +18,7 @@
  */
 
 /*
- * TF-M startup code for Renesas RA8M2 (Cortex-M33)
+ * TF-M startup code for Renesas RA8M2 CPU0 (Cortex-M85)
  * Based on ARM MPS2 AN521 startup implementation
  */
 

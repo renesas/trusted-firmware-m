@@ -295,9 +295,9 @@
 /* DF_EMULATION geometry, as cmsis_drivers/Driver_Flash.c names it.
  *
  * Driver_FLASH1 is a SECOND INSTANCE OVER THE SAME MRAM DEVICE, windowed to this region
- * - not a second physical device as it was on RA6M5. The offsets the PS/ITS backends
- * pass are relative to this base, so the driver adds it; the region is in the secure
- * alias and is never reachable from the non-secure side.
+ * - not a second physical device as it was on RA6M5. The PS/ITS backends pass an ABSOLUTE
+ * address and the driver uses it as given - unlike FLASH0, which converts through
+ * MRAM_ADDR(). The region is in the secure alias, unreachable from the non-secure side.
  *
  * There is no erase sector to respect, so 64 B is a logical choice carried over from
  * RA6M5's data flash rather than a device property. It must stay a multiple of

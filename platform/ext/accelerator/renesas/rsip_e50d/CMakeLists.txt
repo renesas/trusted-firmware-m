@@ -120,13 +120,13 @@ if(TFM_PARTITION_CRYPTO)
     # on this engine, and enabling it on FSP's word is exactly how PS init returned -132 on
     # RA6M5. Measure first, then enable (DECISIONS D051, mbedtls_accelerator_config.h).
     #
-    # KNOWN DEFECT in this pack: aes_alt.c and cipher_alt.c are the only two of the 35 ALT
-    # sources that differ from the SCE9 pack, and they are the UNFIXED versions - both lack
-    # the session-close added for SCE9 (mbedtls_aes_free() and mbedtls_cipher_free()). E50D
-    # has the same state machine and the same HW_SCE_Aes*EncryptDecryptFinalSub primitives, so
-    # the same two leaks are present: expect the PSA Arch crypto suite to cascade from the
-    # aborted-CMAC test the way RA6M5 did at 28/64. Tracked for an rm_psa_crypto fix rather
-    # than patched here (DECISIONS D052).
+    # SESSION-LEAK FIXES: PRESENT. aes_alt.c and cipher_alt.c were the only two of the 35
+    # ALT sources that differed from the SCE9 pack, and they were the UNFIXED versions -
+    # both lacking the session close in mbedtls_aes_free() and mbedtls_cipher_free(). That
+    # was D052, and it predicted a PSA Arch crypto cascade from the aborted-CMAC test the
+    # way RA6M5 saw at 28/64. The 6.7.0-beta0+20260924.4dfe9b7f pack carries both fixes
+    # (+32 and +10 lines, four symbol matches each), so the prediction does not apply
+    # (DECISIONS D053 supersedes D052).
     #
     # cipher_alt.c is not optional with the rest: it supplies the block chunking the AES ALT
     # assumes (whole blocks only, partial blocks cached in the cipher context) and issues the

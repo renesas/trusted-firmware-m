@@ -34,8 +34,8 @@
 #
 # REQUIRES THE SECURE PROJECT TO HAVE THE AGT INTERRUPT ENABLED. plat_test.c fails the
 # build with an explanatory #error if VECTOR_NUMBER_AGT0_INT is absent, i.e. if the AGT
-# ipl was left Disabled in RASC. As of 2026-09-30 that is true of ra6m5_iar_secure and
-# NOT of ra6m5_gcc_secure.
+# ipl was left Disabled in RASC. As of 2026-10-26 all four secure projects generate it,
+# ra6m5_gcc_secure included; the 2026-09-30 note that it did not is stale.
 #
 # The manifests that consume these are tf-m-tests'
 # suites/spm/irq/service/tfm_{flih,slih}_test_service.yaml, which require the

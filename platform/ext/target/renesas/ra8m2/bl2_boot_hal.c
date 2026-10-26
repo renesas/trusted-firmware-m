@@ -5,8 +5,8 @@
  *
  * BL2 boot HAL override: bring the RSIP-E50D up before MCUboot hashes any image.
  *
- * Built only with CRYPTO_HW_ACCELERATOR, when BL2's SHA-256 runs on the SCE
- * (platform/ext/accelerator/renesas/sce9). bl2_main.c calls boot_platform_post_init() after
+ * Built UNCONDITIONALLY here: it also enables the SAU (below). Only the RSIP-E50D bring-up
+ * is behind CRYPTO_HW_ACCELERATOR (CMakeLists:857). bl2_main.c calls boot_platform_post_init() after
  * boot_platform_init() and before boot_go_for_image_id() touches either slot.
  *
  * Why here and not in crypto_hw_accelerator_init(): the weak default of this function in

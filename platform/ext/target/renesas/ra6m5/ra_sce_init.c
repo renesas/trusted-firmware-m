@@ -7,8 +7,8 @@
  *
  * Built into the secure image (TRNG, and the cipher accelerator when CRYPTO_HW_ACCELERATOR
  * is on) and, with the accelerator on, into BL2 (SHA-256 for the image hash). Each image
- * has its own latch: BL2 resets the engine once for itself, finishes with it before it
- * hands over, and the secure image then resets it once more for its own use.
+ * has its own latch: BL2 resets the engine once for itself, and the secure image resets
+ * it once more for its own use. BL2 does NOT de-initialise it before handing over (R147).
  */
 
 #include <stdbool.h>

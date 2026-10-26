@@ -133,7 +133,7 @@ static void ra_ram_code_init(void)
  * COST. Nothing below isolation 2: the whole function is compiled out with
  * CONFIG_TFM_ENABLE_MEMORY_PROTECT, and SPMLOG_INFMSGVAL expands to (void)(val) whenever SPM
  * logging is off, which it is at the MinSizeRel default. That matters - the secure slot has
- * 1,693 B spare on RA8M2 and 670 B on RA8M2 (DECISIONS D087).
+ * 1,693 B spare on RA6M5 and 670 B on RA8M2 (DECISIONS D087).
  *
  * RNR is saved and restored. It is only a selector, and nothing in the SPM holds a value
  * across this point, but ARM_MPU_SetRegion() writes it for its own use and leaving it moved
@@ -277,7 +277,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
     ra_mpu_report();
 #endif
 
-    /* Note: target_cfg.h functions are called by TF-M framework */
+    /* NOTE: the fault, reset and debug hooks have NO caller on this port (D134) */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
 }
 

@@ -264,7 +264,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
     ra_mpu_report();
 #endif
 
-    /* Note: target_cfg.h functions are called by TF-M framework */
+    /* NOTE: the fault, reset and debug hooks have NO caller on this port (D134) */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
 }
 
