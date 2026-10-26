@@ -56,13 +56,14 @@
 #define S_IMAGE_PRIMARY_PARTITION_OFFSET (0x0)
 #endif /* BL2 */
 
-/* CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET is injected by config.cmake (default:
- * right after the S image and storage partition in MRAM) so the NS image can
- * be relocated off-chip independently of the S image chain, e.g. onto the
- * EK-RA8P1's OSPI0 CS0 external flash via CPU0_NS_ROM_ALIAS_BASE.
+/* CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET is injected by
+ * common/core/post_config.cmake (default: right after the S image and storage
+ * partition in MRAM) so the NS image can be relocated off-chip independently
+ * of the S image chain, e.g. onto the EK-RA8P1's OSPI0 CS0 external flash via
+ * CPU0_NS_ROM_ALIAS_BASE.
  */
 #ifndef CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET
-#error "CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET must be defined by config.cmake"
+#error "CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET must be defined by common/core/post_config.cmake"
 #endif
 
 /* Boot partition structure if MCUBoot is used:

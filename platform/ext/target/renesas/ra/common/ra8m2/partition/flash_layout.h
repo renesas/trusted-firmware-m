@@ -56,8 +56,11 @@
 #ifndef FLASH_S_PARTITION_SIZE
 #error "FLASH_S_PARTITION_SIZE must be defined by config.cmake"
 #endif
-#ifndef FLASH_NS_PARTITION_SIZE
-#error "FLASH_NS_PARTITION_SIZE must be defined by config.cmake"
+#ifndef FLASH_CPU0_NS_PARTITION_SIZE
+#error "FLASH_CPU0_NS_PARTITION_SIZE must be defined by config.cmake"
+#endif
+#ifndef FLASH_CPU1_NS_PARTITION_SIZE
+#error "FLASH_CPU1_NS_PARTITION_SIZE must be defined by config.cmake"
 #endif
 #ifndef FLASH_PS_AREA_SIZE
 #error "FLASH_PS_AREA_SIZE must be defined by config.cmake"
@@ -74,15 +77,18 @@
 #ifndef S_ROM_ALIAS_BASE
 #error "S_ROM_ALIAS_BASE must be defined by config.cmake"
 #endif
-#ifndef NS_ROM_ALIAS_BASE
-#error "NS_ROM_ALIAS_BASE must be defined by config.cmake"
+#ifndef CPU0_NS_ROM_ALIAS_BASE
+#error "CPU0_NS_ROM_ALIAS_BASE must be defined by config.cmake"
 #endif
 #ifndef S_RAM_ALIAS_BASE
 #error "S_RAM_ALIAS_BASE must be defined by config.cmake"
 #endif
-#ifndef NS_RAM_ALIAS_BASE
-#error "NS_RAM_ALIAS_BASE must be defined by config.cmake"
+#ifndef CPU0_NS_RAM_ALIAS_BASE
+#error "CPU0_NS_RAM_ALIAS_BASE must be defined by config.cmake"
 #endif
+
+/* TODO: Support BL2 with both CPU0 and CPU1 Non-secure images  */
+#define FLASH_NS_PARTITION_SIZE FLASH_CPU0_NS_PARTITION_SIZE
 
 #if (FLASH_S_PARTITION_SIZE > FLASH_NS_PARTITION_SIZE)
 #define FLASH_MAX_PARTITION_SIZE FLASH_S_PARTITION_SIZE
@@ -164,7 +170,8 @@
 
 /* Protected Storage (PS) Service definitions
  * The storage areas (PS/ITS/OTP) are NOT part of the signed S image: they
- * live in dedicated secure-attributed MRAM directly after the S slot */
+ * live in dedicated secure-attributed MRAM directly after the S slot
+ */
 /* TODO: Add support for configuring the PS area in external memory. */
 #define FLASH_PS_AREA_OFFSET (FLASH_AREA_0_OFFSET + FLASH_S_PARTITION_SIZE)
 
@@ -239,7 +246,8 @@
 /* NAND-style storage backend staging buffers (rp2350 pattern): a program unit
  * above 16 bytes forces the NAND backend in its_flash.c/its_flash_ps.c, which
  * #errors without these. 2 blocks is the smallest block-aligned staging size.
- * Only compiled in when the ITS/PS partitions are enabled. */
+ * Only compiled in when the ITS/PS partitions are enabled.
+ */
 #define ITS_FLASH_NAND_BUF_SIZE (2 * FLASH_AREA_IMAGE_SECTOR_SIZE)
 #define PS_FLASH_NAND_BUF_SIZE  (2 * FLASH_AREA_IMAGE_SECTOR_SIZE)
 
@@ -255,11 +263,12 @@
 #define TFM_NV_COUNTERS_AREA_SIZE (0x20) /* 32 Bytes */
 
 /* TODO: Enable TCM for secure runtime */
-#if 0
-#define S_RUNTIME_DTCM_START (DTCM_CPU0_S_START)
-#define S_RUNTIME_DTCM_SIZE  (DTCM_CPU0_S_SIZE)
-#define S_RUNTIME_ITCM_START (ITCM_CPU0_S_START)
-#define S_RUNTIME_ITCM_SIZE  (ITCM_CPU0_S_SIZE)
-#endif
+/* #if 0
+ * #define S_RUNTIME_DTCM_START (DTCM_CPU0_S_START)
+ * #define S_RUNTIME_DTCM_SIZE  (DTCM_CPU0_S_SIZE)
+ * #define S_RUNTIME_ITCM_START (ITCM_CPU0_S_START)
+ * #define S_RUNTIME_ITCM_SIZE  (ITCM_CPU0_S_SIZE)
+ * #endif
+ */
 
 #endif /* __FLASH_LAYOUT_H__ */

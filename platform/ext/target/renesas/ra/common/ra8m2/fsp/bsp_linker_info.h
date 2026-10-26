@@ -15,12 +15,18 @@
 /******* Solution Definitions *************/
 #define BSP_PARTITION_RAM_CPU0_N_START (RAM_NS_CPU0_N_START)
 #define BSP_PARTITION_RAM_CPU0_N_SIZE (RAM_NS_CPU0_N_SIZE)
+#define BSP_PARTITION_RAM_CPU1_N_START (RAM_NS_CPU1_N_START)
+#define BSP_PARTITION_RAM_CPU1_N_SIZE (RAM_NS_CPU1_N_SIZE)
 #define BSP_PARTITION_RAM_CPU0_S_START (RAM_CPU0_S_START)
 #define BSP_PARTITION_RAM_CPU0_S_SIZE (RAM_CPU0_S_SIZE)
 #define BSP_PARTITION_RAM_CPU0_C_START (RAM_CPU0_C_START)
 #define BSP_PARTITION_RAM_CPU0_C_SIZE (RAM_CPU0_C_SIZE)
 #define BSP_PARTITION_FLASH_CPU0_N_START (FLASH_NS_CPU0_N_START)
 #define BSP_PARTITION_FLASH_CPU0_N_SIZE (FLASH_NS_CPU0_N_SIZE)
+/* Secure extension disabled for CPU1, so the secure start address is the same as the non-secure start address. */
+#define BSP_PARTITION_FLASH_CPU1_S_START (FLASH_NS_CPU1_N_START)
+#define BSP_PARTITION_FLASH_CPU1_N_START (FLASH_NS_CPU1_N_START)
+#define BSP_PARTITION_FLASH_CPU1_N_SIZE (FLASH_NS_CPU1_N_SIZE)
 #define BSP_PARTITION_FLASH_CPU0_S_START (FLASH_CPU0_S_START)
 #define BSP_PARTITION_FLASH_CPU0_S_SIZE (FLASH_CPU0_S_SIZE)
 #define BSP_PARTITION_FLASH_CPU0_C_START (FLASH_CPU0_C_START)
@@ -83,7 +89,7 @@ extern uint32_t const *const gp_ddsc_RAM_NSC;
 /***********************************************************************************************************************
  * Exported global functions (to be accessed by other files)
  **********************************************************************************************************************/
-#endif   // BSP_LINKER_H
+#endif   /* BSP_LINKER_H */
 #ifdef BSP_LINKER_C
 /***********************************************************************************************************************
  * Objects allocated by bsp_linker.c
@@ -98,6 +104,5 @@ BSP_DONT_REMOVE uint32_t const * const gp_ddsc_DTCM_START = &__ddsc_DTCM_START;
 extern const uint32_t __ddsc_DTCM_END;
 BSP_DONT_REMOVE uint32_t const * const gp_ddsc_DTCM_END = &__ddsc_DTCM_END;
 
-#endif   // BSP_LINKER_C
-
+#endif   /* BSP_LINKER_C */
 /* clang-format on */

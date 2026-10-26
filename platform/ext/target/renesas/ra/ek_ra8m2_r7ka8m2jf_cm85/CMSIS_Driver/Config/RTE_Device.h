@@ -44,8 +44,8 @@
 #define RTE_USART8_RXD_PORT 13
 #define RTE_USART8_RXD_PIN  3
 
-/* USART9: SCI9 @ P209(TXD9_B) P208(RXD9_B) — PMOD (disabled) */
-#define RTE_USART9          0
+/* USART9: SCI9 @ P209(TXD9_B) P208(RXD9_B) — CM33 NS console */
+#define RTE_USART9          1
 #define RTE_USART9_TXD_PORT 2
 #define RTE_USART9_TXD_PIN  9
 #define RTE_USART9_RXD_PORT 2
