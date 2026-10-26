@@ -32,10 +32,6 @@
 #define __TZ_STACK_SEAL_VALUE  0xFEF5EDA5FEF5EDA5ULL
 #endif
 
-#ifndef CMSE_NONSECURE
-#define CMSE_NONSECURE 18 /* ACLE: AU_NONSECURE | MPU_NONSECURE. NOT 1 (D134) */
-#endif
-
 /*
  * CMSIS 6 provides these intrinsics natively, so only define them for CMSIS 5
  * Check for CMSIS 6 by looking for __CM_CMSIS_VERSION_MAIN >= 6
