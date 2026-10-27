@@ -9,8 +9,9 @@ include(${RENESAS_RA_SOC_SOURCE_DIR}/config.cmake)
 
 # The EK-RA8M2 carries the R7KA8M2JF part (1 MB code MRAM, 1.6 MB on-chip
 # SRAM SRAM0-3, dual-core CM85 + CM33), so no per-variant preset is needed here
-# (the 512 KB MRAM parts are single-core only); every individual size below
-# remains independently overridable on the command line.
+# (the 512 KB MRAM parts are single-core only); the slot and area sizes below
+# remain independently overridable on the command line, while the SoC hardware
+# facts (memory geometry, aliases, external windows) are fixed.
 #
 # The CPU0 NS image can be relocated off-chip (e.g. onto the EK-RA8M2's OSPI0
 # CS0) by overriding CPU0_NS_ROM_ALIAS_BASE (e.g. 0x88000000) together with
@@ -29,14 +30,14 @@ set(FLASH_OTP_NV_COUNTERS_AREA_SIZE "0x4000"              CACHE STRING "OTP/NV c
 set(S_DATA_SIZE     "0x80000" CACHE STRING "Secure RAM size")
 set(S_RAM_CODE_SIZE "0x1000"  CACHE STRING "Secure RAM size for RAM-resident MRAM programming code")
 
-set(S_ROM_ALIAS_BASE "${FLASH_BASE_ADDRESS}" CACHE STRING "MRAM secure alias base")
-set(S_RAM_ALIAS_BASE "${SRAM_BASE_ADDRESS}"  CACHE STRING "SRAM secure alias base")
+set(S_ROM_ALIAS_BASE "${FLASH_BASE_ADDRESS}")
+set(S_RAM_ALIAS_BASE "${SRAM_BASE_ADDRESS}")
 
 #===================== NS image, CPU0 Cortex-M85 (TrustZone) ===================#
 # CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET and CPU0_NS_RAM_OFFSET are derived in
 # common/core/post_config.cmake (overridable on the command line).
 set(CPU0_NS_ROM_ALIAS_BASE                 "${RA_FLASH_NS_ALIAS}" CACHE STRING "CPU0 NS ROM alias base")
-set(CPU0_NS_RAM_ALIAS_BASE                 "${RA_SRAM_NS_ALIAS}"  CACHE STRING "CPU0 NS RAM alias base")
+set(CPU0_NS_RAM_ALIAS_BASE                 "${RA_SRAM_NS_ALIAS}")
 
 if(RA_CM85_NS_PRESENT)
     set(FLASH_CPU0_NS_PARTITION_SIZE       "0x60000"              CACHE STRING "CPU0 NS image slot size")
@@ -50,7 +51,7 @@ endif()
 # CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET and CPU1_NS_RAM_OFFSET are derived in
 # common/core/post_config.cmake (overridable on the command line).
 set(CPU1_NS_ROM_ALIAS_BASE                 "${RA_FLASH_NS_ALIAS}" CACHE STRING "CPU1 NS ROM alias base")
-set(CPU1_NS_RAM_ALIAS_BASE                 "${RA_SRAM_NS_ALIAS}"  CACHE STRING "CPU1 NS RAM alias base")
+set(CPU1_NS_RAM_ALIAS_BASE                 "${RA_SRAM_NS_ALIAS}")
 
 if(RA_CM33_NS_PRESENT)
     set(FLASH_CPU1_NS_PARTITION_SIZE       "0x40000"              CACHE STRING "CPU1 NS image slot size")
@@ -60,6 +61,13 @@ else()
     set(FLASH_CPU1_NS_PARTITION_SIZE       "0x0")
     set(CPU1_NS_RAM_DATA_SIZE              "0x0")
 endif()
+
+#===================== Peripherals owned by the SPE ============================#
+set(RENESAS_RA_PSAR_NS_SCI8 OFF CACHE BOOL "")
+set(RENESAS_RA_IPCSAR_NS_SAIPCSEM0 OFF CACHE BOOL "" FORCE)
+set(RENESAS_RA_IPCSAR_NS_SAIPCSEM1 OFF CACHE BOOL "" FORCE)
+set(RENESAS_RA_IPCSAR_NS_SAIPCNMI0 OFF CACHE BOOL "" FORCE)
+set(RENESAS_RA_IPCSAR_NS_SAIPCNMI1 OFF CACHE BOOL "" FORCE)
 
 #===============================================================================#
 include(${RENESAS_RA_COMMON_SOURCE_DIR}/core/config.cmake)

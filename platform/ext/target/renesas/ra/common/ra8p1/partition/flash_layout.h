@@ -262,13 +262,4 @@
 
 #define TFM_NV_COUNTERS_AREA_SIZE (0x20) /* 32 Bytes */
 
-/* TODO: Enable TCM for secure runtime */
-/* #if 0
- * #define S_RUNTIME_DTCM_START (DTCM_CPU0_S_START)
- * #define S_RUNTIME_DTCM_SIZE  (DTCM_CPU0_S_SIZE)
- * #define S_RUNTIME_ITCM_START (ITCM_CPU0_S_START)
- * #define S_RUNTIME_ITCM_SIZE  (ITCM_CPU0_S_SIZE)
- * #endif
- */
-
 #endif /* __FLASH_LAYOUT_H__ */

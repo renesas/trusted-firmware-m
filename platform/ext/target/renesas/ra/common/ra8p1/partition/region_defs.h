@@ -99,8 +99,14 @@
 #define S_CODE_LIMIT                (S_CODE_START + S_CODE_SIZE - 1)
 
 #define TFM_LINKER_VENEERS_LOCATION_END
-#define TFM_LINKER_VENEERS_START            (FLASH_CPU0_C_START)
-#define TFM_LINKER_VENEERS_SIZE             (FLASH_CPU0_C_SIZE)
+/* The veneer region sits at the end of the secure image partition. Must match
+ * FLASH_CPU0_C_START/SIZE exported to the FSP by fsp_post_config.cmake.
+ */
+#ifndef CMSE_VENEER_REGION_SIZE
+#error "CMSE_VENEER_REGION_SIZE must be defined by common/core/common.cmake"
+#endif
+#define TFM_LINKER_VENEERS_SIZE             (CMSE_VENEER_REGION_SIZE)
+#define TFM_LINKER_VENEERS_START            (S_ROM_ALIAS(FLASH_S_PARTITION_SIZE) - TFM_LINKER_VENEERS_SIZE)
 
 /* Size of vector table: 96 interrupt handlers + 16 ARM exceptions + 4 bytes MPS initial value */
 #define S_CODE_VECTOR_TABLE_SIZE (0x1c4)
@@ -112,31 +118,38 @@
 #define S_DATA_START (S_RAM_ALIAS(0x0))
 #define S_DATA_LIMIT (S_DATA_START + S_DATA_SIZE - 1)
 
-#ifdef RAM_CPU0_S_SIZE
+#ifdef S_RAM_CODE_SIZE
 /* RAM-resident MRAM code (r_mram .ram_from_flash: R_MRAM_Write and the
  * write/erase helpers) must execute from SRAM: MRAM cannot be read while it
- * is being programmed. The region is carved from the top of the SECURE SRAM,
- * below the NSC carve-out (RAM_CPU0_C_START/RAM_CPU0_C_SIZE, see
- * s_ns_memory.cmake) which occupies the top of the S_DATA_SIZE window.
+ * is being programmed. The region is carved from the top of the SECURE SRAM
+ * (the S_DATA_SIZE window; the NSC SRAM carve-out is unsupported and fixed at 0,
+ * see RAM_CPU0_C_SIZE in s_ns_memory.cmake).
  * S_RAM_CODE_SIZE is configured via the board config.cmake. If caches are
  * ever enabled, the boot-time copy must flush/invalidate (currently both
  * D/I-Cache are disabled, BSP_CFG_DCACHE_ENABLED=0).
  */
-#define S_RAM_CODE_START              (S_DATA_START + RAM_CPU0_S_SIZE - S_RAM_CODE_SIZE)
+#define S_RAM_CODE_START              (S_DATA_START + S_DATA_SIZE - S_RAM_CODE_SIZE)
 #define S_RAM_CODE_EXTRA_SECTION_NAME ".ram_from_flash"
 #endif
 
-/* Non-secure regions. */
+/* Non-secure regions, derived from the TF-M memory map (config.cmake /
+ * post_config.cmake), independent of the FSP partition macros.
+ */
+#define CPU0_NS_CODE_PARTITION_START (CPU0_NS_ROM_ALIAS_BASE + CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET)
+#define CPU1_NS_CODE_PARTITION_START (CPU1_NS_ROM_ALIAS_BASE + CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET)
+#define CPU0_NS_DATA_START           (CPU0_NS_RAM_ALIAS_BASE + CPU0_NS_RAM_OFFSET)
+#define CPU1_NS_DATA_START           (CPU1_NS_RAM_ALIAS_BASE + CPU1_NS_RAM_OFFSET)
+
 #if (RA_CORE == RA_CM33) /* CPU1 remote NS (Mailbox Agent) */
-#define NS_CODE_START                 (FLASH_NS_CPU1_N_START + BL2_HEADER_SIZE)
-#define NS_CODE_SIZE                  (FLASH_NS_CPU1_N_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
-#define NS_DATA_START                 (RAM_NS_CPU1_N_START)
-#define NS_DATA_SIZE                  (RAM_NS_CPU1_N_SIZE)
+#define NS_CODE_START                 (CPU1_NS_CODE_PARTITION_START + BL2_HEADER_SIZE)
+#define NS_CODE_SIZE                  (FLASH_CPU1_NS_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+#define NS_DATA_START                 (CPU1_NS_DATA_START)
+#define NS_DATA_SIZE                  (CPU1_NS_RAM_DATA_SIZE)
 #elif (RA_CORE == RA_CM85) /* CPU0 local NS (TrustZone) */
-#define NS_CODE_START                 (FLASH_NS_CPU0_N_START + BL2_HEADER_SIZE)
-#define NS_CODE_SIZE                  (FLASH_NS_CPU0_N_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
-#define NS_DATA_START                 (RAM_NS_CPU0_N_START)
-#define NS_DATA_SIZE                  (RAM_NS_CPU0_N_SIZE)
+#define NS_CODE_START                 (CPU0_NS_CODE_PARTITION_START + BL2_HEADER_SIZE)
+#define NS_CODE_SIZE                  (FLASH_CPU0_NS_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
+#define NS_DATA_START                 (CPU0_NS_DATA_START)
+#define NS_DATA_SIZE                  (CPU0_NS_RAM_DATA_SIZE)
 #endif /* RA_CORE */
 
 #if defined(PSA_API_TEST_NS) && !defined(PSA_API_TEST_IPC)
@@ -155,7 +168,7 @@
 
 /* NS partition information is used for MPC and SAU configuration */
 #define NS_PARTITION_START (CPU0_NS_ROM_ALIAS_BASE + CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET)
-#define NS_PARTITION_SIZE  (FLASH_NS_CPU0_N_SIZE + FLASH_NS_CPU1_N_SIZE)
+#define NS_PARTITION_SIZE  (FLASH_CPU0_NS_PARTITION_SIZE + FLASH_CPU1_NS_PARTITION_SIZE)
 
 /* TODO: Add support for CPU1 partitions when BL2 is available */
 /* Secondary partition for new images in case of firmware upgrade */

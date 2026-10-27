@@ -22,6 +22,7 @@
 
 #include "Driver_Flash.h"
 #include "RTE_Device.h"
+#include "flash_layout.h"
 #include "r_flash_api.h"
 
 #ifndef ARG_UNUSED

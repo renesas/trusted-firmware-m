@@ -27,7 +27,8 @@
  *   RTE_USARTx_RXD_PIN   - RXD pin number
  *
  * PSEL is inferred from the channel: even (0,8)→4, odd (9)→5.
- * Domain (S/NS) is set by s_ns_peripheral.cmake (RENESAS_RA_PSAR_NS_SCIx).
+ * Each image only configures the pins of its stdio UART:
+ * RTE_S_STDIO_USART for S, RTE_NS_STDIO_USART for NS.
  */
 
 /* USART0: SCI0 @ P602(RXD0_B) P603(TXD0_B) — PMOD2 */
@@ -50,5 +51,15 @@
 #define RTE_USART9_TXD_PIN  9
 #define RTE_USART9_RXD_PORT 2
 #define RTE_USART9_RXD_PIN  8
+
+/* USART used as stdio by the S image */
+#define RTE_S_STDIO_USART   8
+
+/* USART used as stdio by the NS image on each core */
+#if (RA_CORE == RA_CM33)
+#define RTE_NS_STDIO_USART  9
+#elif (RA_CORE == RA_CM85)
+#define RTE_NS_STDIO_USART  0
+#endif
 
 #endif /* RTE_DEVICE_H */

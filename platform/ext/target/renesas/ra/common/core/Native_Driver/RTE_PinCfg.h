@@ -7,7 +7,7 @@
 #ifndef RTE_PIN_CFG_H_
 #define RTE_PIN_CFG_H_
 
-#include "RTE_Device.h"
+#include "RTE_Stdio.h"
 #include "bsp_api.h"
 #include "r_ioport.h"
 
@@ -36,21 +36,18 @@
     RTE_PIN_CFG(RTE_USART##ch##_TXD_PORT, RTE_USART##ch##_TXD_PIN, RTE_UART_PSEL(ch)) \
     RTE_PIN_CFG(RTE_USART##ch##_RXD_PORT, RTE_USART##ch##_RXD_PIN, RTE_UART_PSEL(ch))
 
+/* Extra level so the channel macro expands before RTE_PINS_UART pastes it */
+#define RTE_PINS_UART_CH(ch)  RTE_PINS_UART(ch)
+
+/* TX + RX pin entries of the stdio console UART */
+#define RTE_PINS_STDIO        RTE_PINS_UART_CH(RTE_STDIO_USART)
+
 /*
- * Domain resolution - S is default, NS assignment from PSAR.
- * RENESAS_RA_PSAR_NS_SCIx compile definitions come from
- * s_ns_peripheral.cmake (1 = NS-accessible, 0 = S-only).
+ * The S console must not be NS-accessible. RENESAS_RA_PSAR_NS_SCIx come from
+ * s_ns_peripheral.cmake (1 = NS-accessible, 0 = S-only) and are only defined
+ * for the FSP sources.
  */
-#if DOMAIN_NS /* TFM NS image build */
-  #define _RTE_HAS_USART0  (RTE_USART0 && RENESAS_RA_PSAR_NS_SCI0)
-  #define _RTE_HAS_USART7  (RTE_USART7 && RENESAS_RA_PSAR_NS_SCI7)
-  #define _RTE_HAS_USART8  (RTE_USART8 && RENESAS_RA_PSAR_NS_SCI8)
-  #define _RTE_HAS_USART9  (RTE_USART9 && RENESAS_RA_PSAR_NS_SCI9)
-#else         /* TFM S image build */
-  #define _RTE_HAS_USART0  (RTE_USART0 && !RENESAS_RA_PSAR_NS_SCI0)
-  #define _RTE_HAS_USART7  (RTE_USART7 && !RENESAS_RA_PSAR_NS_SCI7)
-  #define _RTE_HAS_USART8  (RTE_USART8 && !RENESAS_RA_PSAR_NS_SCI8)
-  #define _RTE_HAS_USART9  (RTE_USART9 && !RENESAS_RA_PSAR_NS_SCI9)
-#endif
+#define RTE_PSAR_NS_SCI_(ch)  RENESAS_RA_PSAR_NS_SCI##ch
+#define RTE_PSAR_NS_SCI(ch)   RTE_PSAR_NS_SCI_(ch)
 
 #endif /* RTE_PIN_CFG_H_ */
