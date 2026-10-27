@@ -45,8 +45,9 @@ target_include_directories(platform_region_defs
         ${RENESAS_RA_COMMON_SOURCE_DIR}/${FSP_SOC_TARGET}/partition
 )
 
-# Include NS FSP library (reuses S-side FSP clone, includes s_ns_memory.cmake
-# which sets FLASH/RAM cache variables and compile defs on fsp_library)
+# Include NS FSP library (reuses S-side FSP clone, includes the s_ns_*.cmake settings
+# and the SoC's fsp_post_config.cmake, whose fsp_library_config defs apply only to
+# the fsp_library sources)
 include(${RENESAS_RA_COMMON_SOURCE_DIR}/core/fsp/fsp_ns_lib.cmake)
 
 # Link platform_ns against platform_region_defs to get memory region defines
@@ -54,6 +55,9 @@ target_link_libraries(platform_ns
     PUBLIC
         platform_region_defs
         fsp_library
+    INTERFACE
+        # FSP objects go straight onto the NS executable's link line
+        $<TARGET_OBJECTS:fsp_library>
 )
 
 target_compile_definitions(platform_ns

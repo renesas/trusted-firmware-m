@@ -9,17 +9,15 @@
 
 #include <stdint.h>
 #include <tfm_peripherals_def.h>
+#include "RTE_Stdio.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define TFM_DRIVER_STDIO    Driver_USART8
-#if (RA_CORE == RA_CM33)
-#define NS_DRIVER_STDIO     Driver_USART7
-#elif (RA_CORE == RA_CM85)
-#define NS_DRIVER_STDIO     Driver_USART0
-#endif
+/* Stdio drivers, from the channels selected in RTE_Device.h (see RTE_Stdio.h) */
+#define TFM_DRIVER_STDIO     RA_USART_DRIVER(RTE_S_STDIO_USART)
+#define NS_DRIVER_STDIO      RA_USART_DRIVER(RTE_NS_STDIO_USART)
 
 /* PPC bank type */
 typedef uint32_t ppc_bank_t;

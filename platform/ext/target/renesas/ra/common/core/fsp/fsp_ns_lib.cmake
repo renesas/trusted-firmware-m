@@ -6,8 +6,28 @@
 
 # NS-side FSP library. Reuses the same FSP source tree as the S side
 
-# Create target for FSP library to be linked to platform_ns code.
-add_library(fsp_library INTERFACE)
+# FSP library for platform_ns code: an OBJECT library whose objects are linked
+# directly into the NS executable (see ns/common.cmake). Consumers only get the
+# PUBLIC usage requirements (FSP headers + _RA_* build selectors).
+add_library(fsp_library OBJECT)
+
+# FSP-specific compile definitions (memory map + security attribute flags),
+# populated by the SoC's fsp_post_config.cmake. Linked PRIVATE so they apply
+# only to the FSP sources.
+add_library(fsp_library_config INTERFACE)
+
+target_link_libraries(fsp_library
+    PRIVATE
+    fsp_library_config
+)
+
+# The FSP sources are compiled in their own target, so they don't inherit
+# platform_ns's DOMAIN_NS; RTE_PinCfg.h (used by ra_gen/pin_data.c) needs it
+# to select the NS-accessible pins.
+target_compile_definitions(fsp_library
+    PRIVATE
+    DOMAIN_NS=1
+)
 
 # Renesas RA FSP library definitions
 set(FSP_CMSIS_DEVICE_PATH ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/bsp/cmsis/Device)
@@ -21,17 +41,21 @@ include(${FSP_LIBS_CORE_PATH}/s_ns_memory.cmake)
 include(${FSP_LIBS_CORE_PATH}/s_ns_interrupt.cmake)
 include(${FSP_LIBS_CORE_PATH}/s_ns_peripheral.cmake)
 
+# Derive partitions and export FSP security/memory macros on fsp_library_config
+# (FSP sources only) from the settings above
+include(${FSP_LIBS_CORE_PATH}/fsp_post_config.cmake)
+
 if(RA_CORE STREQUAL "cm33")
     # Mark as remote non-secure (CPU1) build for RA platform code.
     target_compile_definitions(fsp_library
-        INTERFACE
+        PUBLIC
         _RA_REMOTE_NONSECURE
         _RA_CORE=CPU1
     )
 else()
     # Mark as local non-secure (CPU0, TrustZone) build for RA platform code.
     target_compile_definitions(fsp_library
-        INTERFACE
+        PUBLIC
         _RA_TZ_NONSECURE
         _RA_BOOT_IMAGE
         _RA_CORE=CPU0
@@ -39,7 +63,7 @@ else()
 endif()
 
 target_include_directories(fsp_library
-    INTERFACE
+    PUBLIC
     ${FSP_CMSIS_DEVICE_PATH}/RENESAS/Include
     ${FSP_COMMON_BSP_PATH}
     ${FSP_TARGET_BSP_PATH}
@@ -52,11 +76,18 @@ target_include_directories(fsp_library
     ${FSP_LIBS_CORE_PATH}/ra_cfg/bsp
     ${FSP_LIBS_CORE_PATH}/ra_gen
     ${TARGET_PLATFORM_PATH}/CMSIS_Driver/Config
+    # CMSIS core headers from the exported NS platform tree (CMSIS_PATH is
+    # not available in the NS build)
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/cmsis/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/cmsis/Include/m-profile
+    PRIVATE
+    # RTE_PinCfg.h, needed by ra_gen/pin_data.c
+    ${RENESAS_RA_COMMON_SOURCE_DIR}/core/Native_Driver
 )
 
 # FSP BSP sources
 target_sources(fsp_library
-    INTERFACE
+    PRIVATE
     ${FSP_CMSIS_DEVICE_PATH}/RENESAS/Source/system.c
     ${FSP_COMMON_BSP_PATH}/bsp_clocks.c
     ${FSP_COMMON_BSP_PATH}/bsp_common.c
@@ -80,6 +111,6 @@ target_sources(fsp_library
 
 # FSP driver sources
 target_sources(fsp_library
-    INTERFACE
+    PRIVATE
     ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_ioport/r_ioport.c
 )

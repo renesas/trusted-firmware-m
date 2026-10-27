@@ -5,8 +5,31 @@
 #
 #-------------------------------------------------------------------------------
 
-# Create target for FSP library to be linked to platform code.
-add_library(fsp_library INTERFACE)
+# FSP library. The FSP sources are compiled once in this OBJECT library; its
+# objects are linked directly into tfm_s (see common.cmake) so that weak
+# overrides (hal_warmstart.c) and section-only data (vector_data.c) are always
+# kept. Consumers such as platform_s only get the PUBLIC usage requirements
+# (FSP headers + _RA_* build selectors).
+add_library(fsp_library OBJECT)
+
+# FSP-specific compile definitions (memory map + security attribute flags),
+# populated by the SoC's fsp_post_config.cmake. Linked PRIVATE so they apply
+# only to the FSP sources and do not leak to code outside fsp_library.
+add_library(fsp_library_config INTERFACE)
+
+target_link_libraries(fsp_library
+    PUBLIC
+    cmsis
+    PRIVATE
+    fsp_library_config
+    cmsis_stack_override
+)
+
+target_compile_options(fsp_library
+    PRIVATE
+    ${COMPILER_CP_FLAG}
+    ${COMPILER_CMSE_FLAG}
+)
 
 set(RENESAS_RA_FSP_LIB_PATH "DOWNLOAD" CACHE PATH "Path to FSP repo (or DOWNLOAD to fetch automatically)")
 set(RENESAS_RA_FSP_LIB_VERSION "v6.4.0" CACHE STRING "The version of FSP to use")
@@ -26,16 +49,20 @@ include(${FSP_LIBS_CORE_PATH}/s_ns_memory.cmake)
 include(${FSP_LIBS_CORE_PATH}/s_ns_interrupt.cmake)
 include(${FSP_LIBS_CORE_PATH}/s_ns_peripheral.cmake)
 
+# Derive partitions and export FSP security/memory macros on fsp_library_config
+# (FSP sources only) from the settings above
+include(${FSP_LIBS_CORE_PATH}/fsp_post_config.cmake)
+
 # Mark as secure build for RA platform code
 target_compile_definitions(fsp_library
-    INTERFACE
+    PUBLIC
     _RA_TZ_SECURE
     _RA_BOOT_IMAGE
     _RA_CORE=CPU0
 )
 
 target_include_directories(fsp_library
-    INTERFACE
+    PUBLIC
     ${FSP_CMSIS_DEVICE_PATH}/RENESAS/Include
     ${FSP_COMMON_BSP_PATH}
     ${FSP_TARGET_BSP_PATH}
@@ -47,11 +74,14 @@ target_include_directories(fsp_library
     ${FSP_LIBS_CORE_PATH}/ra_cfg
     ${FSP_LIBS_CORE_PATH}/ra_cfg/bsp
     ${FSP_LIBS_CORE_PATH}/ra_gen
+    PRIVATE
+    # RTE_PinCfg.h / RTE_Device.h, needed by ra_gen/pin_data.c and common_data.h
+    ${RENESAS_RA_COMMON_SOURCE_DIR}/core/Native_Driver
+    ${TARGET_PLATFORM_PATH}/CMSIS_Driver/Config
 )
 
 target_sources(fsp_library
-    INTERFACE
-    ${RENESAS_RA_COMMON_SOURCE_DIR}/core/Device/Source/startup.c
+    PRIVATE
     ${FSP_CMSIS_DEVICE_PATH}/RENESAS/Source/system.c
     ${FSP_COMMON_BSP_PATH}/bsp_clocks.c
     ${FSP_COMMON_BSP_PATH}/bsp_common.c
@@ -76,7 +106,7 @@ target_sources(fsp_library
 )
 
 target_sources(fsp_library
-    INTERFACE
+    PRIVATE
     ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_ioport/r_ioport.c
     ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_mram/r_mram.c
     $<$<OR:$<BOOL:${TFM_S_REG_TEST}>,$<BOOL:${TFM_NS_REG_TEST}>>:${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_agt/r_agt.c>

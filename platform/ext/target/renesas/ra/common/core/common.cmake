@@ -17,13 +17,6 @@ set(CMAKE_FSP_LIBS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../common/core/fsp)
 # Include FSP library configuration for platform_s code
 include(${CMAKE_FSP_LIBS_PATH}/fsp_s_lib.cmake)
 
-# FSP library needs the TF-M partition headers to resolve FLASH_CPU0_C_START /
-# FLASH_CPU0_C_SIZE (now defined in region_defs.h via S_CODE_LIMIT).
-target_include_directories(fsp_library
-    INTERFACE
-    ${RENESAS_RA_COMMON_SOURCE_DIR}/${FSP_SOC_TARGET}/partition
-)
-
 #========================= platform_region_defs ===============================#
 
 target_include_directories(platform_region_defs
@@ -35,34 +28,12 @@ target_include_directories(platform_region_defs
     ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS_Driver/Config
 )
 
+# Memory map values are defined once on tfm_config below, which
+# platform_region_defs links and which is exported to the NS build. Only the
+# S-only values are added here.
 target_compile_definitions(platform_region_defs
     INTERFACE
     S_RAM_CODE_SIZE=${S_RAM_CODE_SIZE}
-    FLASH_BASE_ADDRESS=${FLASH_BASE_ADDRESS}
-    FLASH_TOTAL_SIZE=${FLASH_TOTAL_SIZE}
-    FLASH_AREA_IMAGE_SECTOR_SIZE=${FLASH_AREA_IMAGE_SECTOR_SIZE}
-    FLASH_PAGE_SIZE=${FLASH_PAGE_SIZE}
-    FLASH_PROGRAM_UNIT=${FLASH_PROGRAM_UNIT}
-    FLASH_AREA_BL2_OFFSET=${FLASH_AREA_BL2_OFFSET}
-    FLASH_AREA_BL2_SIZE=${FLASH_AREA_BL2_SIZE}
-    FLASH_S_PARTITION_SIZE=${FLASH_S_PARTITION_SIZE}
-    FLASH_CPU0_NS_PARTITION_SIZE=${FLASH_CPU0_NS_PARTITION_SIZE}
-    FLASH_CPU1_NS_PARTITION_SIZE=${FLASH_CPU1_NS_PARTITION_SIZE}
-    CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET=${CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET}
-    CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET=${CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET}
-    FLASH_PS_AREA_SIZE=${FLASH_PS_AREA_SIZE}
-    FLASH_ITS_AREA_SIZE=${FLASH_ITS_AREA_SIZE}
-    FLASH_OTP_NV_COUNTERS_AREA_SIZE=${FLASH_OTP_NV_COUNTERS_AREA_SIZE}
-    TOTAL_RAM_SIZE=${TOTAL_RAM_SIZE}
-    S_DATA_SIZE=${S_DATA_SIZE}
-    CPU0_NS_RAM_DATA_SIZE=${CPU0_NS_RAM_DATA_SIZE}
-    CPU1_NS_RAM_DATA_SIZE=${CPU1_NS_RAM_DATA_SIZE}
-    S_ROM_ALIAS_BASE=${S_ROM_ALIAS_BASE}
-    CPU0_NS_ROM_ALIAS_BASE=${CPU0_NS_ROM_ALIAS_BASE}
-    CPU1_NS_ROM_ALIAS_BASE=${CPU1_NS_ROM_ALIAS_BASE}
-    S_RAM_ALIAS_BASE=${S_RAM_ALIAS_BASE}
-    CPU0_NS_RAM_ALIAS_BASE=${CPU0_NS_RAM_ALIAS_BASE}
-    CPU1_NS_RAM_ALIAS_BASE=${CPU1_NS_RAM_ALIAS_BASE}
 )
 
 target_compile_definitions(tfm_config
@@ -92,6 +63,9 @@ target_compile_definitions(tfm_config
     S_RAM_ALIAS_BASE=${S_RAM_ALIAS_BASE}
     CPU0_NS_RAM_ALIAS_BASE=${CPU0_NS_RAM_ALIAS_BASE}
     CPU1_NS_RAM_ALIAS_BASE=${CPU1_NS_RAM_ALIAS_BASE}
+    CPU0_NS_RAM_OFFSET=${CPU0_NS_RAM_OFFSET}
+    CPU1_NS_RAM_OFFSET=${CPU1_NS_RAM_OFFSET}
+    CMSE_VENEER_REGION_SIZE=${FLASH_CPU0_C_SIZE}
 )
 
 #========================= Platform common defs ===============================#
@@ -107,6 +81,13 @@ target_add_scatter_file(tfm_s
 target_sources(tfm_s
     PRIVATE
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/Device/Source/startup.c
+)
+
+# FSP objects are linked directly into the image (not through an archive) so
+# weak overrides and section-only data are kept.
+target_link_libraries(tfm_s
+    PRIVATE
+    fsp_library
 )
 
 #========================= Platform Secure ====================================#
