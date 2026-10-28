@@ -90,6 +90,30 @@ target_link_libraries(tfm_s
     fsp_library
 )
 
+#========================= Renesas Partition Data =============================#
+
+# Generates the partition data file (tfm_s.rpd) next to tfm_s.bin, for the
+# Renesas tools (e2 studio / RFP) to set the security boundaries. Each
+# @NAME@ in the template is a partition variable from the SoC's
+# s_ns_memory.cmake / fsp_post_config.cmake, written out in hex.
+function(ra_generate_rpd _template _output)
+    file(READ ${_template} _content)
+    string(REGEX MATCHALL "@[A-Z0-9_]+@" _refs "${_content}")
+    foreach(_ref IN LISTS _refs)
+        string(REGEX REPLACE "^@(.*)@$" "\\1" _var "${_ref}")
+        if(NOT DEFINED ${_var})
+            message(FATAL_ERROR "${_template}: ${_var} is not defined")
+        endif()
+        # math() results are decimal; normalize to hex. Function scope, so the
+        # caller's value is left untouched.
+        math(EXPR ${_var} "${${_var}}" OUTPUT_FORMAT HEXADECIMAL)
+    endforeach()
+    configure_file(${_template} ${_output} @ONLY)
+endfunction()
+
+ra_generate_rpd(${RENESAS_RA_SOC_SOURCE_DIR}/partition/tfm_s.rpd.in
+                ${CMAKE_BINARY_DIR}/bin/tfm_s.rpd)
+
 #========================= Platform Secure ====================================#
 
 target_compile_options(platform_s

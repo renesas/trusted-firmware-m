@@ -68,6 +68,14 @@ else()
     set(RAM_NS_CPU1_N_SIZE "0x0")
 endif()
 
+# Secure extension is disabled for CPU1 (see bsp_linker_info.h), so its secure
+# partitions are empty, placed right after the CPU0 secure partitions. Only
+# consumed by the partition data file (tfm_s.rpd), not by the FSP sources.
+math(EXPR RAM_CPU1_S_START "${RAM_CPU0_S_START} + ${RAM_CPU0_S_SIZE} + ${RAM_CPU0_C_SIZE}")
+set(RAM_CPU1_S_SIZE "0x0")
+math(EXPR FLASH_CPU1_S_START "${FLASH_CPU0_S_START} + ${FLASH_CPU0_S_SIZE}")
+set(FLASH_CPU1_S_SIZE "0x0")
+
 # ---- Non-secure external windows (OSPI0/1 CS0/CS1, SDRAM) --------------------
 # The *_CPU0_N_* partition bases are the non-secure external address windows,
 # single-sourced from RA_NS_WINDOW_STARTS/ENDS (config.cmake, also consumed by
