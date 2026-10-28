@@ -114,4 +114,14 @@
 #error "CRYPTO_KEY_DERIVATION_MODULE_ENABLED enabled, but not all prerequisites (missing key derivation algorithms)!"
 #endif
 
+#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED) && \
+    defined(TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED)
+#ifndef CRYPTO_MLDSA87_MIN_STACK_SIZE
+#define CRYPTO_MLDSA87_MIN_STACK_SIZE   0x29000
+#endif
+#if (CRYPTO_STACK_SIZE < CRYPTO_MLDSA87_MIN_STACK_SIZE)
+#error "ML-DSA-87 is enabled but CRYPTO_STACK_SIZE is too small"
+#endif
+#endif
+
 #endif /* __CRYPTO_CHECK_CONFIG_H__ */

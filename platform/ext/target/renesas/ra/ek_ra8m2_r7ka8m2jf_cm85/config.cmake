@@ -62,6 +62,14 @@ else()
     set(CPU1_NS_RAM_DATA_SIZE              "0x0")
 endif()
 
+#===================== Runtime Crypto partition (ML-DSA-87) ====================#
+# PoC: enable ML-DSA-87 in the runtime Crypto partition through the PQCP driver.
+# CRYPTO_STACK_SIZE is sized accordingly in config_tfm_target.h.
+set(TFM_TF_PSA_CRYPTO_PLATFORM_EXTRA_CONFIG_PATH
+    "${CMAKE_CURRENT_LIST_DIR}/crypto_extra_config.h"
+    CACHE FILEPATH "Platform extra TF-PSA-Crypto config (ML-DSA-87)")
+
+#===============================================================================#
 #===================== Peripherals owned by the SPE ============================#
 set(RENESAS_RA_PSAR_NS_SCI8 OFF CACHE BOOL "")
 set(RENESAS_RA_IPCSAR_NS_SAIPCSEM0 OFF CACHE BOOL "" FORCE)
