@@ -537,6 +537,28 @@
 #define PSA_KEY_TYPE_ECC_PUBLIC_KEY_BASE            ((psa_key_type_t) 0x4100)
 #define PSA_KEY_TYPE_ECC_KEY_PAIR_BASE              ((psa_key_type_t) 0x7100)
 #define PSA_KEY_TYPE_ECC_CURVE_MASK                 ((psa_key_type_t) 0x00ff)
+
+/** The type of an ML-DSA key pair.
+ *
+ * It is represented as just the 32-byte seed.
+ *
+ * The `bits` attribute of the key indicates the parameter set:
+ * 44, 56 or 87.
+ */
+#define PSA_KEY_TYPE_ML_DSA_KEY_PAIR                ((psa_key_type_t) 0x7002)
+
+/** The type of an ML-DSA public key.
+ *
+ * The `bits` attribute of the key indicates the parameter set:
+ * 44, 56 or 87.
+ */
+#define PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY              ((psa_key_type_t) 0x4002)
+
+/** Whether the key type is an ML-DSA key (key pair or public key). */
+#define PSA_KEY_TYPE_IS_ML_DSA(type)                                    \
+    ((type) == PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY ||                        \
+     (type) == PSA_KEY_TYPE_ML_DSA_KEY_PAIR)
+
 /** Elliptic curve key pair.
  *
  * The size of an elliptic curve key is the bit size associated with the curve,
@@ -1694,6 +1716,19 @@
 #define PSA_ALG_ED448PH                                 \
     (PSA_ALG_HASH_EDDSA_BASE | (PSA_ALG_SHAKE256_512 & PSA_ALG_HASH_MASK))
 
+/** Hedged pure ML-DSA (without pre-hashing). */
+#define PSA_ALG_ML_DSA                          ((psa_algorithm_t) 0x06004400)
+
+/** Deterministic pure ML-DSA (without pre-hashing). */
+#define PSA_ALG_DETERMINISTIC_ML_DSA            ((psa_algorithm_t) 0x06004500)
+
+/** Whether the given algorithm is a pure ML-DSA algorithm
+ * (without pre-hashing).
+ */
+#define PSA_ALG_IS_ML_DSA(alg)                \
+    ((alg) == PSA_ALG_DETERMINISTIC_ML_DSA || \
+     (alg) == PSA_ALG_ML_DSA)
+
 /* Default definition, to be overridden if the library is extended with
  * more hash-and-sign algorithms that we want to keep out of this header
  * file. */
@@ -1733,7 +1768,8 @@
  *         supported algorithm identifier.
  */
 #define PSA_ALG_IS_SIGN_MESSAGE(alg)                                    \
-    (PSA_ALG_IS_SIGN_HASH(alg) || (alg) == PSA_ALG_PURE_EDDSA)
+    (PSA_ALG_IS_SIGN_HASH(alg) || (alg) == PSA_ALG_PURE_EDDSA ||        \
+     PSA_ALG_IS_ML_DSA(alg))
 
 /** Whether the specified algorithm is a hash-and-sign algorithm.
  *
