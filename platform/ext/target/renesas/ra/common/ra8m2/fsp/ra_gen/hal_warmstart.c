@@ -16,30 +16,28 @@ FSP_CPP_FOOTER
  *
  * @param[in]  event    Where at in the start up process the code is currently at
  **********************************************************************************************************************/
-void R_BSP_WarmStart (bsp_warm_start_event_t event)
+void R_BSP_WarmStart(bsp_warm_start_event_t event)
 {
-    if (BSP_WARM_START_RESET == event)
-    {
+    if (event == BSP_WARM_START_RESET) {
 #if BSP_FEATURE_FLASH_LP_VERSION != 0
 
         /* Enable reading from data flash. */
         R_FACI_LP->DFLCTL = 1U;
 
         /* Would normally have to wait tDSTOP(6us) for data flash recovery. Placing the enable here, before clock and
-         * C runtime initialization, should negate the need for a delay since the initialization will typically take more than 6us. */
+         * C runtime initialization, should negate the need for a delay since the initialization will typically take more than 6us.
+         */
 #endif
     }
 
 #if BSP_CFG_OSPI_B_STARTUP_ENABLED && defined(BSP_CFG_OSPI_B_STARTUP_FN)
-    if (BSP_WARM_START_POST_CLOCK == event)
-    {
+    if (event == BSP_WARM_START_POST_CLOCK) {
         /* Setup OSPI_B SiP flash and initialize it. */
         R_BSP_OspiBInit(BSP_CFG_OSPI_B_STARTUP_FN, true);
     }
 #endif
 
-    if (BSP_WARM_START_POST_C == event)
-    {
+    if (event == BSP_WARM_START_POST_C) {
         /* C runtime environment and system clocks are setup. */
 
         /* Configure pins. */

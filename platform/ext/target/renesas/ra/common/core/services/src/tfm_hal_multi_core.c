@@ -22,5 +22,5 @@ void tfm_hal_boot_ns_cpu(uintptr_t start_addr)
 
 void tfm_hal_wait_for_ns_cpu_ready(void)
 {
-    /* Stub: will be suppported in other MRs*/
+    /* Stub: will be supported in other MRs*/
 }
