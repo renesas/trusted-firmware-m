@@ -40,20 +40,17 @@ else writes them.
 Two builds: the secure side (BL2 + secure image, which also installs the NS interface), then
 the non-secure application.
 
-### GNUARM — not available for this part yet
+### GNUARM
 
-**There is no GCC project set.** Only `ra8m2_iar_*` exists, so there is no GNUARM recipe to
-run. This section previously carried one naming `ra8m2_gcc_secure` / `_mcuboot` / `_nonsecure`,
-which have never existed - it was inherited from RA6M5, where both toolchain sets do.
+`fsp_cmake/scripts/app_build_ra8m2_gcc.bat` runs both steps. Note the part in the name;
+`app_build_iar.bat`, with no part, is RA6M5's.
 
-To add one: generate a `ra8m2_gcc_*` solution in e2 with the toolchain set to
-`gcc-arm-embedded`, matching the partitioning in RA8M2_SOLUTION.md byte for byte (the layout is
-constrained - see [flash_layout.h](flash_layout.h) and DECISIONS D054), then copy the IAR
-recipe below substituting `toolchain_GNUARM.cmake` and the new project paths.
+```bat
+fsp_cmake\scripts\app_build_ra8m2_gcc.bat
+```
 
-Pointing a GNUARM TF-M build at the IAR projects mostly works - `ra_gen/` and `ra_cfg/` are
-toolchain-neutral and TF-M supplies its own linker script - but it is not the intended pairing,
-and a failure there is as likely to be the mismatch as a real defect.
+It builds the secure side into `C:\b\m2g` and the non-secure application into `C:\b\m2gns`.
+Both are positional arguments, so `app_build_ra8m2_gcc.bat D:\spe D:\ns` builds elsewhere.
 
 ### IAR
 
@@ -68,20 +65,28 @@ fsp_cmake\scripts\app_build_ra8m2_iar.bat
 
 ### Flash and watch
 
-Import `fsp_cmake/ra8m2_iar_CPU0_nonsecure` into e2 studio and run one of its launches:
+Import `fsp_cmake/ra8m2_gcc_mcuboot` into e2 studio. **Every RA8M2 launch lives in that one
+project**, under both toolchains, because a launch has to belong to some project and the
+bootloader project is where they were put.
 
-| Launch | What it flashes |
+| Launch | What it runs |
 |---|---|
-| `ra8m2_TFM_sce9_gcc` | application, SCE9 crypto, GNUARM |
-| `ra8m2_TFM_sce9_iar` | application, SCE9 crypto, IAR |
-| `ra8m2_TFM_swCrypto_gcc` | application, ciphers in software — the comparison build |
-| `ra8m2_TFM_test_*_{gcc,iar}` | the PSA Arch suites (step 5) |
+| `ra8m2_TFM_flih_{gcc,iar}` | the application, isolation 1 |
+| `ra8m2_TFM_flih_L1ipc_gcc` | isolation 1 with the IPC backend |
+| `ra8m2_TFM_flih_L2_{gcc,iar}` | isolation 2 |
+| `ra8m2_TFM_flih_L3_{gcc,iar}` | isolation 3 |
+| `ra8m2_TFM_update_{gcc,iar}` | the MCUboot upgrade path |
+| `ra8m2_TFM_test_{attestation,crypto,storage}_{gcc,iar}` | the PSA Arch suites (step 5) |
+
+**The launches do not load what the scripts above build.** Each names BL2 by absolute path
+into a build tree of its own, so check the paths inside a launch before using it;
+`fsp_cmake/KNOWN_LIMITATIONS.md` §5 has the detail.
 
 Output is SEGGER RTT, one control block per image. **Read the address from the map rather than
 reusing one** — it changes whenever an image is relinked:
 
 ```sh
-grep _SEGGER_RTT build_ra8m2_sce9_ns/bin/tfm_ns.map      # IAR emits no NS map; use nm on the .elf
+grep _SEGGER_RTT C:/b/m2gns/bin/tfm_ns.map      # IAR emits no NS map; use nm on the .elf
 ```
 
 A good run ends with `==== ALL PASSED ====` from the smoke test in
@@ -109,8 +114,7 @@ peripherals, clocks, pins or partitioning:
 
 What a solution must emit for TF-M to build against it — partition names, sizes, the settings
 that are load-bearing — is in `fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md`, with the RA8M2
-specifics and the RDPM values in `fsp_cmake/RA8M2_SOLUTION.md`. Recreating a project from
-scratch: `fsp_cmake/RASC_PROJECT_SETUP.md`.
+specifics and the RDPM values in `fsp_cmake/RA8M2_SOLUTION.md`.
 
 Several settings are load-bearing and guarded at build time rather than left to fail on the
 board — `BSP_CFG_EARLY_INIT` must be 1, the main stack must match `S_MSP_STACK_SIZE`, the flash
@@ -220,8 +224,10 @@ for the earlier RA6M4 port, so the surrounding CMake differs from the current pe
 Three modules are deliberately never built from the e2 projects — `r_sce`, `rm_psa_crypto`
 and `rm_mcuboot_port` — because FSP's own crypto and flash-map configuration collides with
 TF-M's. `FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) enforces that, and
-`fsp_cmake/DESIGN.md` §4–6 explains why. The SCE9 accelerator reaches FSP's `*_ALT` sources by
-a different route: [platform/ext/accelerator/renesas/sce9](../../../accelerator/renesas/sce9).
+`fsp_cmake/DESIGN.md` §4–6 explains why. This part's accelerator is RSIP-E50D, not SCE9,
+and it reaches
+FSP's `*_ALT` sources by a different route:
+[platform/ext/accelerator/renesas/rsip_e50d](../../../accelerator/renesas/rsip_e50d).
 
 ---
 
