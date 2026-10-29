@@ -33,6 +33,7 @@ set(FLASH_AREA_BL2_SIZE        "0x0" CACHE STRING "BL2 size (BL2 unsupported)")
 set(CONFIG_TFM_SPM_BACKEND     IPC CACHE STRING "The SPM backend")
 set(CONFIG_TFM_INCLUDE_STDLIBC ON  CACHE BOOL   "Include standard C libraries and startup code or not")
 set(CONFIG_TFM_ENABLE_FP       ON  CACHE BOOL   "Enable floating point support")
+set(TFM_PARTITION_PLATFORM     ON  CACHE BOOL   "Enable Platform partition" FORCE)
 
 #===================== Generated sources =======================================#
 
