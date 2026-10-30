@@ -1,243 +1,91 @@
-# RA8M2 quick start
+# RA8M2 — platform card
 
-From a fresh clone to a running secure boot chain on a CK-RA8M2 V2, and the four changes
-people most often need afterwards.
-
-Companion repository: `fsp_cmake`, cloned beside this one. It holds the generated e2 studio
-projects, the debug launches, the build scripts and the design and decision documents this
-guide links to.
+TF-M platform `renesas/ra8m2`. **Every procedure lives in the companion repository**: clone,
+e2 build, TrustZone partitioning, build, flash, RTT and the test suites are all in
+`fsp_cmake/GETTING_STARTED.md`, written once for both parts and both toolchains. This page is
+the part's own facts and the options that sit beside `config.cmake`.
 
 | | |
 |---|---|
-| Device | R7KA8M2JFLCAC on CK-RA8M2 V2 |
-| FSP | 6.7 (`fsp_cmake/DECISIONS.md` D047) |
-| Toolchains | Arm GNU 13.2, IAR EWARM 10.10.2 |
-| Host tools | CMake ≥ 3.21, Ninja, Python 3, SEGGER J-Link |
+| Device | R7KA8M2JFLCAC, Cortex-M85 |
+| Board | EK-RA8M2 |
+| Crypto engine | RSIP-E50D, not SCE9 |
+| Secure slot | 294,912 B |
+| Non-secure slot | 163,840 B |
+| Generated projects | `fsp_cmake/ra8m2_{gcc,iar}_mcuboot`, `..._{gcc,iar}_CPU0_secure`, `..._{gcc,iar}_CPU0_nonsecure` |
+| Debug launches | `fsp_cmake/ra8m2_gcc_mcuboot/`, all seventeen of them, under both toolchains |
 
----
+**Every RA8M2 launch lives in the one bootloader project**, because a launch has to belong to
+some project and that is where they were put. The second core is unused: the port is
+single-core.
 
-## 1. Clone
+The two toolchain solutions target different board revisions — the GCC projects select
+`ra8m2_ek` and the IAR projects `ra8m2_ek_v2`. Both have passed on hardware, but regenerating
+either set against the other board changes the generated BSP.
 
-```sh
-git clone <this-repo>            trusted-firmware-m
-git clone <fsp_cmake-repo>       fsp_cmake
-```
+## Platform options
 
-Side by side, because the build reads the generated FSP projects out of `fsp_cmake` by path.
-No submodules to initialise — TF-M fetches its own dependencies (Mbed TLS, MCUboot, CMSIS) at
-configure time, and the RA8M2 port additionally overlays FSP's Mbed TLS (step 4 below explains
-when that matters).
+Defaults, constraints and the flash each one costs are in `fsp_cmake/CONFIGURATION.md` §6. This
+is what each does on this part:
 
-**Program the TrustZone boundaries once per board** with the Renesas Device Partition Manager,
-before the first flash. The values are in `fsp_cmake/RA8M2_SOLUTION.md`; RDPM erases the part,
-so do it first. Every launch configuration must keep `setTZBoundaries` `false` so nothing
-else writes them.
-
----
-
-## 2. Build and run the application
-
-Two builds: the secure side (BL2 + secure image, which also installs the NS interface), then
-the non-secure application.
-
-### GNUARM
-
-`fsp_cmake/scripts/app_build_ra8m2_gcc.bat` runs both steps. Note the part in the name;
-`app_build_iar.bat`, with no part, is RA6M5's.
-
-```bat
-fsp_cmake\scripts\app_build_ra8m2_gcc.bat
-```
-
-It builds the secure side into `C:\b\m2g` and the non-secure application into `C:\b\m2gns`.
-Both are positional arguments, so `app_build_ra8m2_gcc.bat D:\spe D:\ns` builds elsewhere.
-
-### IAR
-
-`fsp_cmake/scripts/app_build_ra8m2_iar.bat` runs both steps - note the part in the name; `app_build_iar.bat` is RA6M5's. It exists because IAR needs things GCC
-does not: `iccarm` on `PATH` (TF-M's toolchain file names it without a path) and
-`-DCMAKE_ASM_COMPILER_ARCHITECTURE_ID=ARM`, which CMake 4.1 cannot detect and which fails on
-the second configure pass, after the first has succeeded.
-
-```bat
-fsp_cmake\scripts\app_build_ra8m2_iar.bat
-```
-
-### Flash and watch
-
-Import `fsp_cmake/ra8m2_gcc_mcuboot` into e2 studio. **Every RA8M2 launch lives in that one
-project**, under both toolchains, because a launch has to belong to some project and the
-bootloader project is where they were put.
-
-| Launch | What it runs |
+| Option | Effect |
 |---|---|
-| `ra8m2_TFM_flih_{gcc,iar}` | the application, isolation 1 |
-| `ra8m2_TFM_flih_L1ipc_gcc` | isolation 1 with the IPC backend |
-| `ra8m2_TFM_flih_L2_{gcc,iar}` | isolation 2 |
-| `ra8m2_TFM_flih_L3_{gcc,iar}` | isolation 3 |
-| `ra8m2_TFM_update_{gcc,iar}` | the MCUboot upgrade path |
-| `ra8m2_TFM_test_{attestation,crypto,storage}_{gcc,iar}` | the PSA Arch suites (step 5) |
+| `CRYPTO_HW_ACCELERATOR` | RSIP-E50D ciphers, hashes and ECC. `OFF` reverts to software |
+| `RA8M2_FSP_MBEDTLS` | builds the TF-M crypto from the FSP Mbed TLS tree, through [cmake/fsp_mbedtls.cmake](cmake/fsp_mbedtls.cmake) |
+| `RA8M2_STDOUT_RTT` | console over SEGGER RTT rather than a UART |
+| `RA8M2_RTT_BLOCKING` | RTT waits for the host instead of dropping output. Test builds only |
+| `RA8M2_BL2_HALT_AT_MAIN` | BL2 spins at `main()` so registers can be read before MCUboot runs |
+| `RA8M2_ORPHAN_CHECK_STRICT` | an orphan section becomes a link failure. Intended for CI |
+| `RA8M2_NS_IN_SPE_BUILD` | builds the non-secure image inside the secure build |
 
-**The launches do not load what the scripts above build.** Each names BL2 by absolute path
-into a build tree of its own, so check the paths inside a launch before using it;
-`fsp_cmake/KNOWN_LIMITATIONS.md` §5 has the detail.
+## What is different about this part
 
-Output is SEGGER RTT, one control block per image. **Read the address from the map rather than
-reusing one** — it changes whenever an image is relinked:
+**The memory is MRAM and there is no data flash.** The flash driver is `r_mram`, the storage
+area is an emulated data-flash partition, and the MCUboot write alignment follows the MRAM
+programming size rather than a code-flash write unit.
 
-```sh
-grep _SEGGER_RTT C:/b/m2gns/bin/tfm_ns.map      # IAR emits no NS map; use nm on the .elf
-```
+**Slot order is reversed for image 0.** The secure secondary sits below the secure primary, so
+a `boot_rsp` offset of `0x68000` is the primary. Image 1 is the usual way round. Anything that
+reads a `boot_rsp` or computes a flash row has to account for it.
 
-A good run ends with `==== ALL PASSED ====` from the smoke test in
-[ns/tfm_service_tests.c](ns/tfm_service_tests.c), which exercises the TRNG, SHA-256, ITS,
-PS (AES-GCM on the engine) and attestation across the secure boundary. The application body
-around it — `hal_entry()` — comes from the FSP non-secure project, not from this repository;
-[ns_app/CMakeLists.txt](ns_app/CMakeLists.txt) compiles both against the interface the secure
-build installs.
+**The secure slot has little spare room.** Enabling a diagnostic that costs a few kilobytes
+fails to link; `fsp_cmake/CONFIGURATION.md` §6 gives the measured cost of each.
 
----
+**RSA-2048 key generation in plaintext format is unavailable, and there is no switch for it.**
+Every other RSA-2048 operation works. This is the single PSA Arch crypto failure on this part.
+`fsp_cmake/KNOWN_LIMITATIONS.md` §2 has the mechanism.
 
-## 3. Change the FSP configuration
+Otherwise the engine accelerates the same set as SCE9 — AES in ECB, CBC and CTR at all three
+key sizes, AES-GCM, CMAC, SHA-256, ECP, ECDSA and RSA, with BL2 hashing images on the engine
+too. AES-CCM is software by choice; deterministic ECDSA, P-521 and Curve25519 are off because
+the engine does not implement them.
 
-The FSP projects are generated by e2 studio / RASC and committed to `fsp_cmake`. To change
-peripherals, clocks, pins or partitioning:
+The accelerator reaches the FSP `*_ALT` sources through
+[platform/ext/accelerator/renesas/rsip_e50d](../../../accelerator/renesas/rsip_e50d), which is
+a different directory from the RA6 parts. Three modules are deliberately never built from the
+e2 projects — the FSP crypto stack, `rm_psa_crypto` and `rm_mcuboot_port` — and
+`FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) enforces that.
 
-1. Install e2 studio with FSP 6.7.
-2. Open the solution — `fsp_cmake/ra8m2_iar/solution.xml` — which owns the memory partitioning
-   for all three projects.
-3. Edit the project you need (`ra8m2_iar_CPU0_secure`, `ra8m2_iar_mcuboot`,
-   `ra8m2_iar_CPU0_nonsecure`),
-   Generate Project Content, and build once in e2 so the generated headers exist.
-4. Point the TF-M build at it with `-DFSP_S_APP_DIR` / `-DFSP_BL2_APP_DIR` / `-DFSP_NS_APP_DIR`,
-   as in step 2. Any directory works; they need not live in `fsp_cmake`.
+## Files in this directory
 
-What a solution must emit for TF-M to build against it — partition names, sizes, the settings
-that are load-bearing — is in `fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md`, with the RA8M2
-specifics and the RDPM values in `fsp_cmake/RA8M2_SOLUTION.md`.
+| | |
+|---|---|
+| [config.cmake](config.cmake) | the platform defaults, commented throughout |
+| [CMakeLists.txt](CMakeLists.txt) | the FSP module declarations and the option-memory brick guard, which carries this part's five address windows |
+| [cmake/modules/](cmake/modules/) | one file per FSP module. [fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake) documents the contract they work inside |
+| [ra8m2_bl2.ld](ra8m2_bl2.ld), [ra8m2_bl2.icf](ra8m2_bl2.icf) | the bootloader link, including one `MEMORY` region per option word |
+| [ra8m2_ddsc.c](ra8m2_ddsc.c) | the `gp_ddsc_*` definitions this part needs and the RA6 parts do not |
+| [ra8m2_layout_checks.c](ra8m2_layout_checks.c) | the build-time assertions on the generated layout |
+| [ns_app/](ns_app/) | the non-secure application build |
+| [ns/tfm_service_tests.c](ns/tfm_service_tests.c) | the smoke test the application runs across the secure boundary |
 
-Several settings are load-bearing and guarded at build time rather than left to fail on the
-board — `BSP_CFG_EARLY_INIT` must be 1, the main stack must match `S_MSP_STACK_SIZE`, the flash
-instance must be named `g_flash0`. If you regenerate and the build stops with an `#error`
-naming one of these, the message says what to set.
-
----
-
-## 4. Change the TF-M configuration
-
-The application build above is Debug / isolation 1 / SFN backend / SPM trace on. The PSA Arch
-builds are profile_large / isolation 3 / IPC. Both are just CMake options:
-
-| Option | Application | PSA Arch |
-|---|---|---|
-| `TFM_PROFILE` | *(default)* | `profile_large` |
-| `TFM_ISOLATION_LEVEL` | `1` | `3` |
-| `CONFIG_TFM_SPM_BACKEND` | `SFN` | `IPC` |
-| `TFM_SPM_DEBUG_TRACE` | `ON` | `OFF` (required at L3 + IPC) |
-| `CMAKE_BUILD_TYPE` | `Debug` | `MinSizeRel` for the NS side |
-
-Change them on a clean build directory — most are cached and several others derive from
-them. `fsp_cmake/scripts/README.md` tabulates both configurations; the options themselves are
-documented in TF-M's `docs/configuration/`, and the platform's own defaults and their reasons
-are in [config.cmake](config.cmake), which is commented throughout.
-
-Platform-specific options worth knowing:
-
-| Option | Default | Effect |
-|---|---|---|
-| `CRYPTO_HW_ACCELERATOR` | `ON` | RSIP-E50D ciphers, hashes and ECC; `OFF` reverts to software |
-| `RA8M2_FSP_MBEDTLS` | `ON` | build TF-M's crypto from FSP's Mbed TLS ([cmake/fsp_mbedtls.cmake](cmake/fsp_mbedtls.cmake)) |
-| `RA8M2_STDOUT_RTT` | `ON` | console over RTT rather than UART |
-| `RA8M2_RTT_BLOCKING` | `OFF` | RTT waits for the host instead of dropping output — test builds only |
-
-### Secure storage sizing — there is much more room here than on RA6M5
-
-RA8M2 has no data flash. ITS, PS and the MCUboot NV counters live in `DF_EMULATION`, a
-reserved region of secure MRAM declared in the e2 solution. It is 64 KB, against the 8 KB
-of secure data flash RA6E1 and RA6M5 share, which makes the per-partition budgets about 10x
-larger:
-
-| | RA6M5 (8 KB data flash) | RA8M2 (64 KB DF_EMULATION) |
-|---|---|---|
-| MCUboot NV counters | 2,048 B | 2,048 B |
-| Protected Storage | 3,072 B | 31,744 B |
-| Internal Trusted Storage | 3,072 B | 31,744 B |
-
-The shipped defaults do not use that room. `PS_MAX_ASSET_SIZE` (512) and `PS_NUM_ASSETS`
-(5) in [config_tfm_target.h](config_tfm_target.h) are carried over from RA6M5, where they were
-pinned by a 1,536-byte PS block — the header there explains the arithmetic, and on that part
-the two were genuinely in tension. Here the PS block is 15,872 B and the budget assertion in
-[ra8m2_layout_checks.c](ra8m2_layout_checks.c) clears by 15,008 bytes rather than 88.
-
-So both can be raised substantially. The binding relation is unchanged —
-
-```
-free for one asset = PS_BLOCK_SIZE - fs_metadata - object_tables - resident
-                   ≈ 15872 - (20 + 32*(PS_NUM_ASSETS+3)) - 2*(48 + 32*(PS_NUM_ASSETS+1)) - 108
-```
-
-— and each extra asset costs 96 bytes of fixed overhead across the two object tables, so
-`PS_NUM_ASSETS` is still the expensive knob rather than `PS_MAX_ASSET_SIZE`. The static
-assertions fail the build rather than the board if a combination does not fit, so raising them
-is safe to try.
-
-They are left at the RA6M5 values so the first RA8M2 bring-up is comparable to
-the validated one. Raise them once the port boots, not before.
-
-Two further notes:
-
-- Program unit is 32 B, not 4. MRAM's write granularity
-  (`BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES`) is 8x the data flash's, so the flash filesystem
-  rounds every write up to 32 B. At this region size that rounding is immaterial; it would not
-  have been at 8 KB.
-- Resizing `DF_EMULATION` is not free. It sits between BL2 and the first MCUboot slot, so
-  its size shifts every slot after it, and on a 1 MB device 64 KB is the only value that keeps
-  all four slots a whole number of FSP's 32 KB MRAM sectors. See
-  [flash_layout.h](flash_layout.h) and DECISIONS D054 before changing it.
-
----
-
-## 5. Add an FSP module
-
-FSP modules are built as per-role static libraries: the secure image and the bootloader come
-from different e2 projects, so each module produces `fsp_<name>_s` or `fsp_<name>_bl2` rather
-than one shared target.
-
-1. Add the module in e2 studio to whichever project needs it, regenerate, build once.
-2. Write `cmake/modules/fsp_<name>.cmake` in this directory. Follow
-   [cmake/modules/fsp_flash.cmake](cmake/modules/fsp_flash.cmake) — the simplest one — or
-   [cmake/modules/fsp_sce.cmake](cmake/modules/fsp_sce.cmake) for a module that is conditional
-   and reports clearly when the e2 project lacks it. Start with `fsp_module_library(<out> <name>)`,
-   add sources under `${FSP_MODULE_BASE_DIR}`, and link `fsp_bsp_${FSP_MODULE_ROLE}`.
-3. Declare it for the roles that need it in [CMakeLists.txt](CMakeLists.txt):
-   ```cmake
-   set(FSP_MODULES_S    bsp flash sce)
-   set(FSP_MODULES_BL2  bsp flash)
-   ```
-
-The contract a module file works inside — the variables it is handed, why targets carry a role
-suffix — is documented at the top of
-[cmake/modules/fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake). Background and a
-worked example: `fsp_cmake/ADDING_FSP_MODULES.md`, "Adding New FSP Modules" (written
-for the earlier RA6M4 port, so the surrounding CMake differs from the current per-role pattern).
-
-Three modules are deliberately never built from the e2 projects — `r_sce`, `rm_psa_crypto`
-and `rm_mcuboot_port` — because FSP's own crypto and flash-map configuration collides with
-TF-M's. `FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) enforces that, and
-`fsp_cmake/DESIGN.md` §4–6 explains why. This part's accelerator is RSIP-E50D, not SCE9,
-and it reaches
-FSP's `*_ALT` sources by a different route:
-[platform/ext/accelerator/renesas/rsip_e50d](../../../accelerator/renesas/rsip_e50d).
-
----
-
-## Where things are documented
+## Where to read next
 
 | Topic | Document |
 |---|---|
-| Memory map, TrustZone boundaries, RDPM values, e2 project requirements | `fsp_cmake/RA8M2_SOLUTION.md` |
-| Why the port is built the way it is | `fsp_cmake/DESIGN.md` |
-| Every decision, with its evidence | `fsp_cmake/DECISIONS.md` |
-| What a RASC solution must emit | `fsp_cmake/RA6E1_TEMPLATE_CHECKLIST.md` |
-| PSA Arch suites — building, running, results | `fsp_cmake/scripts/README.md` |
-| Changes this port makes to shared TF-M files | `fsp_cmake/UPSTREAM_CHANGES.md` |
+| every procedure | `fsp_cmake/GETTING_STARTED.md` |
+| the layout, the TrustZone boundary values, the e2 project requirements | `fsp_cmake/RA8M2_SOLUTION.md` |
+| why the port is built this way | `fsp_cmake/DESIGN.md` |
+| what is untested or known broken | `fsp_cmake/KNOWN_LIMITATIONS.md` |
+| what a generated project must supply | `fsp_cmake/E2_PROJECT_REQUIREMENTS.md` |
+| adding an FSP module | `fsp_cmake/ADDING_FSP_MODULES.md` |
