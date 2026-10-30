@@ -48,8 +48,10 @@ programming size rather than a code-flash write unit.
 a `boot_rsp` offset of `0x68000` is the primary. Image 1 is the usual way round. Anything that
 reads a `boot_rsp` or computes a flash row has to account for it.
 
-**The secure slot has little spare room.** Enabling a diagnostic that costs a few kilobytes
-fails to link; `fsp_cmake/CONFIGURATION.md` §6 gives the measured cost of each.
+**The signed image fills the slot to within about 800 B, and that is not the code budget.**
+The flat binary spans the whole secure region, so it is region-sized whatever the image costs.
+The code budget is the region, and this part has about 76 KB of it spare.
+`fsp_cmake/CONFIGURATION.md` §6 has both measurements.
 
 **RSA-2048 key generation in plaintext format is unavailable, and there is no switch for it.**
 Every other RSA-2048 operation works. This is the single PSA Arch crypto failure on this part.
