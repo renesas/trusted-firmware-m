@@ -72,7 +72,7 @@
  * Today the secure image only ever touches data flash: it instantiates Driver_FLASH1
  * (data) and not Driver_FLASH0 (code). But FLASH_HP_CFG_CODE_FLASH_PROGRAMMING_ENABLE is
  * 1 in ra6e1_secure, so the code-flash path is compiled in and R_FLASH_HP_Write/Erase
- * dispatch to it on address. This is armed, not absent - see RA6E1_SOLUTION.md.
+ * dispatch to it on address. This is armed, not absent.
  *
  * TF-M's generated secure linker already has the mechanism, gated on S_RAM_CODE_START:
  * .ER_CODE_SRAM is placed in the CODE_RAM region with a copy-table entry, so the CMSIS

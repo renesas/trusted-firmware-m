@@ -74,7 +74,8 @@
  * ONE DELIBERATE DEVIATION: RLAR.LADDR is the INCLUSIVE limit of the 32-byte block it names,
  * so FSP's ns_end runs the region 32 bytes past the end of MRAM. This writes ns_end - 1 (D134).
  * RESTATED rather than included because rm_mcuboot_port is not built here - TF-M supplies the
- * MCUboot flash backend (DEFAULT_MCUBOOT_FLASH_MAP=ON). BRIDGING_FILES.md lists this copy.
+ * MCUboot flash backend (DEFAULT_MCUBOOT_FLASH_MAP=ON). FSP_UPREV_CHECKLIST.md lists
+ * this copy.
  * ================================================================================
  */
 #define BL2_SAU_REGION_CODE_FLASH   (0U)

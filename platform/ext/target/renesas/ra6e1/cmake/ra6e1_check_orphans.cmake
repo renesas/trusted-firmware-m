@@ -23,7 +23,7 @@
 # routines came to execute from code flash: FSP marks them PLACE_IN_RAM_SECTION
 # (".ram_from_flash") because the FCU makes the whole code flash unreadable during a
 # code-flash P/E, ld orphaned the section into .text, and the failure was a hardware hang
-# with no diagnostic. See RA6E1_SOLUTION.md.
+# with no diagnostic.
 #
 # Why not diff fsp_gen.ld against our scripts
 # -------------------------------------------

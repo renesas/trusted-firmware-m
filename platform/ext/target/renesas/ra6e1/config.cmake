@@ -87,7 +87,7 @@ set(MCUBOOT_UPGRADE_STRATEGY            "OVERWRITE_ONLY" CACHE STRING "Match the
 # space the trailer needs, imgtool fails the build again. That is the intended behaviour.
 #
 # Corresponding Partition Manager values: Code Secure 606 KB, NSC 2 KB, NS at 0x98000
-# (608 KB). See RA6E1_SOLUTION.md.
+# (608 KB). RA6E1 is reference-only and has no delivered part guide.
 #
 # FLAG DAY: imgtool encodes max_align into the boot magic whenever it is not 8
 # (image.py:189-202), so images signed at align 1 are NOT accepted by a BL2 built at 128.
@@ -145,7 +145,7 @@ set(CONFIG_TFM_SPM_BACKEND              "SFN"       CACHE STRING    "SFN - no IP
 # Device Partition Manager. Those come from the solution's IDAU partitioning - the
 # BSP_PARTITION_* values in the generated bsp_linker_info.h - and separate secure from
 # non-secure. Levels 2 and 3 subdivide the SECURE side with the MPU, which is invisible to
-# the IDAU/SAU. RA6E1_SOLUTION.md carries the RDPM values; they are unaffected by this.
+# the IDAU/SAU, so the RDPM values above are unaffected by the isolation level.
 set(PLATFORM_HAS_ISOLATION_L3_SUPPORT   ON          CACHE BOOL      "Shared v8m isolation HAL implements L3")
 
 # Partitions

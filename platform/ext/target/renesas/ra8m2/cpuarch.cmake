@@ -15,7 +15,7 @@
 # port; RA6E1 and RA6M5 are Armv8-M.main Cortex-M33.
 #
 # CPU1 is a Cortex-M33 at 250 MHz and is NOT built by this platform - RA8x2 is a
-# single-core part for this project (PROJECT_PLAN.md, descoped 2026-09-14). The
+# single-core part for this project, descoped 2026-09-14. The
 # secure project is ra8m2_iar_CPU0_secure for the same reason.
 #
 # Values match platform/ext/target/arm/mps3/corstone310, TF-M's own M85 platform,
