@@ -56,7 +56,7 @@ The accelerator reaches the FSP `*_ALT` sources through
 | [config.cmake](config.cmake) | platform defaults |
 | [CMakeLists.txt](CMakeLists.txt) | FSP module declarations, brick guard |
 | [cmake/modules/](cmake/modules/) | one file per FSP module; contract in [fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake) |
-| [ra8m2_bl2.ld](ra8m2_bl2.ld), [ra8m2_bl2.icf](ra8m2_bl2.icf) | bootloader link, one `MEMORY` region per option word |
+| [ra8m2_bl2.ld](ra8m2_bl2.ld), [ra8m2_bl2.icf](ra8m2_bl2.icf) | bootloader link, one `MEMORY` region per option group |
 | [ra8m2_ddsc.c](ra8m2_ddsc.c) | RA8M2-only `gp_ddsc_*` definitions |
 | [ra8m2_layout_checks.c](ra8m2_layout_checks.c) | build-time layout assertions |
 | [ns_app/](ns_app/), [ns/tfm_service_tests.c](ns/tfm_service_tests.c) | non-secure application and its smoke test |

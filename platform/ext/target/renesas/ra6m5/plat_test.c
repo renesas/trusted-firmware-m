@@ -15,14 +15,16 @@
  * so those are absent here rather than stubbed.
  *
  * --------------------------------------------------------------------------------------
- * THIS USES THE FSP DRIVER, BY DESIGN.
+ * THE DRIVER OPENS THE TIMER; THIS FILE DRIVES IT. SEE THE SPLIT BELOW.
  *
- * An earlier revision drove the AGT registers directly, on the reasoning that R_AGT_Open()
- * installs a callback that can never fire (TF-M owns the vector) and that tracking the
- * open state was not worth it. That was wrong twice over: the hand-rolled sequence missed
- * the AGTMR2-before-AGTMR1 ordering and the compare-match parking R_AGT_Open() does, and
- * the driver's register work is proven on this silicon in a way a re-derivation is not.
- * The unfireable callback costs nothing.
+ * R_AGT_Open() does the setup, once, from tfm_timer0_irq_init() at partition init. The
+ * start() and stop() below then write R_AGT0->AGT16.CTRL.AGTCR directly, because an
+ * unprivileged partition can reach neither the generated control block nor the NVIC - the
+ * numbered list further down gives the three reasons and the faults each produced.
+ *
+ * Do not "simplify" this into R_AGT_Start()/R_AGT_Stop() calls, and do not re-derive
+ * Open()'s register sequence by hand: an earlier revision did the latter and missed the
+ * AGTMR2-before-AGTMR1 ordering and the compare-match parking Open() performs.
  *
  * What the driver does NOT do, and this file therefore must:
  *

@@ -49,7 +49,7 @@ The accelerator reaches the FSP `*_ALT` sources through
 | [config.cmake](config.cmake) | the platform defaults, commented throughout |
 | [CMakeLists.txt](CMakeLists.txt) | the FSP module declarations and the option-memory brick guard |
 | [cmake/modules/](cmake/modules/) | one file per FSP module. [fsp_module_common.cmake](cmake/modules/fsp_module_common.cmake) documents the contract they work inside |
-| [ra6m5_bl2.ld](ra6m5_bl2.ld), [ra6m5_bl2.icf](ra6m5_bl2.icf) | the bootloader link, including one `MEMORY` region per option word |
+| [ra6m5_bl2.ld](ra6m5_bl2.ld), [ra6m5_bl2.icf](ra6m5_bl2.icf) | the bootloader link, including one `MEMORY` region per option group |
 | [ra6m5_layout_checks.c](ra6m5_layout_checks.c) | the build-time assertions on the generated layout |
 | [ns_app/](ns_app/) | the non-secure application build |
 | [ns/tfm_service_tests.c](ns/tfm_service_tests.c) | the smoke test the application runs across the secure boundary |
