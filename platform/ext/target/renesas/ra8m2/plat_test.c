@@ -15,7 +15,7 @@
  * so those are absent here rather than stubbed.
  *
  * --------------------------------------------------------------------------------------
- * THIS USES THE FSP DRIVER, BY DESIGN.
+ * THE DRIVER OPENS THE TIMER; THIS FILE DRIVES IT. SEE THE SPLIT BELOW.
  *
  * An earlier revision drove the AGT registers directly, on the reasoning that R_AGT_Open()
  * installs a callback that can never fire (TF-M owns the vector) and that tracking the
