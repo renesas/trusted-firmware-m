@@ -1,10 +1,7 @@
 # TF-M on Renesas RA
 
-**Start at `ra_fsp_cmake_tfm/GETTING_STARTED.md`, in the companion repository.** It carries every
-procedure — prerequisites, clone, the e2 studio build these ports read their layout from,
-TrustZone partitioning, build, flash, RTT and the test suites — written once for both parts and
-both toolchains. The pages here are part cards: the facts of one device and the options that
-sit beside its `config.cmake`.
+**Start at `ra_fsp_cmake_tfm/GETTING_STARTED.md`** in the companion repository: every procedure,
+both parts, both toolchains. The pages here are part cards.
 
 | Platform | Part card | Status |
 |---|---|---|
@@ -17,14 +14,9 @@ The crypto accelerators live outside this directory, one per engine:
 [../../accelerator/renesas/rsip_e50d](../../accelerator/renesas/rsip_e50d) for RA8M2. Both
 reach the FSP `*_ALT` sources rather than the FSP PSA crypto module.
 
-[common/](common/) holds what the parts share. `common/check_ofs.py` is the option-memory brick
-guard: each option word must be linked into its own `MEMORY` region, because one coalesced load
-segment zero-fills the memory between the words and writes values nobody chose. That failure
-made two boards un-erasable, and it is invisible in the srec. Every part's `CMakeLists.txt`
-runs the guard over `bl2` and `tfm_s` on every build; `ra_fsp_cmake_tfm/GETTING_STARTED.md` §6 has the
-form to run by hand before flashing.
+[common/](common/) holds shared code, including `check_ofs.py`, the option-memory brick guard
+every build runs over `bl2` and `tfm_s` (mechanism: `DESIGN.md` §8.4; manual check:
+`GETTING_STARTED.md` §6).
 
-**The shipped configuration is a development configuration.** Sample signing keys, dummy
-provisioning, inactive anti-rollback, non-secure clock registers and an unenforced debug
-lifecycle. `ra_fsp_cmake_tfm/README.md` has the list and `ra_fsp_cmake_tfm/DESIGN.md` §13 says how to address
-each item.
+**The shipped configuration is for development only**: `ra_fsp_cmake_tfm/README.md` lists why and
+`DESIGN.md` §13 how to harden it.

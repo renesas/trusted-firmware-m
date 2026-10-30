@@ -1,9 +1,7 @@
 # RA6M5 — platform card
 
-TF-M platform `renesas/ra6m5`. **Every procedure lives in the companion repository**: clone,
-e2 build, TrustZone partitioning, build, flash, RTT and the test suites are all in
-`ra_fsp_cmake_tfm/GETTING_STARTED.md`, written once for both parts and both toolchains. This page is
-the part's own facts and the options that sit beside `config.cmake`.
+TF-M platform `renesas/ra6m5`. Every procedure is in `ra_fsp_cmake_tfm/GETTING_STARTED.md`; this
+card holds the part's facts and platform options.
 
 | | |
 |---|---|
@@ -21,14 +19,13 @@ passed on hardware.
 
 ## Platform options
 
-Defaults, constraints and the flash each one costs are in `ra_fsp_cmake_tfm/CONFIGURATION.md` §6. This
-is what each does on this part:
+Defaults and costs: `ra_fsp_cmake_tfm/CONFIGURATION.md`.
 
 | Option | Effect |
 |---|---|
 | `CRYPTO_HW_ACCELERATOR` | SCE9 ciphers, hashes and ECC. `OFF` reverts to software |
 | `RA6M5_FSP_MBEDTLS` | builds the TF-M crypto from the FSP Mbed TLS tree, through [cmake/fsp_mbedtls.cmake](cmake/fsp_mbedtls.cmake) |
-| `RA6M5_STDOUT_RTT` | console over SEGGER RTT rather than a UART |
+| `RA6M5_STDOUT_RTT` | console over SEGGER RTT. Leave `ON`: `OFF` does not build as shipped (CONFIGURATION §9) |
 | `RA6M5_RTT_BLOCKING` | RTT waits for the host instead of dropping output. Test builds only |
 | `RA6M5_BL2_HALT_AT_MAIN` | BL2 spins at `main()` so registers can be read before MCUboot runs |
 | `RA6M5_ORPHAN_CHECK_STRICT` | an orphan section becomes a link failure. Intended for CI |
@@ -36,17 +33,14 @@ is what each does on this part:
 
 ## What the engine accelerates
 
-AES in ECB, CBC and CTR at 128, 192 and 256 bits, AES-GCM, CMAC, SHA-256, ECP and ECDSA, and
-RSA. BL2 hashes images on the engine as well. AES-CCM is built from software deliberately,
-because the FSP SCE9 implementation caps associated data below what Protected Storage needs.
-Deterministic ECDSA, P-521 and Curve25519 are off, because the engine does not implement them.
-`ra_fsp_cmake_tfm/KNOWN_LIMITATIONS.md` §2 is the full statement, including what is untested.
+AES (ECB, CBC, CTR, GCM), CMAC, SHA-256, ECC/ECDSA and RSA, including BL2's image hashing.
+AES-CCM, deterministic ECDSA, P-521 and Curve25519 are software or off: `KNOWN_LIMITATIONS.md`
+§2.
 
 The accelerator reaches the FSP `*_ALT` sources through
-[platform/ext/accelerator/renesas/sce9](../../../accelerator/renesas/sce9), not through the FSP
-PSA crypto module. Three modules are deliberately never built from the e2 projects — the FSP
-crypto stack, `rm_psa_crypto` and `rm_mcuboot_port` — and `FSP_MODULES_NEVER_BUILT` in
-[CMakeLists.txt](CMakeLists.txt) enforces that.
+[platform/ext/accelerator/renesas/sce9](../../../accelerator/renesas/sce9);
+`FSP_MODULES_NEVER_BUILT` in [CMakeLists.txt](CMakeLists.txt) keeps the FSP crypto stack,
+`rm_psa_crypto` and `rm_mcuboot_port` out.
 
 ## Files in this directory
 
@@ -62,11 +56,6 @@ crypto stack, `rm_psa_crypto` and `rm_mcuboot_port` — and `FSP_MODULES_NEVER_B
 
 ## Where to read next
 
-| Topic | Document |
-|---|---|
-| every procedure | `ra_fsp_cmake_tfm/GETTING_STARTED.md` |
-| the layout, the TrustZone boundary values, the e2 project requirements | `ra_fsp_cmake_tfm/RA6M5_SOLUTION.md` |
-| why the port is built this way | `ra_fsp_cmake_tfm/DESIGN.md` |
-| what is untested or known broken | `ra_fsp_cmake_tfm/KNOWN_LIMITATIONS.md` |
-| what a generated project must supply | `ra_fsp_cmake_tfm/E2_PROJECT_REQUIREMENTS.md` |
-| adding an FSP module | `ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md` |
+Layout and RDPM values: `ra_fsp_cmake_tfm/RA6M5_SOLUTION.md`. Limitations:
+`KNOWN_LIMITATIONS.md`. Generated-project contract: `E2_PROJECT_REQUIREMENTS.md`. FSP modules:
+`ADDING_FSP_MODULES.md`. Design: `DESIGN.md`.
