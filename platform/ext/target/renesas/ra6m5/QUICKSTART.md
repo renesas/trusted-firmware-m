@@ -2,7 +2,7 @@
 
 TF-M platform `renesas/ra6m5`. **Every procedure lives in the companion repository**: clone,
 e2 build, TrustZone partitioning, build, flash, RTT and the test suites are all in
-`fsp_cmake/GETTING_STARTED.md`, written once for both parts and both toolchains. This page is
+`ra_fsp_cmake_tfm/GETTING_STARTED.md`, written once for both parts and both toolchains. This page is
 the part's own facts and the options that sit beside `config.cmake`.
 
 | | |
@@ -12,8 +12,8 @@ the part's own facts and the options that sit beside `config.cmake`.
 | Crypto engine | SCE9 |
 | Secure slot | 524,288 B |
 | Non-secure slot | 458,752 B |
-| Generated projects | `fsp_cmake/ra6m5_{gcc,iar}_{mcuboot,secure,nonsecure}` |
-| Debug launches | `fsp_cmake/ra6m5_gcc_nonsecure/`, all nineteen of them |
+| Generated projects | `ra_fsp_cmake_tfm/ra6m5_{gcc,iar}_{mcuboot,secure,nonsecure}` |
+| Debug launches | `ra_fsp_cmake_tfm/ra6m5_gcc_nonsecure/`, all nineteen of them |
 
 The two toolchain solutions differ in pin configuration: the GCC solution selects `RA6M5_2 CK`
 and the IAR solution `RA6M5 CK`, which changes the security attribution of 16 pins. Both have
@@ -21,7 +21,7 @@ passed on hardware.
 
 ## Platform options
 
-Defaults, constraints and the flash each one costs are in `fsp_cmake/CONFIGURATION.md` §6. This
+Defaults, constraints and the flash each one costs are in `ra_fsp_cmake_tfm/CONFIGURATION.md` §6. This
 is what each does on this part:
 
 | Option | Effect |
@@ -40,7 +40,7 @@ AES in ECB, CBC and CTR at 128, 192 and 256 bits, AES-GCM, CMAC, SHA-256, ECP an
 RSA. BL2 hashes images on the engine as well. AES-CCM is built from software deliberately,
 because the FSP SCE9 implementation caps associated data below what Protected Storage needs.
 Deterministic ECDSA, P-521 and Curve25519 are off, because the engine does not implement them.
-`fsp_cmake/KNOWN_LIMITATIONS.md` §2 is the full statement, including what is untested.
+`ra_fsp_cmake_tfm/KNOWN_LIMITATIONS.md` §2 is the full statement, including what is untested.
 
 The accelerator reaches the FSP `*_ALT` sources through
 [platform/ext/accelerator/renesas/sce9](../../../accelerator/renesas/sce9), not through the FSP
@@ -64,9 +64,9 @@ crypto stack, `rm_psa_crypto` and `rm_mcuboot_port` — and `FSP_MODULES_NEVER_B
 
 | Topic | Document |
 |---|---|
-| every procedure | `fsp_cmake/GETTING_STARTED.md` |
-| the layout, the TrustZone boundary values, the e2 project requirements | `fsp_cmake/RA6M5_SOLUTION.md` |
-| why the port is built this way | `fsp_cmake/DESIGN.md` |
-| what is untested or known broken | `fsp_cmake/KNOWN_LIMITATIONS.md` |
-| what a generated project must supply | `fsp_cmake/E2_PROJECT_REQUIREMENTS.md` |
-| adding an FSP module | `fsp_cmake/ADDING_FSP_MODULES.md` |
+| every procedure | `ra_fsp_cmake_tfm/GETTING_STARTED.md` |
+| the layout, the TrustZone boundary values, the e2 project requirements | `ra_fsp_cmake_tfm/RA6M5_SOLUTION.md` |
+| why the port is built this way | `ra_fsp_cmake_tfm/DESIGN.md` |
+| what is untested or known broken | `ra_fsp_cmake_tfm/KNOWN_LIMITATIONS.md` |
+| what a generated project must supply | `ra_fsp_cmake_tfm/E2_PROJECT_REQUIREMENTS.md` |
+| adding an FSP module | `ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md` |

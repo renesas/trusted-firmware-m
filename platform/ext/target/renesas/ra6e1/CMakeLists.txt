@@ -7,9 +7,9 @@
 # RA6E1 platform. Consumes the e2 studio SOLUTION project set:
 #
 #   cmake -DTFM_PLATFORM=renesas/ra6e1 \
-#         -DFSP_BL2_APP_DIR=<repo>/fsp_cmake/ra6e1_mcuboot   \
-#         -DFSP_S_APP_DIR=<repo>/fsp_cmake/ra6e1_secure      \
-#         -DFSP_NS_APP_DIR=<repo>/fsp_cmake/ra6e1_nonsecure  ...
+#         -DFSP_BL2_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6e1_mcuboot   \
+#         -DFSP_S_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6e1_secure      \
+#         -DFSP_NS_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6e1_nonsecure  ...
 #
 # DESIGN NOTE - why this globs instead of including a per-project cmake file:
 # the ra6m4 port required each RASC project to carry a hand-written

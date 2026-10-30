@@ -2,7 +2,7 @@
 
 TF-M platform `renesas/ra8m2`. **Every procedure lives in the companion repository**: clone,
 e2 build, TrustZone partitioning, build, flash, RTT and the test suites are all in
-`fsp_cmake/GETTING_STARTED.md`, written once for both parts and both toolchains. This page is
+`ra_fsp_cmake_tfm/GETTING_STARTED.md`, written once for both parts and both toolchains. This page is
 the part's own facts and the options that sit beside `config.cmake`.
 
 | | |
@@ -12,8 +12,8 @@ the part's own facts and the options that sit beside `config.cmake`.
 | Crypto engine | RSIP-E50D, not SCE9 |
 | Secure slot | 294,912 B |
 | Non-secure slot | 163,840 B |
-| Generated projects | `fsp_cmake/ra8m2_{gcc,iar}_mcuboot`, `..._{gcc,iar}_CPU0_secure`, `..._{gcc,iar}_CPU0_nonsecure` |
-| Debug launches | `fsp_cmake/ra8m2_gcc_mcuboot/`, all seventeen of them, under both toolchains |
+| Generated projects | `ra_fsp_cmake_tfm/ra8m2_{gcc,iar}_mcuboot`, `..._{gcc,iar}_CPU0_secure`, `..._{gcc,iar}_CPU0_nonsecure` |
+| Debug launches | `ra_fsp_cmake_tfm/ra8m2_gcc_mcuboot/`, all seventeen of them, under both toolchains |
 
 **Every RA8M2 launch lives in the one bootloader project**, because a launch has to belong to
 some project and that is where they were put. The second core is unused: the port is
@@ -25,7 +25,7 @@ either set against the other board changes the generated BSP.
 
 ## Platform options
 
-Defaults, constraints and the flash each one costs are in `fsp_cmake/CONFIGURATION.md` §6. This
+Defaults, constraints and the flash each one costs are in `ra_fsp_cmake_tfm/CONFIGURATION.md` §6. This
 is what each does on this part:
 
 | Option | Effect |
@@ -51,11 +51,11 @@ reads a `boot_rsp` or computes a flash row has to account for it.
 **The signed image fills the slot to within about 800 B, and that is not the code budget.**
 The flat binary spans the whole secure region, so it is region-sized whatever the image costs.
 The code budget is the region, and this part has about 76 KB of it spare.
-`fsp_cmake/CONFIGURATION.md` §6 has both measurements.
+`ra_fsp_cmake_tfm/CONFIGURATION.md` §6 has both measurements.
 
 **RSA-2048 key generation in plaintext format is unavailable, and there is no switch for it.**
 Every other RSA-2048 operation works. This is the single PSA Arch crypto failure on this part.
-`fsp_cmake/KNOWN_LIMITATIONS.md` §2 has the mechanism.
+`ra_fsp_cmake_tfm/KNOWN_LIMITATIONS.md` §2 has the mechanism.
 
 Otherwise the engine accelerates the same set as SCE9 — AES in ECB, CBC and CTR at all three
 key sizes, AES-GCM, CMAC, SHA-256, ECP, ECDSA and RSA, with BL2 hashing images on the engine
@@ -85,9 +85,9 @@ e2 projects — the FSP crypto stack, `rm_psa_crypto` and `rm_mcuboot_port` — 
 
 | Topic | Document |
 |---|---|
-| every procedure | `fsp_cmake/GETTING_STARTED.md` |
-| the layout, the TrustZone boundary values, the e2 project requirements | `fsp_cmake/RA8M2_SOLUTION.md` |
-| why the port is built this way | `fsp_cmake/DESIGN.md` |
-| what is untested or known broken | `fsp_cmake/KNOWN_LIMITATIONS.md` |
-| what a generated project must supply | `fsp_cmake/E2_PROJECT_REQUIREMENTS.md` |
-| adding an FSP module | `fsp_cmake/ADDING_FSP_MODULES.md` |
+| every procedure | `ra_fsp_cmake_tfm/GETTING_STARTED.md` |
+| the layout, the TrustZone boundary values, the e2 project requirements | `ra_fsp_cmake_tfm/RA8M2_SOLUTION.md` |
+| why the port is built this way | `ra_fsp_cmake_tfm/DESIGN.md` |
+| what is untested or known broken | `ra_fsp_cmake_tfm/KNOWN_LIMITATIONS.md` |
+| what a generated project must supply | `ra_fsp_cmake_tfm/E2_PROJECT_REQUIREMENTS.md` |
+| adding an FSP module | `ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md` |

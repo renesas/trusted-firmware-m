@@ -11,7 +11,7 @@
 #   FSP_MODULE_BASE_DIR  generated project root
 #   FSP_MODULE_INCLUDES  BSP include paths for that project
 #
-# Adding a module: fsp_cmake/ADDING_FSP_MODULES.md.
+# Adding a module: ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md.
 
 macro(fsp_module_require)
     foreach(_fsp_v FSP_MODULE_ROLE FSP_MODULE_BASE_DIR FSP_MODULE_INCLUDES)

@@ -303,7 +303,7 @@ macro(add_convert_to_bin_target target)
     # Always emit an S-record next to the final ELF. --srec-forceS3 keeps 4-byte
     # addresses so high-address records (e.g. the RA option-setting/config area at
     # 0x0100A1xx) are captured - these SRECs are the primary artifact for diffing
-    # what an image actually programs (see fsp_cmake/DESIGN.md 8.4).
+    # what an image actually programs (see ra_fsp_cmake_tfm/DESIGN.md 8.4).
     add_custom_target(${target}_srec
         SOURCES ${bin_dir}/${target}.srec
     )

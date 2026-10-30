@@ -2,7 +2,7 @@
 # Core BSP, clocks, IRQ, IOPORT, board files and the generated ra_gen instance data.
 # Every other FSP module links this one.
 #
-# Adding a module: fsp_cmake/ADDING_FSP_MODULES.md.
+# Adding a module: ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md.
 
 fsp_module_library(FSP_BSP_TARGET bsp)
 

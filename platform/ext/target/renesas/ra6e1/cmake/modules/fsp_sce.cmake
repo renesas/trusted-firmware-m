@@ -8,7 +8,7 @@
 # MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider - so the bootloader role does
 # not declare this module even though its e2 project contains r_sce.
 #
-# Adding a module: fsp_cmake/ADDING_FSP_MODULES.md.
+# Adding a module: ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md.
 
 fsp_module_library(FSP_SCE_TARGET sce)
 
