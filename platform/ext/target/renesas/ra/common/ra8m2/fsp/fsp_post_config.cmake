@@ -13,8 +13,10 @@
 # flash_layout.h use only TF-M-level values from config.cmake / post_config.cmake.
 
 #==================== Partition settings for bsp_linker_info.h ================#
-# Veneer region MUST be allocated at end of secure image partition
-math(EXPR _VENEER_START "${S_ROM_ALIAS_BASE} + ${FLASH_S_PARTITION_SIZE} - ${FLASH_CPU0_C_SIZE}")
+# Veneer region MUST be allocated at the top of the S image code area: the end of
+# the S primary slot, below the image trailer (0 without BL2). Must match
+# TFM_LINKER_VENEERS_START in partition/region_defs.h.
+math(EXPR _VENEER_START "${S_ROM_ALIAS_BASE} + ${FLASH_AREA_BL2_OFFSET} + ${FLASH_AREA_BL2_SIZE} + ${FLASH_S_PARTITION_SIZE} - ${BL2_TRAILER_SIZE} - ${FLASH_CPU0_C_SIZE}" OUTPUT_FORMAT HEXADECIMAL)
 set(FLASH_CPU0_C_START "${_VENEER_START}" CACHE STRING "CMSE veneer region base in MRAM (NSC)" FORCE)
 
 if(DEFINED S_RAM_ALIAS_BASE)
@@ -40,7 +42,7 @@ endif()
 
 if(DEFINED S_ROM_ALIAS_BASE)
     set(FLASH_CPU0_S_START ${S_ROM_ALIAS_BASE})
-    math(EXPR FLASH_CPU0_S_SIZE "${FLASH_S_PARTITION_SIZE} + ${FLASH_STORAGE_TOTAL_SIZE}")
+    set(FLASH_CPU0_S_SIZE ${FLASH_S_REGION_SIZE})
     math(EXPR FLASH_NS_CPU0_N_START "${CPU0_NS_ROM_ALIAS_BASE} + ${CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET}")
     set(FLASH_NS_CPU0_N_SIZE ${FLASH_CPU0_NS_PARTITION_SIZE})
 else()
@@ -70,7 +72,8 @@ endif()
 
 # Secure extension is disabled for CPU1 (see bsp_linker_info.h), so its secure
 # partitions are empty, placed right after the CPU0 secure partitions. Only
-# consumed by the partition data file (tfm_s.rpd), not by the FSP sources.
+# consumed by the partition data file (tfm_s.rpd, or bl2.rpd with BL2), not by
+# the FSP sources.
 math(EXPR RAM_CPU1_S_START "${RAM_CPU0_S_START} + ${RAM_CPU0_S_SIZE} + ${RAM_CPU0_C_SIZE}")
 set(RAM_CPU1_S_SIZE "0x0")
 math(EXPR FLASH_CPU1_S_START "${FLASH_CPU0_S_START} + ${FLASH_CPU0_S_SIZE}")
@@ -249,12 +252,20 @@ target_compile_definitions(fsp_library_config
     DTCM_CPU0_S_SIZE=${DTCM_CPU0_S_SIZE}
 )
 
-# FLASH_NS_CPU1_N_START is also needed outside the FSP sources: the inline
-# R_BSP_SecondaryCoreStart in FSP bsp_common.h (via BSP_PARTITION_FLASH_CPU1_S_START
-# in bsp_linker_info.h) is compiled by every file that includes bsp_api.h.
+# CPU1 boots from the vector table of its image: R_BSP_SecondaryCoreStart writes
+# BSP_PARTITION_FLASH_CPU1_S_START (bsp_linker_info.h) to CPU1INITVTOR. The CPU1
+# image is linked after the image header reserved at the start of its slot
+# (NS_CODE_START in region_defs.h; BL2_HEADER_SIZE is 0 without BL2).
+math(EXPR FLASH_CPU1_VECTOR_START "${FLASH_NS_CPU1_N_START} + ${BL2_HEADER_SIZE}" OUTPUT_FORMAT HEXADECIMAL)
+
+# FLASH_NS_CPU1_N_START and FLASH_CPU1_VECTOR_START are also needed outside the
+# FSP sources: the inline R_BSP_SecondaryCoreStart in FSP bsp_common.h (via
+# BSP_PARTITION_FLASH_CPU1_S_START in bsp_linker_info.h) is compiled by every
+# file that includes bsp_api.h.
 target_compile_definitions(fsp_library
     PUBLIC
     FLASH_NS_CPU1_N_START=${FLASH_NS_CPU1_N_START}
+    FLASH_CPU1_VECTOR_START=${FLASH_CPU1_VECTOR_START}
 )
 
 #==================== Security attribute flags ================================#
@@ -325,6 +336,7 @@ target_compile_definitions(fsp_library_config
     RENESAS_RA_PSAR_NS_SDHI1=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_SDHI1}>,1,0>
     RENESAS_RA_PSAR_NS_SDHI0=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_SDHI0}>,1,0>
     RENESAS_RA_PSAR_NS_DOC=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_DOC}>,1,0>
+    RENESAS_RA_PSAR_NS_GRAPHICS=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_GRAPHICS}>,1,0>
     RENESAS_RA_PSAR_NS_CEU=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_CEU}>,1,0>
     RENESAS_RA_PSAR_NS_PDMIF=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_PDMIF}>,1,0>
     RENESAS_RA_PSAR_NS_CANFD1=$<IF:$<BOOL:${RENESAS_RA_PSAR_NS_CANFD1}>,1,0>
@@ -369,6 +381,7 @@ target_compile_definitions(fsp_library_config
     RENESAS_RA_MSSAR_NS_SRAM1=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_SRAM1}>,1,0>
     RENESAS_RA_MSSAR_NS_SRAM2=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_SRAM2}>,1,0>
     RENESAS_RA_MSSAR_NS_SRAM3=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_SRAM3}>,1,0>
+    RENESAS_RA_MSSAR_NS_NPU=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_NPU}>,1,0>
     RENESAS_RA_MSSAR_NS_DMAC0_DTC0=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_DMAC0_DTC0}>,1,0>
     RENESAS_RA_MSSAR_NS_DMAC1_DTC1=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_DMAC1_DTC1}>,1,0>
     RENESAS_RA_MSSAR_NS_ELC=$<IF:$<BOOL:${RENESAS_RA_MSSAR_NS_ELC}>,1,0>

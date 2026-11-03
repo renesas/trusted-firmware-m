@@ -18,9 +18,14 @@ set(TEST_NS_ATTESTATION      OFF CACHE BOOL "Whether to build NS regression Atte
 # CPU1 NS=0x40000). config.cmake has already cached the platform defaults, hence
 # FORCE; the NS image offsets are derived afterwards in
 # common/core/post_config.cmake.
-set(FLASH_S_PARTITION_SIZE           "0x70000" CACHE STRING "Secure image slot size" FORCE)
-if(RA_CM33_NS_PRESENT)
-    set(FLASH_CPU1_NS_PARTITION_SIZE "0x20000" CACHE STRING "CPU1 NS image slot size" FORCE)
+# Not with BL2: each image then has a primary and a secondary slot, and the
+# enlarged slots (2 * (0x70000 + 0x22000 + 0x20000) + BL2 + storage) no longer
+# fit in the 1 MB MRAM; the BL2 layout from config.cmake is used as is.
+if(NOT BL2)
+    set(FLASH_S_PARTITION_SIZE           "0x70000" CACHE STRING "Secure image slot size" FORCE)
+    if(RA_CM33_NS_PRESENT)
+        set(FLASH_CPU1_NS_PARTITION_SIZE "0x20000" CACHE STRING "CPU1 NS image slot size" FORCE)
+    endif()
 endif()
 
 if(NOT RA_NS_INTERFACE_MAILBOX)

@@ -17,9 +17,16 @@
 #include "region_defs.h"
 
 LR_CODE BL2_CODE_START {
-    ER_CODE BL2_CODE_START BL2_CODE_SIZE {
-        *(.fixed_vectors)
+    /* FSP vector table: the Cortex-M exception vectors (.fixed_vectors) first,
+     * followed by the interrupt vectors (.application_vectors). In their own
+     * region so that the read-only code does not get placed before them.
+     */
+    ER_VECTORS BL2_CODE_START {
+        *(.fixed_vectors, +First)
         *(.application_vectors)
+    }
+
+    ER_CODE +0 {
         * (+RO)
     }
 
@@ -47,6 +54,7 @@ LR_CODE BL2_CODE_START {
 #else
     ER_DATA BL2_DATA_START {
 #endif
+        *(.ram_from_flash*)
         * (+ZI +RW)
     }
 
@@ -77,4 +85,7 @@ LR_CODE BL2_CODE_START {
      * size of the SRAM available.
      */
     ScatterAssert(ImageLimit(SRAM_WATERMARK) <= BL2_DATA_START + BL2_DATA_SIZE)
+
+    /* The vectors and the code must fit in the BL2 code area. */
+    ScatterAssert(ImageLimit(ER_CODE) <= BL2_CODE_START + BL2_CODE_SIZE)
 }

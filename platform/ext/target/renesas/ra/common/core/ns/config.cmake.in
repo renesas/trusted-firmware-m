@@ -20,8 +20,21 @@ set(RA_CM33_NS_PRESENT "@RA_CM33_NS_PRESENT@" CACHE BOOL "Serve a remote mailbox
 
 #===================== Resolved flash/RAM map ==================================#
 
-set(FLASH_AREA_BL2_OFFSET        "@FLASH_AREA_BL2_OFFSET@"        CACHE STRING "BL2 offset (BL2 unsupported)" FORCE)
-set(FLASH_AREA_BL2_SIZE          "@FLASH_AREA_BL2_SIZE@"          CACHE STRING "BL2 size (BL2 unsupported)" FORCE)
+set(FLASH_AREA_BL2_OFFSET        "@FLASH_AREA_BL2_OFFSET@"        CACHE STRING "BL2 offset" FORCE)
+set(FLASH_AREA_BL2_SIZE          "@FLASH_AREA_BL2_SIZE@"          CACHE STRING "BL2 size" FORCE)
+set(FLASH_SLOTS_PER_IMAGE     "@FLASH_SLOTS_PER_IMAGE@"     CACHE INTERNAL "Number of MRAM slots per image (primary, plus secondary with BL2)" FORCE)
+set(FLASH_S_REGION_SIZE       "@FLASH_S_REGION_SIZE@"       CACHE INTERNAL "Size of the secure-attributed MRAM (BL2, S slots, storage)" FORCE)
+
+# Flash instances: 0 is the MRAM (FLASH0_*, from the SoC config.cmake above),
+# 1 the flash the NS images can be relocated to. FLASH_AREA_IMAGE_SECTOR_SIZE and FLASH_PROGRAM_UNIT are
+# the largest values of the instances that hold an image.
+set(FLASH1_DEV_NAME              "@FLASH1_DEV_NAME@"             CACHE STRING "CMSIS flash driver of flash instance 1" FORCE)
+set(FLASH1_SECTOR_SIZE           "@FLASH1_SECTOR_SIZE@"          CACHE STRING "Flash instance 1 FS block granularity" FORCE)
+set(FLASH1_PROGRAM_UNIT          "@FLASH1_PROGRAM_UNIT@"         CACHE STRING "Flash instance 1 minimum write size in bytes" FORCE)
+set(RA_CPU0_NS_EXTERNAL          "@RA_CPU0_NS_EXTERNAL@"         CACHE INTERNAL "CPU0 NS image is in flash instance 1" FORCE)
+set(RA_CPU1_NS_EXTERNAL          "@RA_CPU1_NS_EXTERNAL@"         CACHE INTERNAL "CPU1 NS image is in flash instance 1" FORCE)
+set(FLASH_AREA_IMAGE_SECTOR_SIZE "@FLASH_AREA_IMAGE_SECTOR_SIZE@" CACHE INTERNAL "Sector size used by the MCUboot flash map" FORCE)
+set(FLASH_PROGRAM_UNIT           "@FLASH_PROGRAM_UNIT@"          CACHE INTERNAL "Program unit used by the MCUboot flash map" FORCE)
 
 set(S_ROM_ALIAS_BASE             "@S_ROM_ALIAS_BASE@"       CACHE STRING "MRAM secure alias base" FORCE)
 set(S_RAM_ALIAS_BASE             "@S_RAM_ALIAS_BASE@"       CACHE STRING "SRAM secure alias base" FORCE)
@@ -49,6 +62,9 @@ set(CPU1_NS_ROM_ALIAS_BASE "@CPU1_NS_ROM_ALIAS_BASE@" CACHE STRING "CPU1 ROM ali
 set(CPU1_NS_RAM_DATA_SIZE  "@CPU1_NS_RAM_DATA_SIZE@"  CACHE STRING "CPU1 RAM size" FORCE)
 set(CPU1_NS_RAM_ALIAS_BASE "@CPU1_NS_RAM_ALIAS_BASE@" CACHE STRING "CPU1 RAM alias base" FORCE)
 set(CPU1_NS_RAM_OFFSET     "@CPU1_NS_RAM_OFFSET@"     CACHE STRING "CPU1 RAM window offset within the SRAM bank" FORCE)
+
+set(MCUBOOT_IMAGE_VERSION_CPU1_NS    "@MCUBOOT_IMAGE_VERSION_CPU1_NS@"    CACHE STRING "Version number of the CPU1 NS image" FORCE)
+set(MCUBOOT_SECURITY_COUNTER_CPU1_NS "@MCUBOOT_SECURITY_COUNTER_CPU1_NS@" CACHE STRING "Security counter for the CPU1 NS image" FORCE)
 
 #===================== Transport selection =====================================#
 

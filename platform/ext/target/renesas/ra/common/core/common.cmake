@@ -43,6 +43,15 @@ target_compile_definitions(tfm_config
     FLASH_AREA_IMAGE_SECTOR_SIZE=${FLASH_AREA_IMAGE_SECTOR_SIZE}
     FLASH_PAGE_SIZE=${FLASH_PAGE_SIZE}
     FLASH_PROGRAM_UNIT=${FLASH_PROGRAM_UNIT}
+    TFM_HAL_FLASH_PROGRAM_UNIT=${FLASH_PROGRAM_UNIT}
+    FLASH0_SECTOR_SIZE=${FLASH0_SECTOR_SIZE}
+    FLASH0_PROGRAM_UNIT=${FLASH0_PROGRAM_UNIT}
+    FLASH1_SECTOR_SIZE=${FLASH1_SECTOR_SIZE}
+    FLASH1_PROGRAM_UNIT=${FLASH1_PROGRAM_UNIT}
+    $<$<BOOL:${FLASH1_DEV_NAME}>:FLASH1_DEV_NAME=${FLASH1_DEV_NAME}>
+    $<$<BOOL:${RA_CPU0_NS_EXTERNAL}>:RA_CPU0_NS_EXTERNAL=1>
+    $<$<BOOL:${RA_CPU1_NS_EXTERNAL}>:RA_CPU1_NS_EXTERNAL=1>
+    FLASH_S_REGION_SIZE=${FLASH_S_REGION_SIZE}
     FLASH_AREA_BL2_OFFSET=${FLASH_AREA_BL2_OFFSET}
     FLASH_AREA_BL2_SIZE=${FLASH_AREA_BL2_SIZE}
     FLASH_S_PARTITION_SIZE=${FLASH_S_PARTITION_SIZE}
@@ -92,7 +101,8 @@ target_link_libraries(tfm_s
 
 #========================= Renesas Partition Data =============================#
 
-# Generates the partition data file (tfm_s.rpd) next to tfm_s.bin, for the
+# Generates the partition data file next to the first image programmed
+# (tfm_s.rpd next to tfm_s.bin, or bl2.rpd next to bl2.bin with BL2), for the
 # Renesas tools (e2 studio / RFP) to set the security boundaries. Each
 # @NAME@ in the template is a partition variable from the SoC's
 # s_ns_memory.cmake / fsp_post_config.cmake, written out in hex.
@@ -111,8 +121,14 @@ function(ra_generate_rpd _template _output)
     configure_file(${_template} ${_output} @ONLY)
 endfunction()
 
+if(BL2)
+    set(_ra_rpd_file bl2.rpd)
+else()
+    set(_ra_rpd_file tfm_s.rpd)
+endif()
+
 ra_generate_rpd(${RENESAS_RA_SOC_SOURCE_DIR}/partition/tfm_s.rpd.in
-                ${CMAKE_BINARY_DIR}/bin/tfm_s.rpd)
+                ${CMAKE_BINARY_DIR}/bin/${_ra_rpd_file})
 
 #========================= Platform Secure ====================================#
 
@@ -142,6 +158,23 @@ target_sources(platform_s
     ${PLATFORM_DIR}/ext/common/uart_stdout.c
     $<$<OR:$<BOOL:${TFM_S_REG_TEST}>,$<BOOL:${TFM_NS_REG_TEST}>>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/plat_test.c>
 )
+
+#========================= Platform BL2 =======================================#
+
+if(BL2)
+    include(${CMAKE_CURRENT_LIST_DIR}/bl2.cmake)
+endif()
+
+#========================= Firmware Update partition ==========================#
+
+# DEFAULT_MCUBOOT_FLASH_MAP is OFF, so the FWU partition (bl2/src/flash_map.c)
+# uses the platform flash map, the same one as BL2.
+if(BL2 AND TFM_PARTITION_FIRMWARE_UPDATE)
+    target_sources(tfm_psa_rot_partition_fwu
+        PRIVATE
+        ${RENESAS_RA_COMMON_SOURCE_DIR}/core/bl2/flash_map_bl2.c
+    )
+endif()
 
 #========================= tfm_spm ============================================#
 

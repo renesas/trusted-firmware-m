@@ -167,6 +167,10 @@ SECTIONS
     .data : ALIGN(4)
     {
         *(vtable)
+        /* MRAM cannot be read while it is being programmed: the FSP r_mram
+         * write helpers (PLACE_IN_RAM_SECTION) run from SRAM, copied with
+         * .data at startup. */
+        KEEP(*(.ram_from_flash*))
         *(.data*)
 
         KEEP(*(.jcr*))

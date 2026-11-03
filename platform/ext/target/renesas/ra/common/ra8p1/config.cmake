@@ -17,27 +17,31 @@ set(RA_ROM_ATTR_GRANULARITY  "0x8000")
 set(RA_SRAM_ATTR_GRANULARITY "0x2000")
 
 # Non-secure aliases of the on-chip MRAM and SRAM (HW manual Address Space 5.1).
-set(RA_FLASH_NS_ALIAS "0x12000000")
+set(FLASH_BASE_NS "0x12000000")
 set(RA_SRAM_NS_ALIAS  "0x32000000")
 
 # MRAM programs data through a 32-byte page buffer, so the minimum programmable
 # unit can never exceed it (HW manual MRAM 60.4.2).
-set(RA_FLASH_PAGE_BUFFER_SIZE "0x20")
+set(FLASH_PAGE_SIZE "0x20")
 
 #===================== MRAM (code flash) geometry ==============================#
 set(FLASH_BASE_ADDRESS "0x02000000")
 set(FLASH_TOTAL_SIZE   "0x100000")
 
+# Flash instance 0 is the on-chip MRAM (Driver_Flash0). The external flash is
+# instance 1 (FLASH1_*, common/core/config.cmake). post_config.cmake derives
+# the single FLASH_AREA_IMAGE_SECTOR_SIZE / FLASH_PROGRAM_UNIT that the generic
+# MCUboot flash map code uses for every area from these per-instance values.
+#
 # MRAM has no hardware erase-blocks (dual-bank and block-swap are not available;
 # FSP r_mram "erase" is 32-byte page writes of 0xFF). This is a software FS block
 # size chosen to match the 8 KB MRAM block unit; it is also the OTP NV counter
 # sector size.
-set(FLASH_AREA_IMAGE_SECTOR_SIZE "0x2000" CACHE STRING "FS block granularity (8 KB MRAM block unit)")
+set(FLASH0_SECTOR_SIZE "0x2000" CACHE STRING "MRAM FS block granularity (8 KB MRAM block unit)")
 
-set(FLASH_PAGE_SIZE "${RA_FLASH_PAGE_BUFFER_SIZE}")
 
 # MRAM supports programming 1-32 bytes at a time, TF-M requires a fixed program unit.
-set(FLASH_PROGRAM_UNIT "0x04" CACHE STRING "MRAM minimum write size in bytes")
+set(FLASH0_PROGRAM_UNIT "0x04" CACHE STRING "MRAM minimum write size in bytes")
 
 #===================== SRAM geometry ===========================================#
 

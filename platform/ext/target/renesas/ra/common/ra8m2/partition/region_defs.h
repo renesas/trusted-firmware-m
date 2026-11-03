@@ -20,8 +20,13 @@
 
 #include "flash_layout.h"
 
-#define BL2_HEAP_SIZE      (0x0) /* Currently not support BL2 */
-#define BL2_MSP_STACK_SIZE (0x0) /* Currently not support BL2 */
+#ifdef BL2
+#define BL2_HEAP_SIZE      (0x00001000)
+#define BL2_MSP_STACK_SIZE (0x00002800)
+#else
+#define BL2_HEAP_SIZE      (0x0)
+#define BL2_MSP_STACK_SIZE (0x0)
+#endif
 
 #ifdef ENABLE_HEAP
 #define S_HEAP_SIZE (0x00000200)
@@ -58,9 +63,9 @@
 
 /* CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET is injected by
  * common/core/post_config.cmake (default: right after the S image and storage
- * partition in MRAM) so the NS image can be relocated off-chip independently
- * of the S image chain, e.g. onto the EK-RA8M2's OSPI0 CS0 external flash via
- * CPU0_NS_ROM_ALIAS_BASE.
+ * partition in MRAM, or 0 when CPU0_NS_ROM_ALIAS_BASE moves the image to an
+ * external flash window) so the NS image can be relocated off-chip independently
+ * of the S image chain, e.g. onto the OSPI0 CS0 external flash.
  */
 #ifndef CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET
 #error "CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET must be defined by common/core/post_config.cmake"
@@ -99,14 +104,16 @@
 #define S_CODE_LIMIT                (S_CODE_START + S_CODE_SIZE - 1)
 
 #define TFM_LINKER_VENEERS_LOCATION_END
-/* The veneer region sits at the end of the secure image partition. Must match
- * FLASH_CPU0_C_START/SIZE exported to the FSP by fsp_post_config.cmake.
+/* The veneer region sits at the top of the S image code area: the end of the
+ * S primary slot, below the image trailer. Must match FLASH_CPU0_C_START/SIZE
+ * exported to the FSP by fsp_post_config.cmake.
  */
 #ifndef CMSE_VENEER_REGION_SIZE
 #error "CMSE_VENEER_REGION_SIZE must be defined by common/core/common.cmake"
 #endif
 #define TFM_LINKER_VENEERS_SIZE             (CMSE_VENEER_REGION_SIZE)
-#define TFM_LINKER_VENEERS_START            (S_ROM_ALIAS(FLASH_S_PARTITION_SIZE) - TFM_LINKER_VENEERS_SIZE)
+#define TFM_LINKER_VENEERS_START            (S_ROM_ALIAS(FLASH_AREA_0_OFFSET + FLASH_S_PARTITION_SIZE - BL2_TRAILER_SIZE) - \
+                                                 TFM_LINKER_VENEERS_SIZE)
 
 /* Size of vector table: 96 interrupt handlers + 16 ARM exceptions + 4 bytes MPS initial value */
 #define S_CODE_VECTOR_TABLE_SIZE (0x1c4)
@@ -141,6 +148,7 @@
 #define CPU1_NS_DATA_START           (CPU1_NS_RAM_ALIAS_BASE + CPU1_NS_RAM_OFFSET)
 
 #if (RA_CORE == RA_CM33) /* CPU1 remote NS (Mailbox Agent) */
+/* The SPE starts CPU1 at NS_CODE_START (FLASH_CPU1_VECTOR_START in fsp_post_config.cmake) */
 #define NS_CODE_START                 (CPU1_NS_CODE_PARTITION_START + BL2_HEADER_SIZE)
 #define NS_CODE_SIZE                  (FLASH_CPU1_NS_PARTITION_SIZE - BL2_HEADER_SIZE - BL2_TRAILER_SIZE)
 #define NS_DATA_START                 (CPU1_NS_DATA_START)
@@ -166,14 +174,20 @@
 #define NS_CODE_LIMIT (NS_CODE_START + NS_CODE_SIZE - 1)
 #define NS_DATA_LIMIT (NS_DATA_START + NS_DATA_SIZE - 1)
 
-/* NS partition information is used for MPC and SAU configuration */
+/* NS partition information is used for MPC and SAU configuration. As in the
+ * default TF-M platforms it is one contiguous range, here the primary slot of
+ * the CPU0 (TrustZone) NS image. The CPU1 NS image is started by the SPE on
+ * another core and may be in another flash (MRAM or external), so it is not
+ * part of the range.
+ */
 #define NS_PARTITION_START (CPU0_NS_ROM_ALIAS_BASE + CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET)
-#define NS_PARTITION_SIZE  (FLASH_CPU0_NS_PARTITION_SIZE + FLASH_CPU1_NS_PARTITION_SIZE)
+#define NS_PARTITION_SIZE  (FLASH_CPU0_NS_PARTITION_SIZE)
 
-/* TODO: Add support for CPU1 partitions when BL2 is available */
 /* Secondary partition for new images in case of firmware upgrade */
-#define SECONDARY_PARTITION_START (CPU0_NS_ROM_ALIAS_BASE + S_IMAGE_SECONDARY_PARTITION_OFFSET)
-#define SECONDARY_PARTITION_SIZE  (FLASH_S_PARTITION_SIZE + FLASH_CPU0_NS_PARTITION_SIZE)
+#ifdef BL2
+#define SECONDARY_PARTITION_START (S_ROM_ALIAS(S_IMAGE_SECONDARY_PARTITION_OFFSET))
+#define SECONDARY_PARTITION_SIZE  (FLASH_S_PARTITION_SIZE)
+#endif /* BL2 */
 
 #ifdef BL2
 /* Bootloader regions */

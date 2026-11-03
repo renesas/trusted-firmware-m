@@ -23,8 +23,11 @@
 #define BSP_PARTITION_RAM_CPU0_C_SIZE (RAM_CPU0_C_SIZE)
 #define BSP_PARTITION_FLASH_CPU0_N_START (FLASH_NS_CPU0_N_START)
 #define BSP_PARTITION_FLASH_CPU0_N_SIZE (FLASH_NS_CPU0_N_SIZE)
-/* Secure extension disabled for CPU1, so the secure start address is the same as the non-secure start address. */
-#define BSP_PARTITION_FLASH_CPU1_S_START (FLASH_NS_CPU1_N_START)
+/* Secure extension disabled for CPU1, so the secure start address is the non-secure image. It is only used as the
+ * CPU1 boot address (CPU1INITVTOR in R_BSP_SecondaryCoreStart), so it points at the vector table of the CPU1 image,
+ * after the image header reserved at the start of the slot with BL2 (FLASH_CPU1_VECTOR_START, fsp_post_config.cmake).
+ */
+#define BSP_PARTITION_FLASH_CPU1_S_START (FLASH_CPU1_VECTOR_START)
 #define BSP_PARTITION_FLASH_CPU1_N_START (FLASH_NS_CPU1_N_START)
 #define BSP_PARTITION_FLASH_CPU1_N_SIZE (FLASH_NS_CPU1_N_SIZE)
 #define BSP_PARTITION_FLASH_CPU0_S_START (FLASH_CPU0_S_START)

@@ -26,7 +26,7 @@
  *----------------------------------------------------------------------------
  */
 extern uint32_t __INITIAL_SP;
-#if defined(__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+#if defined(__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U) && defined(CONFIG_TFM_USE_TRUSTZONE)
 extern uint64_t __STACK_SEAL;
 #endif
 extern __NO_RETURN void __PROGRAM_START(void);
@@ -111,7 +111,23 @@ void Reset_Handler(void)
 {
     /* Stack pointers and stack limits are configured by the FSP BSP in SystemInit */
 #if defined(__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+#ifdef CONFIG_TFM_USE_TRUSTZONE
     __TZ_set_STACKSEAL_S((uint32_t *)(&__STACK_SEAL));
+#else
+    /* BL2: a flat project running in the secure state, built with the CMSE
+     * flag only for this file (bl2.cmake), as CMSIS declares the SAU only for
+     * CMSE builds.
+     * With the SAU disabled and ALLNS clear (reset state) every address is
+     * secure, so an access through a non-secure alias (e.g. the flash driver
+     * on a non-secure image slot) would be a secure transaction to a
+     * non-secure region. Setting ALLNS leaves the attribution to the IDAU
+     * (address bit 28 selects the alias), as the FSP BSP does without SAU
+     * regions. Done before SystemInit enables the caches.
+     */
+    SAU->CTRL = SAU_CTRL_ALLNS_Msk;
+    __DSB();
+    __ISB();
+#endif
 #endif
 
     SystemInit();                             /* CMSIS System Initialization */
