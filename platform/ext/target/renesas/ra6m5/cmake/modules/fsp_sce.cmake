@@ -1,15 +1,12 @@
 # FSP SCE Module Library
-# SCE9 crypto engine - the HW_SCE_* procedures. This module builds r_sce only. The
-# rm_psa_crypto *_ALT sources that drive it are compiled by the accelerator
-# (platform/ext/accelerator/renesas/sce9) into TF-M's own Mbed TLS, NOT through FSP's
-# mbedTLS/rm_psa_crypto config - that config wires PSA ITS to littlefs, which collides with
-# TF-M's ITS (DESIGN.md 6).
+# SCE9 crypto engine: the HW_SCE_* procedures. This module builds r_sce only. The accelerator
+# (platform/ext/accelerator/renesas/sce9) compiles the rm_psa_crypto *_ALT sources that drive
+# it into TF-M's own Mbed TLS, not through FSP's mbedTLS/rm_psa_crypto config, which wires PSA
+# ITS to littlefs and collides with TF-M's ITS (DESIGN.md 6).
 #
-# Secure image: the TRNG always; the cipher ALT path when CRYPTO_HW_ACCELERATOR is on
-# (platform/ext/accelerator/renesas/sce9).
-#
+# Secure image: the TRNG always; the cipher ALT path when CRYPTO_HW_ACCELERATOR is on.#
 # BL2: only with CRYPTO_HW_ACCELERATOR, for the SHA-256 image hash. BL2 never needs
-# randomness - it builds with MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider - so
+# randomness (it builds with MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider), so
 # without the accelerator the bootloader role does not declare this module, even though its
 # e2 project contains r_sce.
 #
@@ -26,14 +23,13 @@ if(NOT EXISTS "${_sce_dir}")
         "build the project once.")
 endif()
 
-# 181 generated primitive files - the same tree as RA6E1, both SCE9. Only the TRNG path is
-# reachable from mbedtls_psa_external_get_random(); -ffunction-sections + --gc-sections drop
-# the rest at link. Measured 8.9 KB of secure image on RA6M5 (2026-09-21), from
-# hw_sce_p_p92/p40/p02/subprc01 and a short tail.
-#
-# Beware of sizing this module from a linker map without skipping everything above
-# "Linker script and memory map" - the discarded-section list at the top of the map makes
-# the same objects look like ~185 KB.
+# 181 generated primitive files, the same tree as RA6E1 (both SCE9). Only the TRNG path is
+# reachable from mbedtls_psa_external_get_random(); -ffunction-sections and --gc-sections drop
+# the rest at link. Measured on RA6M5 (2026-09-21): 8.9 KB of secure image, from
+# hw_sce_p_p92/p40/p02/subprc01 and a short tail.#
+# When sizing this module from a linker map, skip everything above "Linker script and memory
+# map": the discarded-section list at the top of the map makes the same objects look like
+# ~185 KB.
 fsp_module_glob(_src "ra/fsp/src/r_sce")
 target_sources(${FSP_SCE_TARGET} PRIVATE ${_src})
 

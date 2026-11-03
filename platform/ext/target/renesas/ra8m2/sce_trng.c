@@ -5,28 +5,29 @@
  *
  * PSA external RNG for RA8M2, backed by the RSIP-E50D TRNG.
  *
- * Why this exists: with CRYPTO_HW_ACCELERATOR off, TF-M registers exactly one entropy
- * source - a 64-byte NV seed in ITS, seeded once from PLAT_OTP_ID_ENTROPY_SEED. The
- * default provisioning bundle sets that OTP value to a hard-coded constant
+ * With CRYPTO_HW_ACCELERATOR off, TF-M registers exactly one entropy source: a 64-byte NV
+ * seed in ITS, seeded once from PLAT_OTP_ID_ENTROPY_SEED. The default provisioning bundle
+ * sets that OTP value to a hard-coded constant
  * (platform/ext/common/provisioning_bundle/provisioning_config.cmake), so every device
- * would come up with identical entropy. Fine for bring-up, not for anything that signs.
+ * would get identical entropy. That is acceptable for bring-up, not for anything that
+ * signs.
  *
  * RA8M2 has no standalone TRNG peripheral (BSP_FEATURE_RSIP_TRNG_SUPPORTED == 0); the
- * random source is inside the RSIP (BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED == 1; note
- * BSP_FEATURE_RSIP_SCE9_SUPPORTED is 0 on this part). So we take it
- * straight from the SCE primitives rather than through FSP's mbedTLS/rm_psa_crypto stack,
- * whose generated config wires PSA ITS to littlefs and fights TF-M's own ITS
- * (DESIGN.md 6). Nothing here depends on that config.
+ * random source is inside the RSIP (BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED == 1;
+ * BSP_FEATURE_RSIP_SCE9_SUPPORTED is 0 on this part). This file reads it through the SCE
+ * primitives, not through FSP's mbedTLS/rm_psa_crypto stack, whose generated config wires
+ * PSA ITS to littlefs and conflicts with TF-M's own ITS (DESIGN.md §6). Nothing here
+ * depends on that config.
  *
- * config_tfm_target.h sets CRYPTO_EXT_RNG=1 / CRYPTO_NV_SEED=0, and
- * mbedtls_extra_config.h defines MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG, which is what makes
- * PSA call this instead of the NV-seed path.
+ * config_tfm_target.h sets CRYPTO_EXT_RNG=1 and CRYPTO_NV_SEED=0, and
+ * mbedtls_extra_config.h defines MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG, which makes PSA call this
+ * function instead of the NV-seed path.
  */
 
 #include "psa/crypto.h"
 /* bsp_api.h, not fsp_common_api.h: the latter includes fsp_version.h -> bsp_api.h ->
- * bsp_cfg.h -> the board headers, which use FSP_HEADER before fsp_common_api.h has got
- * as far as defining it. Entering through bsp_api.h defines it first. */
+ * bsp_cfg.h -> the board headers, which use FSP_HEADER before fsp_common_api.h defines
+ * it. Including bsp_api.h first defines it in time. */
 #include "bsp_api.h"           /* fsp_err_t, FSP_SUCCESS - no SCE private headers */
 #include "ra_sce_init.h"
 #include <stdbool.h>
@@ -60,7 +61,7 @@ psa_status_t mbedtls_psa_external_get_random(
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 
-    /* Powers on SCE, resets it and runs its self-check - once, shared with the cipher
+    /* Powers on, resets and self-checks the engine once; shared with the cipher
      * accelerator. */
     if (FSP_SUCCESS != ra_sce_init()) {
         *output_length = 0U;
@@ -72,8 +73,8 @@ psa_status_t mbedtls_psa_external_get_random(
         size_t chunk = (remaining < SCE_TRNG_BLOCK_BYTES) ? remaining : SCE_TRNG_BLOCK_BYTES;
 
         if (FSP_SUCCESS != HW_SCE_RNG_Read(block)) {
-            /* Report what was produced; do not hand back a partly-filled buffer
-             * as if it were good. */
+            /* Zero the output and report no bytes produced, so a partly filled buffer
+             * is never returned as good. */
             (void)memset(output, 0, output_size);
             (void)memset(block, 0, sizeof(block));
             *output_length = 0U;

@@ -1,10 +1,9 @@
 ﻿# Shared scaffolding for the FSP module libraries.
 #
-# Modules are per ROLE. The secure image and the bootloader are generated from DIFFERENT
-# e2 projects (ra8m2_secure, ra8m2_mcuboot) and CMake target names are global, so each
-# module produces fsp_<name>_<role> rather than one shared fsp_<name>. That also keeps the
-# two images' FSP configurations from leaking into each other, which matters: the
-# bootloader project enables modules the secure project does not.
+# Modules are per role. The secure image and the bootloader come from different e2 projects
+# (ra8m2_secure, ra8m2_mcuboot) and CMake target names are global, so each module produces
+# fsp_<name>_<role> rather than one shared fsp_<name>. This also keeps the two images' FSP
+# configurations apart; the bootloader project enables modules the secure project does not.
 #
 # Context, set by fsp_add_modules() in the platform CMakeLists:
 #   FSP_MODULE_ROLE      s | bl2
@@ -39,25 +38,22 @@ macro(fsp_module_library _out _base)
     # which is flat like the e2 bootloader. See the note in the platform CMakeLists.
     target_compile_definitions(${${_out}} PUBLIC ${FSP_COMPILE_DEFS} ${FSP_MODULE_TZ_DEFS})
 
-    # The FP/ABI flag, PER ROLE. Not optional, and the reason is worth stating.
+    # The FP/ABI flag, per role. TF-M applies COMPILER_CP_FLAG per target (platform/ and
+    # secure_fw/CMakeLists.txt add it to the targets they create), not through CMAKE_C_FLAGS.
+    # Without this, the FSP module libraries compile with the compiler's default FPU for the
+    # -mcpu/--cpu in use.
     #
-    # TF-M applies COMPILER_CP_FLAG per TARGET - platform/CMakeLists.txt and
-    # secure_fw/CMakeLists.txt each add it to the targets they create - not globally through
-    # CMAKE_C_FLAGS. The FSP module libraries are created here, so nothing was giving it to
-    # them and they compiled with the compiler's DEFAULT FPU for the -mcpu/--cpu in use.
-    #
-    # On Cortex-M33 that was invisible: iccarm's default FPU there is none, which happens to
-    # match the --fpu=none the link uses at CONFIG_TFM_FLOAT_ABI=soft. Cortex-M85 defaults to
-    # a present FPU, so the FSP objects carried VFP while the link did not, and ILINK refused
-    # the image outright:
+    # On Cortex-M33, iccarm's default FPU is none, which matches the --fpu=none link at
+    # CONFIG_TFM_FLOAT_ABI=soft. On Cortex-M85 the default is a present FPU, so the FSP objects
+    # carry VFP while the link does not, and ILINK rejects the image:
     #
     #     Error[Lt006]: Incompatible object(s): system.o(libfsp_bsp_s.a) and 195 other
     #       objects ... use VFP instructions incompatible with No vfp (provided as FPU option)
     #
-    # Taken from the same variables the rest of the build uses rather than hardcoding
-    # --fpu=none, so this follows CONFIG_TFM_FLOAT_ABI / CONFIG_TFM_ENABLE_FP if the port ever
-    # enables hardware FP. BL2 has its own variable because TF-M builds the bootloader
-    # soft-float regardless of what the secure image does.
+    # The flag comes from the variables the rest of the build uses rather than a hardcoded
+    # --fpu=none, so it follows CONFIG_TFM_FLOAT_ABI / CONFIG_TFM_ENABLE_FP if hardware FP is
+    # enabled. BL2 has its own variable because TF-M builds the bootloader soft-float
+    # regardless of the secure image.
     if(FSP_MODULE_ROLE STREQUAL "bl2")
         set(_fsp_cp_flag ${BL2_COMPILER_CP_FLAG})
     else()
@@ -73,9 +69,9 @@ macro(fsp_module_library _out _base)
     )
 endmacro()
 
-# Glob one FSP module directory. Globbing WITHIN a declared module is the granularity the
-# module convention allows: the module is opt-in, but naming each generated .c inside it
-# would drift on every FSP bump.
+# Glob one FSP module directory. Globbing within a declared module is the granularity the
+# module convention allows: the module is opt-in, but a list of each generated .c inside it
+# would drift on every FSP update.
 macro(fsp_module_glob _out _subdir)
     file(GLOB_RECURSE ${_out} CONFIGURE_DEPENDS "${FSP_MODULE_BASE_DIR}/${_subdir}/*.c")
 endmacro()

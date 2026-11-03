@@ -7,12 +7,11 @@
 #ifndef __REGION_DEFS_H__
 #define __REGION_DEFS_H__
 
-#include "flash_layout.h"     /* pulls in bsp_linker_info.h */
+#include "flash_layout.h"     /* pulls in bsp_partitions.h */
 
 /*
- * RA6M5 memory regions - DERIVED from the e2 solution, see flash_layout.h.
- * Nothing here is hand-maintained; change the partitions in solution.xml, rebuild in
- * e2, and these follow.
+ * RA6M5 memory regions, derived from the e2 solution; see flash_layout.h. Do not edit them
+ * by hand: change the partitions in solution.xml and rebuild in e2.
  */
 
 #define TOTAL_ROM_SIZE                  (FLASH_TOTAL_SIZE)
@@ -26,14 +25,13 @@
 #define NS_RAM_ALIAS_BASE               (BSP_PARTITION_RAM_CPU0_N_START)
 
 /*
- * MCUboot header/trailer, straight from the solution's partitioning.
+ * MCUboot header and trailer sizes, from the solution's partitioning.
  *
- * These also reach the build as -D from CMake, and THAT copy is what imgtool signs with.
- * They must agree: TF-M defaults both to 0x400, and with a 0x400 header imgtool places the
- * payload 0x400 into the slot while the image is linked for slot+0x200 - a signed image
- * offset by 0x200, which does not boot and produces no other symptom. config.cmake reads
- * the real values out of bsp_linker_info.h, but only on a CLEAN CMake cache, so check
- * rather than silently redefine.
+ * CMake also passes these as -D, and imgtool signs with the CMake values, so the two must
+ * agree. TF-M defaults both to 0x400. With a 0x400 header imgtool places the payload 0x400
+ * into the slot while the image is linked for slot+0x200; the signed image is offset by 0x200
+ * and does not boot, with no other symptom. config.cmake reads the real values from
+ * bsp_linker_info.h only on a clean CMake cache, so this checks rather than redefines.
  */
 #if defined(BL2_HEADER_SIZE) && (BL2_HEADER_SIZE != BSP_PARTITION___BL_0_P_H_SIZE)
 #error "BL2_HEADER_SIZE from CMake disagrees with the solution. Configure with a clean CMake cache."
@@ -50,9 +48,9 @@
 #endif
 
 /*
- * Secure image. FLASH_CPU0_S is the code, FLASH_CPU0_C the non-secure-callable
- * veneers at the end of it - the solution already places NSC at end-of-secure, which
- * is the layout the ra6m4 port had to force with linker macros.
+ * Secure image. FLASH_CPU0_S is the code; FLASH_CPU0_C holds the non-secure-callable veneers
+ * at its end. The solution places NSC at the end of secure flash, so no linker macros are
+ * needed to put it there.
  */
 #define S_CODE_START                    (BSP_PARTITION_FLASH_CPU0_S_START)
 #define S_CODE_SIZE                     (BSP_PARTITION_FLASH_CPU0_S_SIZE + \
@@ -62,41 +60,40 @@
 /*
  * Secure RAM, split into data and a small code-from-RAM window.
  *
- * S_RAM_CODE is FSP's .ram_from_flash: the r_flash_hp code-flash program/erase routines,
- * which carry PLACE_IN_RAM_SECTION because the FCU makes the ENTIRE code flash unreadable
- * while a code-flash P/E is in progress. Running them from code flash is a prefetch abort
- * mid-operation, with the FCU left in P/E mode. The data-flash path is deliberately NOT
- * RAM-placed by FSP (flash_hp_df_write/df_erase/enter_pe_df_mode have no attribute) -
- * code flash stays readable during data-flash P/E.
+ * S_RAM_CODE holds FSP's .ram_from_flash: the r_flash_hp code-flash program/erase routines.
+ * They carry PLACE_IN_RAM_SECTION because the FCU makes the entire code flash unreadable during
+ * a code-flash P/E; run from code flash, they prefetch-abort mid-operation with the FCU left
+ * in P/E mode. FSP deliberately does not RAM-place the data-flash path (flash_hp_df_write,
+ * df_erase and enter_pe_df_mode have no attribute), because code flash stays readable during
+ * data-flash P/E.
  *
- * Today the secure image only ever touches data flash: it instantiates Driver_FLASH1
- * (data) and not Driver_FLASH0 (code). But FLASH_HP_CFG_CODE_FLASH_PROGRAMMING_ENABLE is
- * 1 in ra6m5_secure, so the code-flash path is compiled in and R_FLASH_HP_Write/Erase
- * dispatch to it on address. This is armed, not absent - see RA6M5_SOLUTION.md.
+ * The secure image uses only data flash: it instantiates Driver_FLASH1, not Driver_FLASH0.
+ * FLASH_HP_CFG_CODE_FLASH_PROGRAMMING_ENABLE is 1 in ra6m5_secure, however, so the code-flash
+ * path is compiled in and R_FLASH_HP_Write/Erase dispatch to it by address. The path is
+ * armed, not absent; see RA6M5_SOLUTION.md.
  *
- * TF-M's generated secure linker already has the mechanism, gated on S_RAM_CODE_START:
- * .ER_CODE_SRAM is placed in the CODE_RAM region with a copy-table entry, so the CMSIS
- * copy loop in Reset_Handler relocates it before main(). S_RAM_CODE_EXTRA_SECTION_NAME is
- * the hook for a vendor section name; nothing upstream uses it. Defining these three is
- * the whole fix - no upstream file changes.
+ * TF-M's generated secure linker script provides the mechanism, gated on S_RAM_CODE_START: it
+ * places .ER_CODE_SRAM in the CODE_RAM region with a copy-table entry, and the CMSIS copy loop
+ * in Reset_Handler relocates it before main(). S_RAM_CODE_EXTRA_SECTION_NAME is the hook for
+ * a vendor section name; nothing upstream uses it. Defining these three macros is the whole
+ * fix; no upstream file changes.
  *
- * SIZE: .ram_from_flash measures 0x7d0 in tfm_s today (check with
+ * Size: .ram_from_flash measures 0x7d0 in tfm_s (check with
  *   arm-none-eabi-objdump -h .../fsp_flash_s.dir/.../r_flash_hp.o | grep ram_from_flash).
- * The linked section is larger than that: ld appends a long-branch veneer inside it for
- * the RAM code's call to flash_hp_enter_pe_df_mode, which stays in flash. 0x800 fit
- * exactly, with nothing to spare, so this is 0xA00 - a newer FSP adding one function
- * should not turn into a link error nobody can place. Overflow is still caught loudly
- * ("region CODE_RAM overflowed"), never silently.
+ * The linked section is larger, because ld appends a long-branch veneer inside it for the RAM
+ * code's call to flash_hp_enter_pe_df_mode, which stays in flash. 0x800 fits exactly, with
+ * nothing to spare, so this is 0xA00, leaving room for a newer FSP to add a function. An
+ * overflow still fails the link with "region CODE_RAM overflowed".
  *
- * Taken off the TOP of the secure RAM partition, so S_DATA_START and everything derived
- * from it (BOOT_TFM_SHARED_DATA_BASE) are unchanged. The solution is untouched:
- * BSP_PARTITION_RAM_CPU0_S_SIZE still describes the whole secure RAM, it is only
- * subdivided here. BL2 derives BL2_DATA_* from the partition directly and is unaffected.
+ * The window is taken off the top of the secure RAM partition, so S_DATA_START and everything
+ * derived from it (BOOT_TFM_SHARED_DATA_BASE) are unchanged. The solution is untouched:
+ * BSP_PARTITION_RAM_CPU0_S_SIZE still describes the whole secure RAM and is only subdivided
+ * here. BL2 derives BL2_DATA_* from the partition directly and is unaffected.
  *
  * Isolation level 1 leaves CONFIG_TFM_ENABLE_MEMORY_PROTECT off, so no MPU region is
- * programmed and PRIVDEFENA's default map permits execution from SRAM. Moving to
- * isolation 2 or 3 means giving CODE_RAM an executable MPU region in
- * tfm_hal_isolation_v8m.c - Image$$ER_CODE_SRAM$$Base/Limit are emitted for that.
+ * programmed and PRIVDEFENA's default map permits execution from SRAM. Isolation level 2 or 3
+ * needs an executable MPU region for CODE_RAM in tfm_hal_isolation_v8m.c;
+ * Image$$ER_CODE_SRAM$$Base/Limit are emitted for that.
  */
 #define S_RAM_CODE_SIZE                 (0xA00)
 
@@ -106,35 +103,33 @@
 
 #define S_RAM_CODE_START                (S_DATA_START + S_DATA_SIZE)
 
-/* Expanded by the linker-script preprocessor into KEEP(*(...)), so it must be a bare ld
- * pattern, not a quoted string. The trailing glob also catches .ram_from_flash.* should a
- * future FSP release split it; today GCC emits exactly one section. */
+/* The linker-script preprocessor expands this into KEEP(*(...)), so it must be a bare ld
+ * pattern, not a quoted string. The trailing glob also catches .ram_from_flash.* if a future
+ * FSP release splits the section; GCC currently emits exactly one. */
 #define S_RAM_CODE_EXTRA_SECTION_NAME   .ram_from_flash*
 
-/* IAR reaches the same two sections through literal ICF text instead: a section name
- * cannot survive iccarm's preprocessor as a macro. See ra6m5_fsp_sections.icf, and the
- * note at the hook in platform/ext/common/iar/tfm_isolation_s.icf.template. */
+/* IAR reaches the same two sections through literal ICF text, because a section name cannot
+ * survive iccarm's preprocessor as a macro. See ra6m5_fsp_sections.icf and the note at the
+ * hook in platform/ext/common/iar/tfm_isolation_s.icf.template. */
 #ifdef __ICCARM__
 #define S_ICF_PLATFORM_SECTIONS         "ra6m5_fsp_sections.icf"
 #endif
 
 /*
- * FSP's "do not initialise" sections, collected into .TFM_NOINIT - NOLOAD, and placed
- * outside __bss_start__..__bss_end__ so the C runtime does not zero them.
+ * FSP's do-not-initialise sections, collected into .TFM_NOINIT: NOLOAD, and placed outside
+ * __bss_start__..__bss_end__ so that the C runtime does not zero them.
  *
- * Both properties are load-bearing. FSP's own fsp_gen.ld puts these in a NOLOAD output
- * section for a reason: Reset_Handler calls SystemInit() BEFORE __PROGRAM_START(), and
- * SystemInit() is what sets SystemCoreClock and the bsp_clocks state that live here.
- * Folding them into .TFM_BSS instead would zero clock state that had already been
- * initialised - a real defect, not a tidy-up.
+ * Both properties are required. Reset_Handler calls SystemInit() before __PROGRAM_START(), and
+ * SystemInit() sets SystemCoreClock and the bsp_clocks state that live here. Folding these
+ * sections into .TFM_BSS would zero clock state that is already initialised. FSP's own
+ * fsp_gen.ld uses a NOLOAD output section for the same reason.
  *
- * Unhandled, ld orphaned .ram_noinit: it invented an output section and, the input being
- * PROGBITS, gave it a load address - 110 bytes of flash inside the 2 KB NSC window holding
- * initialisers that no copy-table entry copies. It escaped being zeroed only because the
- * orphan happened to land below __bss_start__.
+ * Without this macro, ld orphans .ram_noinit: it creates an output section and, the input
+ * being PROGBITS, gives it a load address (110 bytes of flash inside the 2 KB NSC window)
+ * holding initialisers that no copy-table entry copies.
  *
- * .noinit is included too. Nothing emits it today; it is the generic GCC spelling of the
- * same intent, and catching it costs nothing.
+ * .noinit is the generic GCC spelling of the same intent. Nothing emits it now, and matching
+ * it costs nothing.
  */
 #define S_DATA_EXTRA_NOINIT_SECTION_NAME   .ram_noinit* .noinit*
 
@@ -154,10 +149,12 @@
 #define NS_PARTITION_SIZE               (FLASH_AREA_1_SIZE)
 
 /*
- * Secure secondary (staging) slot. TF-M's generated secure linker emits the
- * LR_SECONDARY_PARTITION load-region symbol from these, and target_cfg.c publishes them
- * in memory_regions. ra6m4 had to stub these to 0 - the solution gives us the real slot,
- * so derive it (FLASH_AREA_2 = image 0 secondary = secure).
+ * Secure secondary (staging) slot, FLASH_AREA_2 (image 0 secondary). TF-M's generated secure
+ * linker script emits the LR_SECONDARY_PARTITION load-region symbol from these, and
+ * target_cfg.c publishes them in memory_regions.
+ *
+ * These take an address. On RA6M5 code flash is based at 0x00000000, so FLASH_AREA_2_OFFSET
+ * is also the address.
  */
 #define SECONDARY_PARTITION_START       (FLASH_AREA_2_OFFSET)
 #define SECONDARY_PARTITION_SIZE        (FLASH_AREA_2_SIZE)
@@ -165,17 +162,17 @@
 /*
  * Non-secure callable / CMSE veneers.
  *
- * The solution owns this window (FLASH_CPU0_C), 0x800 at 0x11F800, ending exactly on the
- * 32 KB NS boundary at 0x120000. The Partition Manager takes the SECURE size in KB (1150)
- * and the NSC size in KB (2) - it does not take these addresses. Do NOT derive an IDAU
- * boundary from these macros without reading DESIGN.md 7.1 first.
+ * The solution owns this window (FLASH_CPU0_C): 0x800 at 0x11F800, ending exactly on the 32 KB
+ * NS boundary at 0x120000. The Renesas Device Partition Manager (RDPM) takes the secure size
+ * in KB (1150) and the NSC size in KB (2), not these addresses. Do not derive an IDAU boundary
+ * from these macros without reading DESIGN.md §7.1 first.
  */
 #define CMSE_VENEER_REGION_START        (BSP_PARTITION_FLASH_CPU0_C_START)
 #define CMSE_VENEER_REGION_SIZE         (BSP_PARTITION_FLASH_CPU0_C_SIZE)
 #define CMSE_VENEER_REGION_LIMIT        (CMSE_VENEER_REGION_START + \
                                          CMSE_VENEER_REGION_SIZE - 1)
 
-/* Pin the veneers where the solution says, on TF-M's own generated linker. */
+/* Pin the veneers where the solution places them, in TF-M's generated linker script. */
 #ifndef TFM_LINKER_VENEERS_START
 #define TFM_LINKER_VENEERS_START        CMSE_VENEER_REGION_START
 #endif
@@ -189,28 +186,26 @@
 /*
  * Give the veneers their own MEMORY region in TF-M's generated secure linker script.
  *
- * TFM_LINKER_VENEERS_START above is ABSOLUTE - the solution fixes the NSC window at the
- * top of the secure partition - and `.gnu.sgstubs <abs> : ... > FLASH` drags the FLASH
- * region's allocation pointer up there. Every `AT > FLASH` section after it (.TFM_DATA and
- * the rest of the RAM-init load images) then gets an LMA above the veneers, in the handful
- * of spare bytes before the slot end, while the flash below the veneers goes unused.
- *
- * It fits today by luck: the app build lands ~200 bytes of load images in that gap. Link
- * the regression tests and it fails by a few hundred bytes with hundreds of KB free.
- * DECISIONS D063.
+ * TFM_LINKER_VENEERS_START is absolute: the solution fixes the NSC window at the top of the
+ * secure partition. Without a separate region, `.gnu.sgstubs <abs> : ... > FLASH` moves the
+ * FLASH region's allocation pointer up there, and every later `AT > FLASH` section (.TFM_DATA
+ * and the other RAM-init load images) gets an LMA in the few spare bytes above the veneers,
+ * while the flash below them goes unused. The app build places about 200 bytes of load images
+ * there and fits; the regression tests overflow by a few hundred bytes with hundreds of KB
+ * free (DECISIONS D063).
  */
 #ifndef TFM_LINKER_VENEERS_OWN_REGION
 #define TFM_LINKER_VENEERS_OWN_REGION
 #endif
 
 /*
- * BL2. It is the bootloader: it lives at the base of flash. Deriving this from the
- * secure image base put the ra6m4 BL2 in the secure slot, so nothing was at the reset
- * vector and the device never ran it (DESIGN.md 8.3).
+ * BL2 is the bootloader and lives at the base of flash, where the reset vector is. Deriving it
+ * from the secure image base puts BL2 in the secure slot, and the device never runs it
+ * (DESIGN.md §8.3).
  *
- * BL2 owns all secure RAM while it runs - the solution's RAM_BL partition
- * (BSP_PARTITION_RAM_BL_CPU0_S_SIZE) is its own bootloader's budget and is smaller
- * than TF-M's BL2 needs, so use the full secure RAM partition instead.
+ * BL2 owns all secure RAM while it runs. The solution's RAM_BL partition
+ * (BSP_PARTITION_RAM_BL_CPU0_S_SIZE) is the budget of the solution's own bootloader and is
+ * smaller than TF-M's BL2 needs, so BL2 uses the whole secure RAM partition.
  */
 #define BL2_CODE_START                  (BSP_PARTITION_FLASH_BL_CPU0_S_START)
 #define BL2_CODE_SIZE                   (BSP_PARTITION_FLASH_BL_CPU0_S_SIZE)
@@ -230,34 +225,26 @@
                                          BOOT_TFM_SHARED_DATA_SIZE - 1)
 
 /*
- * BL2 writes the measurement TLVs through MCUBOOT_SHARED_DATA_BASE (aliased to these
- * in bl2/ext/mcuboot/include/flash_map/flash_map.h) and the SPM reads them back at
- * SHARED_BOOT_MEASUREMENT_BASE in tfm_boot_data.c. Both must name the SAME region, so
- * alias them onto the shared data area - the upstream convention (rp2350, psoc64,
- * the stm32 family). ra6m4 instead carved a separate 0x100 block ahead of the shared
- * data, which left BOOT_TFM_SHARED_DATA_* feeding only the overlap check.
+ * BL2 writes the measurement TLVs through MCUBOOT_SHARED_DATA_BASE (aliased to these in
+ * bl2/ext/mcuboot/include/flash_map/flash_map.h), and the SPM reads them at
+ * SHARED_BOOT_MEASUREMENT_BASE in tfm_boot_data.c. Both must name the same region, so they
+ * are aliased onto the shared data area, the upstream convention (rp2350, psoc64, the stm32
+ * family).
  */
 #define SHARED_BOOT_MEASUREMENT_BASE    (BOOT_TFM_SHARED_DATA_BASE)
 #define SHARED_BOOT_MEASUREMENT_SIZE    (BOOT_TFM_SHARED_DATA_SIZE)
 
 #define S_HEAP_SIZE                     (0x800)
 
-/* Must be BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE (0x1000 + 8 for this solution).
- *
- * The generated scatter file lays .msp_stack out as S_MSP_STACK_SIZE - STACKSEAL_SIZE
- * and reserves the eight bytes above it for __StackSeal. bsp_init_stub.c aliases FSP's
- * g_main_stack onto that stack, and FSP's SystemInit() writes its stack seal at
- * &g_main_stack[BSP_CFG_STACK_MAIN_BYTES] - which therefore has to land exactly on
- * __StackSeal rather than in live data above it.
- *
- * ra6m5_layout_checks.c asserts the relationship, so a regenerated project that changes
- * the FSP main stack size fails the build instead of scribbling past the stack. */
+/* Must be BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE (0x1000 + 8 for this solution), so that
+ * FSP's SystemInit() stack seal lands exactly on __StackSeal, not in live data above it.
+ * ra6m5_layout_checks.c asserts this; its "Main stack" section explains why. */
 #define S_MSP_STACK_SIZE                (0x1008)
 #define S_PSP_STACK_SIZE                (0x800)
 #define NS_HEAP_SIZE                    (0x1000)
 #define NS_STACK_SIZE                   (0x1000)
 
-/* Peripherals - whole space, attribution is by IDAU/SAU not by these. */
+/* Peripherals: the whole space. Security attribution comes from the IDAU/SAU, not these. */
 #define PERIPHERAL_BASE                 (0x40000000)
 #define PERIPHERAL_SIZE                 (0x10000000)
 #define PERIPHERALS_BASE_S              (PERIPHERAL_BASE)
@@ -266,24 +253,23 @@
 #define PERIPHERALS_LIMIT_NS            (PERIPHERAL_BASE + PERIPHERAL_SIZE - 1)
 
 /*
- * RA6M5 option-setting memory - DISCRETE regions, one per register group.
+ * RA6M5 option-setting memory: discrete regions, one per register group.
  *
- * Same thirteen groups and the same start addresses as RA6E1/RA6M4, but the block-protect
- * words are WIDER here: BPS/PBPS and their _SEC/_SEL mirrors are 0x10, not 0xC, because
- * the RA6M5 has 2 MB of code flash and therefore more protectable blocks. Values read off
- * the generated ra6m5_gcc_mcuboot/Debug/memory_regions.ld - do not carry the RA6E1 numbers
- * over. These MUST stay thirteen separate MEMORY regions in
- * ra6m5_bl2.ld, each section assigned with '> REGION'. Emitting them as one
- * coalesced PT_LOAD zero-fills the gaps (352 B here; 368 on RA6E1/
- * RA6M4, whose block-protect words are narrower) and bricks the part, with no known recovery.
- * That reaches eight DEFINED registers, BPS and PBPS among them (D133). That destroyed two
- * EK-RA6M4 boards on 2026-07-21.
+ * The thirteen groups and their start addresses match RA6E1/RA6M4, but BPS/PBPS and their
+ * _SEC/_SEL mirrors are 0x10 wide, not 0xC, because the 2 MB code flash has more protectable
+ * blocks. Values are from the generated ra6m5_gcc_mcuboot/Debug/memory_regions.ld; do not copy
+ * the RA6E1 numbers.
  *
- * The fill is invisible in the srec (it lives in the program header, and objcopy -O
- * srec emits from sections). Verify with:
+ * WARNING: these must stay thirteen separate MEMORY regions in ra6m5_bl2.ld, each section
+ * assigned with '> REGION'. One coalesced PT_LOAD zero-fills the 352 B of gaps, which reach
+ * eight defined registers, BPS and PBPS among them (D133), and bricks the part with no known
+ * recovery (D002).
+ *
+ * The fill is invisible in the srec: it is in the program header, and objcopy -O srec emits
+ * from sections. Verify with:
  *     arm-none-eabi-readelf -l bin/bl2.axf
- * Expect small separate LOAD segments in 0x0100Axxx, never one spanning 0x1CC.
- * Full rationale: DESIGN.md 8.4.
+ * Expect small separate LOAD segments in 0x0100Axxx, never one spanning 0x1D0.
+ * Rationale: DESIGN.md §8.4.
  */
 #define OPTION_SETTING_OFS0_START           0x0100A100
 #define OPTION_SETTING_OFS0_LENGTH          0x4

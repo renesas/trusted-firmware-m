@@ -8,23 +8,20 @@
 #define __FLASH_LAYOUT_H__
 
 /*
- * RA6M5 flash layout - DERIVED, NOT HAND-MAINTAINED.
+ * RA6M5 flash layout, derived from the e2 solution. Do not edit it by hand.
  *
- * Every address and size below comes from bsp_linker_info.h, which the e2 studio
- * SOLUTION generates for each project from solution.xml. Change the partitions in
- * the solution, rebuild the projects in e2, and this header follows with no edits.
+ * Every address and size comes from bsp_linker_info.h, which e2 studio generates for each
+ * project from solution.xml. To change the layout, change the partitions in the solution and
+ * rebuild the projects in e2; this header follows. RASC/e2 is the source of truth
+ * (DESIGN.md §3).
  *
- * This inverts the ra6m4 model, where flash_layout.h was authoritative and the RASC
- * values were vestigial (DESIGN.md 3). Here RASC/e2 is the source of truth.
+ * bsp_linker_info.h is in <project>/Debug/, so the solution must be built in e2 at least once
+ * before TF-M can configure. The platform CMakeLists stops with a message if it is missing.
  *
- * bsp_linker_info.h lives in <project>/Debug/, so the solution must have been built
- * in e2 at least once before TF-M can configure. The platform CMakeLists fails with a
- * clear message if it is absent.
- *
- * We include bsp_partitions.h, not bsp_linker_info.h directly: the platform CMakeLists
- * filters the generated file down to its #define BSP_PARTITION_* lines. This header is
- * preprocessed into ra6m5_bl2.ld as well as compiled, and bsp_linker_info.h also
- * declares C types and externs that a linker script cannot parse.
+ * This header includes bsp_partitions.h, which the platform CMakeLists filters from
+ * bsp_linker_info.h down to its #define BSP_PARTITION_* lines. The header is also preprocessed
+ * into ra6m5_bl2.ld, and a linker script cannot parse the C types and externs in
+ * bsp_linker_info.h.
  *
  * Partition -> TF-M mapping:
  *   FLASH_BL_CPU0_S   -> BL2 (MCUboot)
@@ -36,10 +33,9 @@
 
 #include "bsp_partitions.h"
 
-/* Device geometry. Region 1 (0x10000+) erases in 32 KB blocks; every MCUboot slot
- * lives there, so that is the sector size MCUboot must use. Region 0 is 8 KB but no
- * slot boundary falls in it. Confirm against BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE
- * if the device is ever changed. */
+/* Device geometry. Code flash region 1 (0x10000 and up) erases in 32 KB blocks and holds every
+ * MCUboot slot, so 32 KB is the MCUboot sector size. Region 0 is 8 KB, but no slot boundary
+ * falls in it. Check BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE if the device changes. */
 #define FLASH_BASE_ADDRESS              (0x00000000)
 #define FLASH_TOTAL_SIZE                (0x00200000)     /* 2 MB */
 #define FLASH_AREA_IMAGE_SECTOR_SIZE    (0x8000)         /* 32 KB */
@@ -52,18 +48,16 @@
 
 /* A slot spans its header through the end of its trailer.
  *
- * The solution's components MUST be contiguous, so that this span equals the sum of the
- * component sizes. Everything downstream assumes that: the FSP generator emits
- * .fa_size as a plain sum of the parts (linker_macros_bsp_h.j2), imgtool pads to
- * FLASH_AREA_0_SIZE via RE_SIGN_BIN_SIZE, and bootutil reads the trailer magic at
- * fa_off + fa_size - 16. A gap between components makes the span exceed the sum, and
- * the two views of the slot silently diverge.
+ * The solution's components must be contiguous, so that the span equals the sum of the
+ * component sizes. Everything downstream assumes this: the FSP generator emits .fa_size as the
+ * sum of the parts (linker_macros_bsp_h.j2), imgtool pads to FLASH_AREA_0_SIZE via
+ * RE_SIGN_BIN_SIZE, and bootutil reads the trailer magic at fa_off + fa_size - 16. A gap
+ * between components makes the span exceed the sum, and the two views of the slot silently
+ * diverge.
  *
- * The slot must also be a whole number of FLASH_AREA_IMAGE_SECTOR_SIZE erase sectors:
- * flash_area_get_sectors() walks the area sector by sector and fails outright on a
- * remainder, which surfaces only on hardware as boot_read_sectors() returning
- * BOOT_EFLASH. An earlier layout left 0x100 between the NSC region and the trailer and
- * hit exactly that.
+ * The slot must also be a whole number of FLASH_AREA_IMAGE_SECTOR_SIZE erase sectors.
+ * flash_area_get_sectors() fails on a remainder, which shows only on hardware, as
+ * boot_read_sectors() returning BOOT_EFLASH.
  *
  * ra6m5_layout_checks.c asserts both properties at build time. */
 #define TFM_SLOT_SPAN(h, t)             (((t##_START) + (t##_SIZE)) - (h##_START))
@@ -88,14 +82,13 @@
 #define FLASH_AREA_3_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_1_S_H, \
                                                       BSP_PARTITION___BL_1_S_T)
 
-/* The solution is configured overwrite-only, so there is no scratch area.
+/* The solution is overwrite-only, so there is no scratch area.
  *
- * The RA6M5 layout does reserve the block for it: UNUSED_SCRATCH, 32 KB of SECURE flash
- * at 0x18000, immediately after BL2. It is not wired up here, by design - declaring a
- * scratch area to MCUboot while the upgrade mode is overwrite-only only costs code. To
- * switch to swap-using-scratch, set the mode in e2 and point these three macros at that
- * partition. It is secure on purpose: during a swap the scratch holds fragments of the
- * SECURE image, so an NS-writable scratch would leak and corrupt it. */
+ * The layout reserves a block for one: UNUSED_SCRATCH, 32 KB of secure flash at 0x18000,
+ * after BL2. It is deliberately not declared to MCUboot, which would only cost code in
+ * overwrite-only mode. To switch to swap-using-scratch, set the mode in e2 and point these
+ * three macros at that partition. A scratch area must be secure: during a swap it holds
+ * fragments of the secure image, so an NS-writable scratch would leak and corrupt it. */
 #define FLASH_AREA_SCRATCH_ID           (FLASH_AREA_0_ID + 4)
 #define FLASH_AREA_SCRATCH_OFFSET       (0)
 #define FLASH_AREA_SCRATCH_SIZE         (0)
@@ -107,27 +100,25 @@
 /*
  * Combined S+NS image, for assemble.py.
  *
- * The two primary slots are ADJACENT - the secure slot ends exactly where the non-secure
- * slot begins - so a plain concatenation describes the flash correctly, with these as the
- * offsets relative to the start of the combined image. ra6m5_layout_checks.c asserts the
- * adjacency, because it is a property of the current partitioning and not a rule.
+ * The two primary slots are adjacent (the secure slot ends exactly where the non-secure slot
+ * begins), so a plain concatenation describes the flash, with these as offsets from the start
+ * of the combined image. ra6m5_layout_checks.c asserts the adjacency, because it is a property
+ * of the current partitioning, not a rule.
  *
- * Nothing on this port FLASHES the combined image: ns_app excludes the target, because as
- * an extra row in the debug session's program list it carries no address of its own and is
- * silently destructive at the wrong one. But the macros stay, because TF-M's NSPE rules
- * build tfm_s_ns_signed.bin for any NS application that does not exclude it - tf-m-tests'
- * regression app does not - and without them assemble.py dies with
- * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined". Removing them once already broke
- * that build.
+ * Nothing on this port flashes the combined image. ns_app excludes the target: as an extra row
+ * in the debug session's program list it has no address of its own and is silently
+ * destructive at the wrong one. The macros stay because TF-M's NSPE rules build
+ * tfm_s_ns_signed.bin for any NS application that does not exclude it, including tf-m-tests'
+ * regression app. Without them assemble.py fails with
+ * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined".
  */
 #define SECURE_IMAGE_OFFSET             (0x0)
 #define SECURE_IMAGE_MAX_SIZE           FLASH_AREA_0_SIZE
 #define NON_SECURE_IMAGE_OFFSET         (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
 #define NON_SECURE_IMAGE_MAX_SIZE       FLASH_AREA_1_SIZE
 
-/* Sectors bootutil must be able to track for one image. ra6m4 sized this from the
- * scratch area; overwrite-only has no scratch, so size it from the largest slot,
- * rounded up. */
+/* Sectors bootutil must track for one image. Overwrite-only has no scratch area, so this is
+ * sized from the largest slot, rounded up. */
 #define MCUBOOT_MAX_IMG_SECTORS         ((FLASH_MAX_PARTITION_SIZE + \
                                           FLASH_AREA_IMAGE_SECTOR_SIZE - 1) / \
                                          FLASH_AREA_IMAGE_SECTOR_SIZE)
@@ -138,19 +129,17 @@
 #define IMAGE_NS_CODE_SIZE              (BSP_PARTITION_FLASH_CPU0_N_SIZE)
 
 /*
- * Data flash: ITS, PS and the MCUboot NV counters all live in the SECURE data flash
- * partition. The split below is proportional so it tracks a resized partition, and
- * the static assert fires if the solution ever gives secure data flash less than the
- * services need.
+ * Data flash: ITS, PS and the MCUboot NV counters all live in the secure data flash
+ * partition. The split is proportional so that it tracks a resized partition, and the #error
+ * check below fires if the solution gives secure data flash less than the services need.
  */
 #define FLASH_DEV_NAME_DATA             Driver_FLASH1
 #define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (4)
 
-/* Code flash minimum write, BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE. Advertised by
- * Driver_Flash.c as the code-flash program_unit and returned to MCUboot as
- * flash_area_align(); config.cmake must keep MCUBOOT_ALIGN_VAL equal to it, since the
- * images are signed with --align and the trailer geometry has to match at runtime.
- * Named rather than written as a literal so the coupling is greppable. */
+/* Code flash minimum write, BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE. Driver_Flash.c advertises it
+ * as the code-flash program_unit, and MCUboot gets it as flash_area_align(). config.cmake must
+ * keep MCUBOOT_ALIGN_VAL equal to it: the images are signed with --align, and the trailer
+ * geometry must match at run time. A named macro keeps the coupling greppable. */
 #define TFM_HAL_CODE_FLASH_PROGRAM_UNIT (128)
 
 /* Data flash geometry, as cmsis_drivers/Driver_Flash.c names it. The secure partition
@@ -164,24 +153,22 @@
 
 /* 2048 B = 32 sectors, split into a 1024 B area and a 1024 B backup mirror.
  *
- * The floor is sizeof(struct flash_otp_nv_counters_region_t), which the backend requires
- * to fit in EACH half. That is 784 B for this configuration:
+ * The floor is sizeof(struct flash_otp_nv_counters_region_t), which must fit in each half.
+ * That is 784 B for this configuration:
  *
  *     init_value 4 | OTP items 284 | BL2 ROTPKs x4 + BL2 NV counters x4 384
  *     | entropy_seed + secure_debug_pk 96 | flash_nv_counters[3] 12 | swap_count 4
  *
  * It grows with MCUBOOT_BUILTIN_KEY (ROTPKs become 68/100 B each, not a 32 B hash),
- * PLATFORM_NS_NV_COUNTERS (64 B each, currently 0) and FLASH_NV_COUNTER_AM. This was
- * 512 B total, i.e. 256 B per half - far under the floor - and the effect was invisible:
- * init_otp_nv_counters_flash() opens with a compile-time-constant size check, so the
- * whole function folded to "return TFM_PLAT_ERR_SYSTEM_ERR" and never touched flash.
- * ra6m5_otp_size_check.c now makes that a build error instead.
+ * PLATFORM_NS_NV_COUNTERS (64 B each, currently 0) and FLASH_NV_COUNTER_AM. Below the floor,
+ * init_otp_nv_counters_flash() compiles to an unconditional failure that never touches flash.
+ * ra6m5_layout_checks.c ("OTP / NV counter area size") makes that a build error.
  */
 #define TFM_NV_COUNTERS_AREA_SIZE       (FLASH_DATA_FLASH_SECTOR_SIZE * 32)   /* 2048 B */
 
-/* platform/ext/common/template/flash_otp_nv_counters_backend.c is the backend, and it
- * mirrors the area so a power loss mid-write is recoverable - hence the backup, which
- * must be a separate erase sector. The two halves split TFM_NV_COUNTERS_AREA_SIZE. */
+/* The backend, platform/ext/common/template/flash_otp_nv_counters_backend.c, mirrors the area
+ * so that a power loss mid-write is recoverable. The backup must be a separate erase sector.
+ * The two halves split TFM_NV_COUNTERS_AREA_SIZE. */
 #define TFM_OTP_NV_COUNTERS_SECTOR_SIZE      (FLASH_DATA_FLASH_SECTOR_SIZE)
 #define TFM_OTP_NV_COUNTERS_AREA_SIZE        (TFM_NV_COUNTERS_AREA_SIZE / 2)
 #define TFM_OTP_NV_COUNTERS_AREA_ADDR        (TFM_NV_COUNTERS_AREA_OFFSET)
@@ -215,21 +202,20 @@
 #define TFM_HAL_PS_PROGRAM_UNIT         TFM_HAL_DATA_FLASH_PROGRAM_UNIT
 #define TFM_HAL_ITS_PROGRAM_UNIT        TFM_HAL_DATA_FLASH_PROGRAM_UNIT
 
-/* Secure data flash must hold NV counters + PS + ITS with room for wear levelling.
- * The e2 solution currently allocates 4 KB (half the device's 8 KB) to secure; the
- * ra6m4 port used ~7 KB. If this fires, give the secure DATA_FLASH partition more
- * space in solution.xml rather than shrinking the services here. */
+/* Secure data flash must hold the NV counters, PS and ITS with room for wear levelling. The e2
+ * solution allocates all 8 KB of the device's data flash to secure. If this fires, give the
+ * secure DATA_FLASH partition more space in solution.xml rather than shrinking the services. */
 #if (BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE) < 0x1000
 #error "RA6M5: secure data flash partition too small for NV counters + PS + ITS"
 #endif
 
 /* Flash device IDs used by the CMSIS flash driver shim.
  *
- * NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1, by design. Those are per-flash-area driver
- * overrides for a target whose images live on different devices; both our images are on
- * code flash, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
- * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips
- * the paired-definition check in bl2/ext/mcuboot/include/target.h. */
+ * FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1 are deliberately not defined. They are per-area driver
+ * overrides for a target whose images live on different devices. Both images are in code flash, so
+ * bl2/src/default_flash_map.c correctly defaults them to FLASH_DEV_NAME. Defining a _0/_1
+ * name without the matching FLASH_DEVICE_ID_0/_1 also trips the paired-definition check in
+ * bl2/ext/mcuboot/include/target.h. */
 #define FLASH_DEVICE_ID                 (100)
 #define FLASH_DEVICE_ID_DATA            (101)
 

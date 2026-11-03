@@ -3,16 +3,16 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * BL2 boot HAL override: bring the SCE9 up before MCUboot hashes any image.
+ * BL2 boot HAL override: brings the SCE9 up before MCUboot hashes any image.
  *
  * Built only with CRYPTO_HW_ACCELERATOR, when BL2's SHA-256 runs on the SCE
  * (platform/ext/accelerator/renesas/sce9). bl2_main.c calls boot_platform_post_init() after
  * boot_platform_init() and before boot_go_for_image_id() touches either slot.
  *
- * Why here and not in crypto_hw_accelerator_init(): the weak default of this function in
- * platform/ext/common/boot_hal_bl2.c does call that, but in BL2 it resolves to the stub
- * bl2_main.c defines for MCUBOOT_USE_PSA_CRYPTO, which does nothing and cannot be overridden
- * (it is not weak).
+ * Not done in crypto_hw_accelerator_init(): the weak default of this function in
+ * platform/ext/common/boot_hal_bl2.c calls that, but in BL2 it resolves to the stub bl2_main.c
+ * defines for MCUBOOT_USE_PSA_CRYPTO, which does nothing and is not weak, so it cannot be
+ * overridden.
  */
 
 #include <stdint.h>

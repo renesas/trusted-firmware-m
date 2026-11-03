@@ -3,13 +3,14 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * TF-M crypto_hw.h for the Renesas SCE9 - secure crypto partition only. BL2 takes its
- * crypto_hw stubs from bl2/ext/mcuboot/bl2_main.c, but it IS accelerated: SHA-256.
+ * crypto_hw.h implementation for the Renesas SCE9, secure crypto partition only. BL2 uses
+ * the crypto_hw stubs in bl2/ext/mcuboot/bl2_main.c; its SHA-256 is still accelerated (see
+ * CMakeLists.txt, BL2 section).
  *
  * secure_fw/partitions/crypto/crypto_init.c calls crypto_hw_accelerator_init() before
- * psa_crypto_init() when CRYPTO_HW_ACCELERATOR and LEGACY_DRIVER_API_ENABLED are both
- * defined - LEGACY_DRIVER_API_ENABLED being TF-M's name for the *_ALT model this
- * accelerator uses. After it returns, the ALT sources call HW_SCE_* directly.
+ * psa_crypto_init() when CRYPTO_HW_ACCELERATOR and LEGACY_DRIVER_API_ENABLED are both defined.
+ * LEGACY_DRIVER_API_ENABLED is TF-M's name for the *_ALT model this accelerator uses. After
+ * init, the ALT sources call HW_SCE_* directly.
  */
 
 #include <stddef.h>
@@ -40,8 +41,8 @@ void psa_aead_setup_vendor(void *ctx)
 
 int crypto_hw_accelerator_init(void)
 {
-    /* Shared with the platform's TRNG, so whichever runs first brings the engine up and the
-     * other does not reset it again. */
+    /* Shared with the platform's TRNG: whichever runs first brings the engine up, and the
+     * other does not reset it. */
     return (FSP_SUCCESS == ra_sce_init()) ? 0 : -1;
 }
 

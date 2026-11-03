@@ -14,56 +14,46 @@
 #include "fih.h"
 #include "uart_stdout.h"
 
-/* Linker script provides __StackSeal. TF-M SPM code expects __STACK_SEAL.
- * We provide __STACK_SEAL as a weak symbol in the same section. */
+/* The linker script provides __StackSeal; TF-M's SPM expects __STACK_SEAL. */
 extern uint64_t __StackSeal;
 
-/* Weak definition placed in msp_stack_seal_res section - same as __StackSeal */
+/* Weak, and in the same section as __StackSeal. */
 __attribute__((weak, section(".msp_stack_seal_res")))
 uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
 
-/* Everything below is secure-side (SPM and platform-service) HAL. BL2 links this file
- * only for the __STACK_SEAL definition above, and calls none of it.
+/* Everything below is secure-side HAL. BL2 links this file only for __STACK_SEAL above,
+ * which ra6m5_bl2.ld needs to resolve FSP's __StackSeal, and calls none of it.
  *
- * The guard is not cosmetic: tfm_hal_platform_init() is declared FIH_RET_TYPE(...) and
- * returns fih_int_encode(...), which agree only while fih_ret and fih_int are the same
- * type. In BL2 the real mcuboot fih.h is in scope, and at MCUBOOT_FIH_PROFILE MEDIUM -
- * selected by TFM_PROFILE=profile_large, which the PSA Arch crypto tests require - they
- * are not:
+ * The guard is required. tfm_hal_platform_init() returns fih_int_encode() as FIH_RET_TYPE,
+ * which compiles only while fih_ret and fih_int are one type. In BL2 the mcuboot fih.h is in
+ * scope, and at MCUBOOT_FIH_PROFILE MEDIUM (selected by TFM_PROFILE=profile_large) they differ:
  *     error: incompatible types when returning type 'fih_int' but 'fih_ret'
  *            {aka 'volatile int'} was expected
- * The default FIH profile is OFF, which is why this compiled until the first
- * profile_large build. Upstream platforms (an521) never compile this file into BL2 at
- * all; here it cannot be dropped, because __STACK_SEAL would go with it and
- * ra6m5_bl2.ld resolves FSP's __StackSeal from the section it anchors.
  *
- * The discriminator is RA6M5_BUILDING_BL2, set by CMakeLists.txt on platform_bl2 alone -
- * NOT the plain BL2 macro, which is defined for every image in the build whenever BL2 is
- * enabled, so guarding on it would delete these symbols from tfm_s as well:
+ * Guard on RA6M5_BUILDING_BL2, which CMakeLists.txt sets on platform_bl2 only. The plain BL2
+ * macro is defined for every image when BL2 is enabled, so guarding on it would also remove
+ * these symbols from tfm_s:
  *     undefined reference to `tfm_hal_platform_init' (secure_fw/spm/core/main.c)
  */
 #ifndef RA6M5_BUILDING_BL2
 
 #if defined(__ICCARM__)
 /*
- * Copy .ram_from_flash to RAM. DECISIONS D029.
+ * Copy .ram_from_flash to RAM. DECISIONS D048, which closes D029.
  *
  * FSP's code-flash program/erase routines must run from RAM: the FCU makes code flash
- * unreadable for the duration of a P/E operation, so a routine fetching from flash aborts
- * mid-erase with the FCU still in P/E mode - a hang, not a fault.
+ * unreadable during a P/E operation, so a routine fetching from flash hangs mid-erase with the
+ * FCU still in P/E mode, without a fault.
  *
- * ILINK will not be trusted with the copy. Asked to copy-init the section it decides for
- * itself whether it may, and at isolation 3 it declined - "excluded because they were marked
- * as possibly needed for init" (--log initialization) - leaving the routines in flash while
- * isolation 1 relocated them correctly, with nothing in the build to say so. The ICF now
- * declares the section 'initialize manually' and the copy happens here, identically at every
- * isolation level.
+ * The ICF declares the section 'initialize manually' and the copy is done here, identically at
+ * every isolation level. Asked to copy-init the section, ILINK declined at isolation 3
+ * ("excluded because they were marked as possibly needed for init", --log initialization) and
+ * left the routines in flash, with nothing in the build to say so.
  *
- * The section pragmas give the RAM half and the initialiser ILINK left in ER_RO_DATA.
- * Sizes are taken from the destination: it is what the members hook placed, and ER_CODE_SRAM
- * has maximum size = S_RAM_CODE_SIZE, so an overflow is a link error rather than a run-time
- * overrun. The GNU build reaches the same result through the linker script and needs none of
- * this.
+ * The section pragmas give the RAM destination and the initialiser ILINK leaves in ER_RO_DATA.
+ * The length is taken from the destination: ER_CODE_SRAM has maximum size = S_RAM_CODE_SIZE,
+ * so an overflow is a link error rather than a run-time overrun. The GNU build does the copy
+ * through the linker script.
  */
 #pragma section = ".ram_from_flash"
 #pragma section = ".ram_from_flash_init"
@@ -84,47 +74,36 @@ static void ra_ram_code_init(void)
 #endif /* __ICCARM__ */
 
 #ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
-/* Included HERE, not with the headers at the top of the file. tfm_spm_log.h has
+/* Included here, not at the top of the file: tfm_spm_log.h has
  *     #error "TFM_SPM_LOG_LEVEL not defined!"
- * and this file is compiled into platform_bl2 as well as platform_s - BL2 links it for the
- * __STACK_SEAL definition above and calls none of the rest - where that symbol does not
- * exist. Including it at the top broke the BL2 object only, which is a confusing failure
- * because nothing in BL2 uses the logging. Inside this guard it is both secure-only (the
- * enclosing RA6M5_BUILDING_BL2 check) and isolation-2-or-above only.
+ * and BL2, which also compiles this file, does not define that symbol. Inside these guards the
+ * include is secure-only (RA6M5_BUILDING_BL2) and isolation 2 or above only.
  */
 #include "tfm_spm_log.h"
 /* Declares tfm_hal_post_partition_init_hook(), implemented at the end of this block. */
 #include "tfm_hal_isolation.h"
 
 /*
- * MPU inventory, reported once at the end of platform init.
+ * MPU inventory, reported at the end of platform init and again from
+ * tfm_hal_post_partition_init_hook(). It reads two numbers off the hardware:
  *
- * WHY THIS EXISTS. Two numbers about this port were asserted for months and never read off
- * the hardware:
+ *   1. MPU regions the part provides (MPU->TYPE). A successful boot proves only ">= the number
+ *      needed", because tfm_hal_set_up_static_boundaries() panics when over budget.
+ *   2. Regions TF-M enabled (RLAR.EN). The static table in tfm_hal_isolation_v8m.c is five
+ *      entries on an M33 (PXN needs armv8.1-m.main, so the combined-code branch is taken),
+ *      plus one reserved for private data at isolation 3, plus one per named MMIO region.
  *
- *   1. How many MPU regions the part provides. The region budget is checked at run time in
- *      tfm_hal_set_up_static_boundaries() against MPU->TYPE, and over-budget is a panic, so
- *      a successful boot only ever proved ">= the number needed" - never the actual count.
- *      "Eight" came from the Cortex-M33 configuration, not from a measurement.
- *   2. How many regions TF-M programmed. The static table in
- *      tfm_hal_isolation_v8m.c is five entries on an M33 (PXN needs armv8.1-m.main, so the
- *      combined-code branch is taken), plus one reserved for private data at isolation 3,
- *      plus one per named MMIO region. Counting source branches is not the same as reading
- *      RLAR.EN.
+ * The SPM calls tfm_hal_platform_init() after tfm_hal_set_up_static_boundaries(), so the
+ * static regions are live when the first report runs. Per-partition regions are programmed
+ * later, in tfm_hal_activate_boundary(), so at isolation 3 the count is the static set only.
  *
- * ORDERING. The SPM calls this hook AFTER tfm_hal_set_up_static_boundaries(), so the static
- * regions are already live and the enabled count is meaningful. Per-partition regions are
- * programmed later still, on each tfm_hal_activate_boundary(), so at isolation 3 the figure
- * here is the static set only - the dynamic ones have not been bound yet.
+ * Costs nothing below isolation 2: the function compiles out with
+ * CONFIG_TFM_ENABLE_MEMORY_PROTECT, and SPMLOG_INFMSGVAL expands to (void)(val) when SPM
+ * logging is off, as at the MinSizeRel default. Secure-slot headroom is small on both parts
+ * (DECISIONS D087).
  *
- * COST. Nothing below isolation 2: the whole function is compiled out with
- * CONFIG_TFM_ENABLE_MEMORY_PROTECT, and SPMLOG_INFMSGVAL expands to (void)(val) whenever SPM
- * logging is off, which it is at the MinSizeRel default. That matters - the secure slot has
- * 1,693 B spare on RA6M5 and 670 B on RA8M2 (DECISIONS D087).
- *
- * RNR is saved and restored. It is only a selector, and nothing in the SPM holds a value
- * across this point, but ARM_MPU_SetRegion() writes it for its own use and leaving it moved
- * would be a gratuitous difference between a logging and a non-logging build.
+ * RNR is saved and restored. Nothing in the SPM relies on it here, but ARM_MPU_SetRegion()
+ * also writes it, and a logging build should leave the MPU as a non-logging build does.
  */
 static void ra_mpu_report(void)
 {
@@ -147,14 +126,12 @@ static void ra_mpu_report(void)
 }
 
 /*
- * Per-region dump. Separate from the summary above because it is only worth printing at the
- * second call site - after the SPM has bound every partition - where the question is not how
- * many regions exist but which ranges they cover.
+ * Per-region dump, printed only after partition init, where the question is which ranges the
+ * regions cover.
  *
- * RBAR[31:5] is the base and RLAR[31:5] the limit, both with the low 5 bits used for
- * attributes, so each is masked before printing. The limit is inclusive and reads back with
- * its low 5 bits clear, i.e. 0x400E80FF programmes as 0x400E80E0 - add 0x1F when comparing
- * against a datasheet range.
+ * RBAR[31:5] is the base and RLAR[31:5] the inclusive limit; the low 5 bits hold attributes
+ * and are masked off. A limit reads back with its low 5 bits clear: 0x400E80FF programmes as
+ * 0x400E80E0, so add 0x1F when comparing against a datasheet range.
  */
 static void ra_mpu_dump_regions(void)
 {
@@ -174,14 +151,13 @@ static void ra_mpu_dump_regions(void)
 }
 
 /*
- * Called by the SPM from spm_ipc.c once every partition has been bound, which is the only
- * point at which per-partition MMIO regions are visible. Enabled by
- * CONFIG_TFM_POST_PARTITION_INIT_HOOK in config_tfm_target.h.
+ * Called from spm_ipc.c once every partition is bound, the only point at which per-partition
+ * MMIO regions are visible. Enabled by CONFIG_TFM_POST_PARTITION_INIT_HOOK in
+ * config_tfm_target.h.
  *
- * At isolation 2 a named MMIO region is appended permanently during tfm_hal_bind_boundary(),
- * so an ARoT partition's peripheral should appear here as an extra enabled region beyond the
- * five static ones. At isolation 3 it is programmed per context switch instead and will NOT
- * appear - absence there means nothing.
+ * At isolation 2 a named MMIO region is added permanently in tfm_hal_bind_boundary(), so an
+ * ARoT partition's peripheral appears as an extra enabled region beyond the five static ones.
+ * At isolation 3 it is programmed per context switch and does not appear here.
  */
 FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_post_partition_init_hook(void)
 {
@@ -195,67 +171,47 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_post_partition_init_hook(void)
 
 FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
 {
-    /* FSP BSP clock initialization (bsp_clock_init) is called automatically from
-     * SystemInit() in system.c during Reset_Handler, before main() is entered.
-     * This configures the system to 200 MHz from the 24 MHz XTAL:
-     *   - XTAL: 24 MHz
-     *   - PLL: (24 MHz / 3) * 25 = 200 MHz
-     *   - ICLK (system clock): 200 MHz
+    /* SystemInit() sets SystemCoreClock before the C runtime zeroes .bss. Early BSP
+     * initialisation (BSP_CFG_EARLY_INIT = 1, enforced by ra6m5_layout_checks.c) keeps the
+     * clock state in .ram_noinit, and this idempotent call also recomputes SystemCoreClock from
+     * g_clock_freq[]. FSP drivers derive peripheral clocks from it through
+     * R_FSP_SystemClockHzGet(), and see 0 if it is lost:
+     * R_FLASH_HP_Open() then fails with FSP_ERR_FCLK. See DESIGN.md 8.1.
      *
-     * No additional clock *configuration* is needed here - BUT the cached
-     * SystemCoreClock value must be recomputed: SystemInit() runs before
-     * __PROGRAM_START() does the C-runtime init, and with the RASC config's
-     * BSP_CFG_EARLY_INIT=0 the SystemCoreClock variable lives in plain .bss,
-     * so it is zeroed immediately after SystemInit set it. Any FSP driver that
-     * derives a peripheral clock via R_FSP_SystemClockHzGet() (== SystemCoreClock
-     * >> divider) would then see 0 - e.g. R_FLASH_HP_Open() rejects it with
-     * FSP_ERR_FCLK (FCLK below the 4 MHz minimum). g_clock_freq[] lives in
-     * .ram_noinit and survives, so SystemCoreClockUpdate() restores the real
-     * value. Idempotent.
-     *
-     * NOTE: this is the SECURE path only - tfm_hal_platform_init() is an SPM hook and
-     * BL2 never calls it. BL2 runs TF-M's startup too and is the image that
-     * hit FSP_ERR_FCLK in July, so it needs its own call; see DESIGN.md 8.1.
+     * Secure image only: BL2 never calls this SPM hook. BL2 relies on early initialisation,
+     * checked in bl2_option_setting.c.
      */
 #if defined(__ICCARM__)
-    /* Before anything can reach the flash driver. DECISIONS D029. */
+    /* Before anything can reach the flash driver. DECISIONS D048. */
     ra_ram_code_init();
 #endif
 
     SystemCoreClockUpdate();
 
-    /* Clear PRIMASK. Reset_Handler in startup_ra6m5.c does __disable_irq() - standard,
-     * every TF-M port's startup does - and tfm_hal_platform_init() is where the canonical
-     * ports undo it. Both Renesas ports omitted it, and under the SFN backend nothing else
-     * ever does: the only cpsie i sites in the SPM are backend_abi_leaving_spm() and the
-     * PendSV exit path, and both are IPC-backend only. arch_clean_stack_and_launch(), which
-     * is how SFN reaches the partition init loop, does not touch PRIMASK.
+    /* Clear PRIMASK. Reset_Handler in startup_ra6m5.c sets it with __disable_irq(), as every
+     * TF-M port does, and tfm_hal_platform_init() is where the reference ports clear it. Under
+     * the SFN backend nothing else does: the SPM's only cpsie i sites,
+     * backend_abi_leaving_spm() and the PendSV exit path, are IPC-backend only, and
+     * arch_clean_stack_and_launch() does not touch PRIMASK.
      *
-     * With PRIMASK still set, SVCall - priority 0, but a configurable priority - is masked,
-     * so the first SVC executed escalates to HardFault. That is what killed the ITS
-     * partition init on 2026-08-29: LOG_INFFMT -> printf -> tfm_hal_output_sp_log ->
-     * "svc 2" in tfm_output_unpriv_string(), faulting with HFSR.FORCED set and every
-     * CFSR/BFSR/MMFSR/UFSR/SFSR bit clear - the textbook signature of a masked SVCall,
-     * and easily misread as a fault in the code being logged from.
+     * With PRIMASK set, SVCall is masked, so the first SVC escalates to HardFault with
+     * HFSR.FORCED set and every CFSR/BFSR/MMFSR/UFSR/SFSR bit clear. The first SVC is often
+     * partition logging ("svc 2" in tfm_output_unpriv_string()), so the fault is easily misread
+     * as a fault in the code being logged from.
      *
-     * Ordering: must precede stdio_init() to match the reference ports, and must follow
-     * the boundary/peripheral setup already done by the SPM before this hook is called.
+     * Must precede stdio_init(), as in the reference ports, and follow the boundary and
+     * peripheral setup the SPM does before calling this hook.
      */
     __enable_irq();
 
-    /* Bring up the stdout backend. Every other TF-M port calls this from its
-     * tfm_hal_platform_init(); this one did not, and the omission is not benign:
+    /* Bring up the stdout backend, as every TF-M port does here.
+     *   - RTT: stdio_init() is the only caller of SEGGER_RTT_Init(). Without this call
+     *     --gc-sections drops it, the control block is never initialised, and J-Link RTT
+     *     Viewer cannot find it. BL2 is unaffected: bl2_main.c calls stdio_init() itself.
+     *   - UART: Driver_USART is never opened, so output goes nowhere.
      *
-     *   - RTT backend: stdio_init() is the ONLY caller of SEGGER_RTT_Init(), so
-     *     --gc-sections dropped both symbols from tfm_s entirely. _SEGGER_RTT lives
-     *     in .bss, so the control block stayed 64 bytes of zeros and J-Link RTT
-     *     Viewer - which finds the block by searching for the "SEGGER RTT" ID string -
-     *     could not locate it at any address or search range. BL2 was unaffected
-     *     because bl2_main.c calls stdio_init() itself.
-     *   - UART backend: Driver_USART is never opened, so output goes nowhere.
-     *
-     * After SystemCoreClockUpdate() by design: the UART backend derives its baud
-     * divisor from SystemCoreClock, which is 0 until that call. RTT does not care.
+     * Must follow SystemCoreClockUpdate(): the UART backend derives its baud divisor from
+     * SystemCoreClock, which is 0 until then.
      */
     stdio_init();
 
@@ -264,7 +220,7 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
     ra_mpu_report();
 #endif
 
-    /* NOTE: the fault, reset and debug hooks have NO caller on this port (D134) */
+    /* NOTE: target_cfg.c's fault, reset and debug hooks have no caller on this port (D134). */
     FIH_RET(fih_int_encode(TFM_HAL_SUCCESS));
 }
 
@@ -303,7 +259,6 @@ uint32_t tfm_hal_get_ns_entry_point(void)
 /* Platform service implementations */
 void tfm_platform_hal_system_reset(void)
 {
-    /* Use the same system reset as tfm_hal_system_reset */
     NVIC_SystemReset();
     while(1);
 }
@@ -312,12 +267,11 @@ enum tfm_platform_err_t tfm_platform_hal_ioctl(tfm_platform_ioctl_req_t request,
                                                 psa_invec *in_vec,
                                                 psa_outvec *out_vec)
 {
-    /* Platform-specific IOCTL stub - can be extended for platform services */
+    /* No platform IOCTLs are implemented. */
     (void)request;
     (void)in_vec;
     (void)out_vec;
 
-    /* Return not supported for now */
     return TFM_PLATFORM_ERR_NOT_SUPPORTED;
 }
 

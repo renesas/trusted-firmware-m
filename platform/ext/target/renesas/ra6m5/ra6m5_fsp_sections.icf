@@ -8,10 +8,10 @@
 /*
  * FSP sections for the IAR secure image.
  *
- * Included by platform/ext/common/iar/tfm_isolation_s.icf.template, once per hook, with a
- * different TFM_ICF_HOOK_* defined each time - see the note there for why this is literal
- * text in a file rather than a section-name macro (iccarm's preprocessor splits ".name"
- * into ". name" on expansion, and ICF will not parse the result).
+ * platform/ext/common/iar/tfm_isolation_s.icf.template includes this file once per hook, with
+ * a different TFM_ICF_HOOK_* defined each time. See the note there for why this is literal
+ * text rather than a section-name macro: iccarm's preprocessor splits ".name" into ". name"
+ * on expansion, and ICF cannot parse the result.
  *
  * The GNU build reaches the same two sections through S_RAM_CODE_EXTRA_SECTION_NAME and
  * S_DATA_EXTRA_NOINIT_SECTION_NAME in region_defs.h. Keep the two in step: a section that
@@ -20,17 +20,17 @@
 
 #if defined(TFM_ICF_HOOK_RAM_CODE_INIT)
 /*
- * .ram_from_flash holds the code-flash program/erase routines. The FCU makes the whole
- * code flash unreadable while a P/E operation is in progress, so a routine executing from
- * flash would prefetch-abort mid-erase with the FCU still in P/E mode - a hang, not a
- * fault. It therefore runs from RAM, with its initialiser left behind in flash.
+ * .ram_from_flash holds the code-flash program/erase routines. The FCU makes the whole code
+ * flash unreadable during a P/E operation, so a routine executing from flash would
+ * prefetch-abort mid-erase with the FCU still in P/E mode: a hang, not a fault. The routines
+ * therefore run from RAM, with their initialiser left in flash.
  *
- * NOT listed in this copy-init batch - see the 'initialize manually' directive below.
- * ILINK decides for itself which sections a copy batch may contain, and at isolation 3 it
- * dropped this one ("excluded because they were marked as possibly 'needed for init'",
+ * The section is deliberately not in this copy-init batch; see 'initialize manually' below.
+ * ILINK decides which sections a copy batch may contain, and at isolation 3 it dropped this
+ * one ("excluded because they were marked as possibly 'needed for init'",
  * --log initialization), silently leaving the routines in flash while isolation 1 relocated
- * them correctly. The copy is therefore ours to make, in tfm_hal_platform_init(), which is
- * the same path at every isolation level (DECISIONS D029).
+ * them. The platform makes the copy in tfm_hal_platform_init(), on the same path at every
+ * isolation level (DECISIONS D029, D048).
  */
 
 #elif defined(TFM_ICF_HOOK_RAM_CODE_MEMBERS)
@@ -38,17 +38,17 @@
 
 #elif defined(TFM_ICF_HOOK_DIRECTIVES)
 /*
- * .ram_noinit must be neither initialised nor zeroed. Reset_Handler calls SystemInit()
- * before the C runtime starts, and SystemInit() is what sets SystemCoreClock and the
- * bsp_clocks state that lives here. Initialising or zeroing it afterwards discards clock
- * state that was already established, which surfaces as FSP_ERR_FCLK.
+ * .ram_noinit must be neither initialised nor zeroed. Reset_Handler calls SystemInit() before
+ * the C runtime starts, and SystemInit() sets SystemCoreClock and the bsp_clocks state that
+ * live here. Initialising or zeroing it afterwards discards that clock state, which surfaces
+ * as FSP_ERR_FCLK.
  */
 do not initialize { section .ram_noinit, section .ram_noinit* };
 
 /*
- * The RAM half of .ram_from_flash is placed by the members hook above; its initialiser is
- * left as a separate read-only section, .ram_from_flash_init, which ILINK sweeps into
- * ER_RO_DATA with the rest of 'ro data'. ra_ram_code_init() copies one to the other.
+ * The members hook above places the RAM half of .ram_from_flash. Its initialiser stays a
+ * separate read-only section, .ram_from_flash_init, which ILINK sweeps into ER_RO_DATA with
+ * the rest of 'ro data'. ra_ram_code_init() copies one to the other.
  */
 initialize manually { section .ram_from_flash };
 

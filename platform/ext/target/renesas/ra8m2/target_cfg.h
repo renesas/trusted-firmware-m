@@ -15,24 +15,22 @@ extern "C" {
 #endif
 
 /*
- * PPC is an Arm CoreLink concept (SSE-200 and friends). RA parts have no PPC - peripheral
- * security attribution uses the Renesas PSAR/PSCU registers instead, set up by FSP's
- * bsp_security.c from the solution's peripheral slot assignments rather than by TF-M.
+ * PPC is an Arm CoreLink concept (SSE-200 and similar). RA parts have no PPC: peripheral
+ * security attribution uses the Renesas PSAR/PSCU registers, which FSP's bsp_security.c sets
+ * from the solution's peripheral slot assignments.
  *
- * TF-M's shared isolation HAL nevertheless requires the type and the sentinel whenever
- * CONFIG_TFM_MMIO_REGION_ENABLE is on, which happens as soon as ANY enabled partition
- * declares an mmio_region. The regression tests do: tf-m-tests' COMMON
- * tfm_secure_client_service claims TFM_PERIPHERAL_STD_UART, so this is on the path for
- * every regression test, not only the peripheral ones.
+ * TF-M's shared isolation HAL still requires the type and the sentinel whenever
+ * CONFIG_TFM_MMIO_REGION_ENABLE is on, which it is as soon as any enabled partition declares
+ * an mmio_region. tf-m-tests' common tfm_secure_client_service claims
+ * TFM_PERIPHERAL_STD_UART, so this applies to every regression test build.
  *
- * Platforms with no real PPC all do the same thing - see rpi/rp2350 - declaring the
- * sentinel and pointing each platform_data_t at it, so tfm_hal_bind_boundary() takes the
- * "do not configure" branch. The ppc_*() functions still have to LINK, because those call
- * sites are compiled even though the branch is never taken; target_cfg.c has no-op bodies.
+ * As on other platforms without a PPC (rpi/rp2350), each platform_data_t points at the
+ * sentinel, so tfm_hal_bind_boundary() takes the "do not configure" branch. The ppc_*() call
+ * sites still compile, so target_cfg.c provides no-op bodies.
  */
 typedef uint32_t ppc_bank_t;
 
-/* Signed -1 where other platforms use an enum; the same bit pattern here, so the
+/* Other platforms use an enum value; (ppc_bank_t)-1 has the same bit pattern, so the
  * comparison in tfm_hal_bind_boundary() behaves identically. */
 #define PPC_SP_DO_NOT_CONFIGURE  ((ppc_bank_t)-1)
 

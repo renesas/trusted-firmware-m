@@ -13,18 +13,17 @@
 #ifndef RSIP_E50D_FSP_CFG_H
 #define RSIP_E50D_FSP_CFG_H
 
-/* The ALT sources test BSP_FEATURE_RSIP_* to pick the engine variant - on this part
- * BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED is 1, which is what selects the E50D curve and
- * digest coverage inside them, and their headers use
- * FSP_HEADER / FSP_FOOTER. bsp_api.h provides both; the accelerator puts the FSP include
- * paths on each crypto library that includes this. */
+/* The ALT sources test BSP_FEATURE_RSIP_* to pick the engine variant; on this part
+ * BSP_FEATURE_RSIP_RSIP_E50D_SUPPORTED is 1, which selects the E50D curve and digest coverage.
+ * Their headers use FSP_HEADER / FSP_FOOTER. bsp_api.h provides both; the accelerator puts the
+ * FSP include paths on each crypto library that includes this. */
 #include "bsp_api.h"
 
 /* rm_psa_crypto module configuration.
  *
- * Key format is PLAINTEXT only (0x01). FSP's default is 3 (plaintext + wrapped); with the
+ * Key format is plaintext only (0x01). FSP's default is 3 (plaintext + wrapped). With the
  * wrapped bit clear, every PSA_CRYPTO_IS_WRAPPED_SUPPORT_REQUIRED() branch in the ALT sources
- * compiles out, which is what keeps the wrapped-key vendor driver out of the image. */
+ * compiles out, which keeps the wrapped-key vendor driver out of the image. */
 #define PSA_CRYPTO_CFG_PLAINTEXT_KEY_SUPPORT                (0x01)
 #define PSA_CRYPTO_CFG_WRAPPED_KEY_SUPPORT                  (0x02)
 #define PSA_CRYPTO_CFG_WRAPPED_AND_PLAINTEXT_KEY_SUPPORT    ((PSA_CRYPTO_CFG_PLAINTEXT_KEY_SUPPORT) | \

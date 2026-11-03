@@ -1,17 +1,14 @@
 # FSP SCE Module Library
-# RSIP-E50D crypto engine - the HW_SCE_* procedures. The module directory is still r_sce:
-# FSP routes E50D through the same driver, with the engine-specific procedures under
+# RSIP-E50D crypto engine: the HW_SCE_* procedures. The module directory is still r_sce: FSP
+# routes E50D through the same driver, with the engine-specific procedures under
 # crypto_procedures/src/rsip_e50d (DECISIONS D050). This module builds r_sce only. The
-# rm_psa_crypto *_ALT sources that drive it are compiled by the accelerator
-# (platform/ext/accelerator/renesas/rsip_e50d) into TF-M's own Mbed TLS, NOT through FSP's
-# mbedTLS/rm_psa_crypto config - that config wires PSA ITS to littlefs, which collides with
-# TF-M's ITS (DESIGN.md 6).
+# accelerator (platform/ext/accelerator/renesas/rsip_e50d) compiles the rm_psa_crypto *_ALT
+# sources that drive it into TF-M's own Mbed TLS, not through FSP's mbedTLS/rm_psa_crypto
+# config, which wires PSA ITS to littlefs and collides with TF-M's ITS (DESIGN.md 6).
 #
-# Secure image: the TRNG always; the cipher ALT path when CRYPTO_HW_ACCELERATOR is on
-# (platform/ext/accelerator/renesas/rsip_e50d).
-#
+# Secure image: the TRNG always; the cipher ALT path when CRYPTO_HW_ACCELERATOR is on.#
 # BL2: only with CRYPTO_HW_ACCELERATOR, for the SHA-256 image hash. BL2 never needs
-# randomness - it builds with MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider - so
+# randomness (it builds with MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and a weak no-op provider), so
 # without the accelerator the bootloader role does not declare this module, even though its
 # e2 project contains r_sce.
 #
@@ -29,23 +26,21 @@ if(NOT EXISTS "${_sce_dir}")
 endif()
 
 # The generated primitive tree. Only the TRNG path is reachable from
-# mbedtls_psa_external_get_random(); -ffunction-sections + --gc-sections drop the rest at
-# link. The 8.9 KB figure measured on RA6M5 is NOT carried over - E50D has a different and
-# larger procedure set (it adds SHA-512, SHA-3, ChaCha, ML-KEM, ML-DSA), so re-measure on
-# this part rather than assuming.
-#
-# Beware of sizing this module from a linker map without skipping everything above
-# "Linker script and memory map" - the discarded-section list at the top of the map makes
-# the same objects look like ~185 KB.
+# mbedtls_psa_external_get_random(); -ffunction-sections and --gc-sections drop the rest at
+# link. RA6M5's measured 8.9 KB does not carry over: E50D has a larger procedure set (it adds
+# SHA-512, SHA-3, ChaCha, ML-KEM, ML-DSA), so re-measure on this part.#
+# When sizing this module from a linker map, skip everything above "Linker script and memory
+# map": the discarded-section list at the top of the map makes the same objects look like
+# ~185 KB.
 fsp_module_glob(_src "ra/fsp/src/r_sce")
 target_sources(${FSP_SCE_TARGET} PRIVATE ${_src})
 
 # The engine keeps its private headers beside the sources rather than in ra/fsp/inc.
 #
-# The engine subdirectory is DISCOVERED, not hardcoded - "rsip_e50d" here, "sce9" on the RA6
+# The engine subdirectory is discovered, not hardcoded: "rsip_e50d" here, "sce9" on the RA6
 # parts. fsp_bsp.cmake needs the same three paths and discovers them the same way, so the two
-# cannot drift; hardcoding the name in both is exactly how this port broke when it was seeded
-# from RA6M5.
+# cannot drift; the reason is in fsp_bsp.cmake, "The engine subdirectory under
+# crypto_procedures/src".
 file(GLOB _sce_engines LIST_DIRECTORIES true "${_sce_dir}/crypto_procedures/src/*")
 set(_sce_engine_dirs "")
 foreach(_e IN LISTS _sce_engines)

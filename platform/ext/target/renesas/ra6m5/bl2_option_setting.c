@@ -5,32 +5,27 @@
  *
  * RA6M5 option-setting memory (OFS) emitter for the TF-M BL2 image.
  *
- * WHY THIS FILE EXISTS (and is not just the FSP bsp_linker.c):
- * The RASC-generated FSP bsp_linker.c emits exactly these .option_setting_*
- * sections, but it then #includes bsp_linker_info.h, which drags in FSP's own
- * C-runtime init tables and MCUboot parameters (MCUBOOT_IMAGE_NUMBER, OSPI/
- * nocache copy-table symbols) that conflict with TF-M's BL2 startup/linker/
- * MCUboot config. So we cannot compile bsp_linker.c wholesale here. Instead we
- * emit ONLY the OFS sections, and the VALUES come straight from
- * the RASC config (BSP_CFG_OPTION_SETTING_* in ra_cfg .../bsp_mcu_ofs_cfg.h,
- * reached via bsp_api.h). A user who reconfigures clocks/OFS/watchdog in RASC
- * and regenerates flows through here unchanged - no hand-authored OFS values.
+ * Not FSP's bsp_linker.c: that file emits the same .option_setting_* sections but also
+ * includes bsp_linker_info.h, which brings FSP's C-runtime init tables and MCUboot parameters
+ * (MCUBOOT_IMAGE_NUMBER, OSPI/nocache copy-table symbols) that conflict with TF-M's BL2
+ * startup, linker script and MCUboot config. This file emits only the OFS sections. The values
+ * come from the RASC config (BSP_CFG_OPTION_SETTING_* in ra_cfg .../bsp_mcu_ofs_cfg.h, reached
+ * through bsp_api.h), so an OFS, clock or watchdog change made in RASC flows through unchanged.
  *
- * BL2-ONLY: OFS must be in the bootloader image only. The secure/NS images are
- * MCUboot-signed (imgtool needs a contiguous payload) and two images programming
- * OFS would collide - so this file is compiled into BL2 only, and its guards
- * mirror FSP's (#ifndef BSP_BOOTLOADED_APPLICATION for the secure/TZ variants).
+ * BL2 only (DESIGN.md 8.4): the secure and NS images are MCUboot-signed and imgtool needs a
+ * contiguous payload, and two images programming OFS would collide. The guards mirror FSP's
+ * (#ifndef BSP_BOOTLOADED_APPLICATION for the secure/TZ variants).
  *
- * This mirrors the RASC bsp_linker.c OFS block 1:1 so it stays faithful to the
- * generated code; keep it in sync if a future FSP adds an option-setting region.
+ * This mirrors the RASC bsp_linker.c OFS block 1:1; keep it in sync if a future FSP adds an
+ * option-setting region.
  */
 
 #include "bsp_api.h"
 
-/* BL2 runs TF-M's Reset_Handler too, so it has the same SystemInit()-before-.bss-zeroing
- * hazard as the secure image, and it is the image that fails first: MCUboot opens the
- * flash before anything else. See the matching check in ra6m5_layout_checks.c and
- * DESIGN.md 8.1. This file is BL2-only, which is why the check lives here. */
+/* BL2 runs TF-M's Reset_Handler too, so it has the secure image's SystemInit()-before-.bss
+ * hazard, and fails first because MCUboot opens the flash before anything else. The secure
+ * image's check is in ra6m5_layout_checks.c; this file is BL2-only, so BL2's is here.
+ * See DESIGN.md 8.1. */
 #if !defined(BSP_CFG_EARLY_INIT) || !(BSP_CFG_EARLY_INIT)
 #error "RA6M5: BSP_CFG_EARLY_INIT is 0 in the bootloader e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit() and R_FLASH_HP_Open() fails with FSP_ERR_FCLK. See DESIGN.md 8.1."
 #endif

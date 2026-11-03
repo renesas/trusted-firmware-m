@@ -68,26 +68,24 @@ void PendSV_Handler(void)                   __attribute__((weak, alias("Default_
 void SysTick_Handler(void)                  __attribute__((weak, alias("Default_Handler")));
 
 /*
- * TIMER0 test fixture for the FLIH/SLIH suites, defined in tfm_timer0_irq.c, which is
- * only compiled when CONFIG_TFM_FLIH_API or CONFIG_TFM_SLIH_API is set. Weak-aliased to
- * Default_Handler so the vector table below can reference it unconditionally: in an
- * application build the slot resolves to the spin loop, which is the correct outcome for
- * an interrupt no partition has claimed.
+ * TIMER0 test fixture for the FLIH/SLIH suites, defined in tfm_timer0_irq.c, which is compiled
+ * only when CONFIG_TFM_FLIH_API or CONFIG_TFM_SLIH_API is set. The weak alias lets the vector
+ * table reference it unconditionally; in an application build the slot resolves to
+ * Default_Handler, the correct outcome for an interrupt no partition has claimed.
  */
 void TFM_TIMER0_IRQ_Handler(void)           __attribute__((weak, alias("Default_Handler")));
 
 /*
  * No named external-interrupt handlers.
  *
- * On RA the ICU slots are EVENT-LINKED: which peripheral event reaches NVIC slot N is
- * whatever the RASC/e2 configuration maps there, not a fixed function of N. So a static
- * table naming slot 0 "PORT_IRQ0" only holds for the one project it was written against
- * - it came from ra6m4 and means nothing here. The secure project currently links no
- * events at all (ra_gen/vector_data.h: VECTOR_DATA_IRQ_COUNT 0).
+ * RA ICU slots are event-linked: the RASC/e2 configuration decides which peripheral event
+ * reaches NVIC slot N, so a fixed name per slot holds only for the project it was written
+ * against.
  *
- * Every ICU slot therefore points at Default_Handler. To service an interrupt, configure
- * the event in e2 and define the handler that ra_gen/vector_data.c names for it; the
- * weak Default_Handler binding is overridden at link time.
+ * Every ICU slot points at Default_Handler except the TIMER0 fixture (slot 0, AGT0). To
+ * service another interrupt, configure the event in the secure e2 project and override its
+ * slot in __VECTOR_TABLE; the steps are in target_cfg.c, section "NVIC interrupt target state
+ * to NS configuration".
  */
 
 /*----------------------------------------------------------------------------
@@ -105,12 +103,10 @@ void TFM_TIMER0_IRQ_Handler(void)           __attribute__((weak, alias("Default_
  * Source of truth is the generated BSP config, ra_cfg/fsp_cfg/bsp/bsp_mcu_family_cfg.h:
  *     BSP_CORTEX_VECTOR_TABLE_ENTRIES  (16U)
  *     BSP_VECTOR_TABLE_MAX_ENTRIES    (112U)
- * Not included directly - this file keeps to CMSIS headers by design. The check lives
- * in ra6m5_layout_checks.c instead, which asserts that the device's
+ * This file deliberately keeps to CMSIS headers, so ra6m5_layout_checks.c asserts instead that
  * BSP_VECTOR_TABLE_MAX_ENTRIES still fits S_CODE_VECTOR_TABLE_SIZE.
  *
  * 112 * 4 = 0x1C0, which must fit S_CODE_VECTOR_TABLE_SIZE (0x200) in region_defs.h.
- * This was 496 (RA6M4's table, 0x7C0) and overflowed .TFM_VECTORS into .ER_UNPRIV_CODE.
  */
 #define RA6M5_VECTOR_TABLE_ENTRIES  (112)
 
@@ -137,19 +133,16 @@ extern const VECTOR_TABLE_Type __VECTOR_TABLE[RA6M5_VECTOR_TABLE_ENTRIES];
     [16 ... (RA6M5_VECTOR_TABLE_ENTRIES - 1)] = Default_Handler,
 
     /*
-     * TIMER0 test fixture for the FLIH/SLIH suites. MUST stay after the range
-     * initializer above: for a repeated index the LAST initializer wins, so putting this
-     * first would leave the slot at Default_Handler and the interrupt would hang in the
-     * spin loop instead of reaching the SPM.
+     * TIMER0 test fixture. Must stay after the range initialiser above: for a repeated index
+     * the last initialiser wins, so placed first it would leave the slot at Default_Handler
+     * and the interrupt would spin there instead of reaching the SPM.
      *
-     * 16 + VECTOR_NUMBER_AGT0_INT, which is 16 + 0. Written out rather than included
-     * from the generated vector_data.h because this file deliberately keeps to CMSIS
-     * headers; plat_test.c #errors if the generated number is no longer 0.
+     * 16 + VECTOR_NUMBER_AGT0_INT, which is 16 + 0. Written out rather than included from the
+     * generated vector_data.h because this file keeps to CMSIS headers; plat_test.c fails the
+     * build if the generated number is no longer 0.
      *
-     * Unconditional. The handler is only defined when tfm_timer0_irq.c is compiled
-     * (FLIH/SLIH enabled), so it is declared weak in this file and resolves to
-     * Default_Handler otherwise - a guard here would have to duplicate the CMake
-     * condition and could silently disagree with it.
+     * Unconditional: the handler is weak (see its declaration above), and a guard here would
+     * duplicate the CMake condition and could disagree with it.
      */
     [16 + 0] = TFM_TIMER0_IRQ_Handler,
 };

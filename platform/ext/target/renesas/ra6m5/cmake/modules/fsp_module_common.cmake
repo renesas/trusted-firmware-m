@@ -1,10 +1,9 @@
 ﻿# Shared scaffolding for the FSP module libraries.
 #
-# Modules are per ROLE. The secure image and the bootloader are generated from DIFFERENT
-# e2 projects (ra6m5_secure, ra6m5_mcuboot) and CMake target names are global, so each
-# module produces fsp_<name>_<role> rather than one shared fsp_<name>. That also keeps the
-# two images' FSP configurations from leaking into each other, which matters: the
-# bootloader project enables modules the secure project does not.
+# Modules are per role. The secure image and the bootloader come from different e2 projects
+# (ra6m5_secure, ra6m5_mcuboot) and CMake target names are global, so each module produces
+# fsp_<name>_<role> rather than one shared fsp_<name>. This also keeps the two images' FSP
+# configurations apart; the bootloader project enables modules the secure project does not.
 #
 # Context, set by fsp_add_modules() in the platform CMakeLists:
 #   FSP_MODULE_ROLE      s | bl2
@@ -47,9 +46,9 @@ macro(fsp_module_library _out _base)
     )
 endmacro()
 
-# Glob one FSP module directory. Globbing WITHIN a declared module is the granularity the
-# module convention allows: the module is opt-in, but naming each generated .c inside it
-# would drift on every FSP bump.
+# Glob one FSP module directory. Globbing within a declared module is the granularity the
+# module convention allows: the module is opt-in, but a list of each generated .c inside it
+# would drift on every FSP update.
 macro(fsp_module_glob _out _subdir)
     file(GLOB_RECURSE ${_out} CONFIGURE_DEPENDS "${FSP_MODULE_BASE_DIR}/${_subdir}/*.c")
 endmacro()

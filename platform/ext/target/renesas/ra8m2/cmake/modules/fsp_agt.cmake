@@ -1,27 +1,25 @@
 # FSP AGT Module Library
-# Asynchronous General-purpose Timer. Needed by the secure image ONLY when the FLIH/SLIH
-# interrupt test suites are built: they raise a real secure interrupt, and on RA that means
-# a timer the SECURE e2 project owns (DECISIONS D061, D068).
+# Asynchronous General-purpose Timer. The secure image needs it only when the FLIH/SLIH
+# interrupt test suites are built: they raise a real secure interrupt, and on RA that needs a
+# timer the secure e2 project owns (DECISIONS D061, D068).
 #
 # Adding a module: ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md.
 #
-# TWO THINGS DEPEND ON THIS BEING LINKED, and the second one is not obvious:
+# Two things depend on this module being linked:
 #
-#   1. plat_test.c calls R_AGT_Open()/R_AGT_Start()/R_AGT_Stop() to drive the test timer.
-#      An earlier revision poked the AGT registers directly to avoid the driver; that is
-#      how the AGTMR2-before-AGTMR1 ordering and the compare-match parking got missed.
+#   1. tfm_timer0_irq_init() in tfm_timer0_irq.c opens the test timer with R_AGT_Open().
+#      plat_test.c then starts and stops it with direct AGTCR writes (see that file).
 #
-#   2. agt_int_isr(). The generated ra_gen/vector_data.c names it in g_vector_table, and
-#      that file has to be linked for its OTHER symbol - the ICU event-link table that
-#      bsp_irq_cfg() reads (see target_cfg.c). So pulling in vector_data.o pulls in a
+#   2. agt_int_isr(). The generated ra_gen/vector_data.c names it in g_vector_table, and that
+#      file has to be linked for its other symbol, the ICU event-link table that
+#      bsp_irq_cfg() reads (see target_cfg.c). Linking vector_data.o therefore pulls in a
 #      reference to FSP's AGT ISR, and without this module the link fails with
 #      "Error[Li005]: no definition for agt_int_isr".
 #
-#      The secure image never DISPATCHES through g_vector_table - TF-M owns the vector
-#      table (__VECTOR_TABLE in startup_ra8m2.c, slot 16 -> TFM_TIMER0_IRQ_Handler) - so
-#      agt_int_isr() is linked and never called. That is intended, not waste: it is the
-#      cost of keeping the generated event-link table authoritative instead of
-#      transcribing IELSR values into the port.
+#      The secure image never dispatches through g_vector_table: TF-M owns the vector table
+#      (__VECTOR_TABLE in startup_ra8m2.c, slot 16 -> TFM_TIMER0_IRQ_Handler), so
+#      agt_int_isr() is linked and never called. That is the cost of keeping the generated
+#      event-link table authoritative instead of transcribing IELSR values into the port.
 
 fsp_module_library(FSP_AGT_TARGET agt)
 

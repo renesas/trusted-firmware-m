@@ -18,13 +18,13 @@ extern "C" {
 /*
  * Power on, reset and self-check the SCE9, exactly once.
  *
- * HW_SCE_McuSpecificInit() software-resets the engine on EVERY call. Harmless at boot, but
- * the TRNG and the SCE9 cipher accelerator both need the engine up and neither controls
- * when the other first runs - so an unguarded second call would reset the SCE underneath
- * whatever operation the first user had in flight. Everything goes through here instead.
+ * HW_SCE_McuSpecificInit() software-resets the engine on every call. The TRNG and the SCE9
+ * cipher accelerator both need the engine, and neither controls which runs first, so a
+ * second unguarded call would reset the engine under an operation already in flight. All
+ * users call this function instead.
  *
- * Not reentrant: the secure image calls it from the crypto partition only, which is
- * single-threaded under SFN and IPC alike.
+ * Not reentrant: the secure image calls it only from the crypto partition, which is
+ * single-threaded under both SFN and IPC.
  */
 fsp_err_t ra_sce_init(void);
 

@@ -5,15 +5,15 @@
 #
 # Renesas SCE9 crypto accelerator - CRYPTO_HW_ACCELERATOR_TYPE=renesas/sce9.
 #
-# Per-engine on purpose: RA8's RSIP is a different driver API and lands beside this as
-# renesas/rsip, not as a variant of it. SCE9 parts: RA6M4, RA6M5, RA6E1, RA4M2/3 ...
+# SCE9 parts: RA6M4, RA6M5, RA6E1, RA4M2/3 ... RSIP-E50D parts use the sibling
+# renesas/rsip_e50d; its CMakeLists.txt header gives the reason for two directories (D050).
 #
 # Model: the legacy *_ALT interface (TF-M's LEGACY_DRIVER_API_ENABLED, as CC312 uses it).
-# FSP's rm_psa_crypto ships SCE9 implementations of Mbed TLS modules as forks of the
-# library sources; the core set is compiled here, INTO TF-M's own Mbed TLS, from the
-# secure e2 project. Mbed TLS 3.6-only - see mbedtls_accelerator_config.h.
+# FSP's rm_psa_crypto ships SCE9 forks of Mbed TLS library modules. The core set is compiled
+# here into TF-M's own Mbed TLS, from the secure e2 project. Mbed TLS 3.6 only; see
+# mbedtls_accelerator_config.h.
 #
-# The secure crypto partition gets the full set; BL2 gets SHA-256 (its image hash).
+# The secure crypto partition gets the full set; BL2 gets SHA-256 for its image hash.
 #-------------------------------------------------------------------------------
 
 if(NOT FSP_S_APP_DIR)
@@ -34,16 +34,17 @@ endif()
 ############################ BL2 - SHA-256 #####################################
 
 if(BL2)
-    # SHA-256 only - see bl2_mbedtls_accelerator_config.h for why the P-256 verify stays on
-    # p256-m. The SCE is brought up by the platform's boot_platform_post_init(), which MCUboot
-    # calls before the first image is hashed; boot_hal_bl2.c's crypto_hw_accelerator_init()
-    # resolves to bl2_main.c's stub and does nothing.
-    # CRYPTO_HW_ACCELERATOR must be on bl2_crypto_config itself, not only inherited from
+    # SHA-256 only; bl2_mbedtls_accelerator_config.h explains why the P-256 verify stays on
+    # p256-m. The platform's boot_platform_post_init() brings the engine up before MCUboot
+    # hashes the first image; boot_hal_bl2.c's crypto_hw_accelerator_init() resolves to the
+    # empty stub in bl2_main.c.
+    #
+    # CRYPTO_HW_ACCELERATOR must be set on bl2_crypto_config itself, not only inherited from
     # tfm_config: mcuboot-mbedtls-cfg.h includes the accelerator config only under it, and
-    # bl2_crypto does not link tfm_config. Without this the Mbed TLS library builds software
-    # sha256.c with the native context while bootutil - which does see the define - uses
-    # FSP's mbedtls_sha256_context: a struct-layout mismatch across translation units, not
-    # merely a missed speed-up. Found that way: the first build linked upstream sha256.o.
+    # bl2_crypto does not link tfm_config. Without it, the library builds software sha256.c
+    # with the native context while bootutil, which sees the define, uses FSP's
+    # mbedtls_sha256_context. That is a struct-layout mismatch across translation units, not
+    # only a lost speed-up.
     target_compile_definitions(bl2_crypto_config
         INTERFACE
             CRYPTO_HW_ACCELERATOR
@@ -77,13 +78,13 @@ if(BL2)
             bl2_crypto_hw
     )
 
-    # Everything compiling against the BL2 Mbed TLS config now includes sce9_fsp_cfg.h
-    # (bsp_api.h) and, via mbedtls/sha256.h, FSP's sha256_alt.h (which includes the internal
-    # "common.h") - so it needs these paths and the FSP defines.
-    # ${MBEDCRYPTO_PATH}/include LAST: FSP's psa_crypto_driver_wrappers.h includes
-    # "psa/crypto_accel_driver.h", which only exists in the crypto library's own include
-    # tree, while BL2 otherwise takes its psa/*.h from TF-M's interface/include - which is
-    # added first and so still wins.
+    # Every file compiled against the BL2 Mbed TLS config now includes sce9_fsp_cfg.h
+    # (bsp_api.h) and, through mbedtls/sha256.h, FSP's sha256_alt.h, which includes the
+    # internal "common.h". It therefore needs these paths and the FSP defines.
+    # ${MBEDCRYPTO_PATH}/include supplies "psa/crypto_accel_driver.h", which FSP's
+    # psa_crypto_driver_wrappers.h includes and which exists only in the crypto library's own
+    # include tree. TF-M's interface/include is added before it, so BL2 still takes its
+    # psa/*.h from there.
     target_include_directories(bl2_crypto_config
         INTERFACE
             ${CMAKE_CURRENT_SOURCE_DIR}
@@ -101,17 +102,17 @@ endif()
 ############################ Secure crypto partition ###########################
 
 if(TFM_PARTITION_CRYPTO)
-    # FSP's SCE9 set: the generic cipher layer, AES, GCM, CCM, CMAC, SHA-256, ECC and RSA.
-    # Each *_alt.c replaces the matching Mbed TLS library file and each *_process.c holds its
-    # SCE9 calls. Adding a module means adding its pair here AND its MBEDTLS_*_ALT in
+    # FSP's SCE9 set: the generic cipher layer, AES, GCM, CMAC, SHA-256, ECC and RSA. Each
+    # *_alt.c replaces the matching Mbed TLS library file; each *_process.c holds its SCE9
+    # calls. Adding a module means adding its pair here and its MBEDTLS_*_ALT in
     # mbedtls_accelerator_config.h.
     #
-    # ccm_alt.c/ccm_alt_process.c are absent on purpose - FSP's SCE9 CCM caps associated data
-    # at 110 B and Protected Storage exceeds it (D043, mbedtls_accelerator_config.h).
+    # ccm_alt.c and ccm_alt_process.c are deliberately absent: FSP's SCE9 CCM caps associated
+    # data at 110 B, and Protected Storage exceeds it (D043, mbedtls_accelerator_config.h).
     #
-    # cipher_alt.c is not optional with the rest: it supplies the block chunking the AES ALT
+    # cipher_alt.c is required with the rest. It supplies the block chunking the AES ALT
     # assumes (whole blocks only, partial blocks cached in the cipher context) and issues the
-    # SCE session FinalSub at finish. Without it, upstream cipher.c hands partial blocks
+    # engine session FinalSub at finish. Without it, upstream cipher.c hands partial blocks
     # straight to the engine and never closes the session.
     set(SCE9_ALT_SOURCES
         cipher_alt.c
@@ -155,18 +156,18 @@ if(TFM_PARTITION_CRYPTO)
             crypto_service_crypto_hw
     )
 
-    # LEGACY_DRIVER_API_ENABLED is what makes crypto_init.c call crypto_hw_accelerator_init()
-    # before psa_crypto_init().
+    # LEGACY_DRIVER_API_ENABLED makes crypto_init.c call crypto_hw_accelerator_init() before
+    # psa_crypto_init().
     target_compile_definitions(crypto_service_mbedcrypto
         PUBLIC
             LEGACY_DRIVER_API_ENABLED
     )
 
-    # Everything that compiles against the Mbed TLS config now sees
-    # mbedtls_accelerator_config.h, which includes bsp_api.h and makes mbedtls/*.h pull the
-    # FSP *_alt.h context definitions - so it needs this directory, rm_psa_crypto/inc and
-    # the FSP/SCE include paths and defines. Taken from fsp_sce_s rather than linking it, so
-    # the FSP library is not dragged into every consumer of the config.
+    # Every file compiled against the Mbed TLS config now sees mbedtls_accelerator_config.h,
+    # which includes bsp_api.h and makes mbedtls/*.h pull in the FSP *_alt.h context
+    # definitions. It therefore needs this directory, rm_psa_crypto/inc and the FSP/SCE include
+    # paths and defines. They are copied from fsp_sce_s rather than linked, so the FSP library
+    # is not pulled into every consumer of the config.
     #
     # BUILD_INTERFACE: both config targets are exported to the installed api_ns tree, and
     # CMake refuses source-tree paths in an exported interface.

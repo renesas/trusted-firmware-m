@@ -12,9 +12,9 @@ fsp_module_glob(_ra_gen_src   "ra_gen")
 fsp_module_glob(_board_src    "ra/board")
 set(_src ${_bsp_src} ${_ioport_src} ${_ra_gen_src} ${_board_src})
 
-# Files TF-M supplies itself for the S and BL2 images; taking FSP's would collide at link
-# time. (The NS image keeps all three - it is a whole FSP application and is not built
-# from these modules.)
+# Files TF-M supplies itself for the S and BL2 images; FSP's would collide at link time. The
+# NS image keeps all three: it is a whole FSP application and is not built from these
+# modules.
 #   ra_gen/main.c        - TF-M has its own main
 #   .../Source/startup.c - TF-M has its own Reset_Handler and vector table
 #   bsp_linker.c         - emits the OFS option-setting sections. TF-M emits those from
@@ -31,29 +31,27 @@ if(NOT _src)
     message(FATAL_ERROR "RA8M2: no BSP sources under ${FSP_MODULE_BASE_DIR} - is it generated?")
 endif()
 
-# bsp_init_stub.c belongs in this module rather than platform_s/platform_bl2: FSP's
-# system.c is here and references g_init_info and g_main_stack, which the stub defines
-# weakly. platform_* is scanned before this library on the link line, so a definition
-# sitting there would already have been passed over when system.o introduces the
-# undefined reference.
+# bsp_init_stub.c belongs in this module, not platform_s/platform_bl2: FSP's system.c is here
+# and references g_init_info and g_main_stack, which the stub defines weakly. platform_* is
+# scanned before this library on the link line, so a definition there has already been passed
+# over when system.o introduces the undefined reference.
 target_sources(${FSP_BSP_TARGET}
     PRIVATE
         ${_src}
         "${CMAKE_CURRENT_LIST_DIR}/../../bsp_init_stub.c"
 )
 
-# ra8m2_ddsc.c is here for the SAME archive-ordering reason as bsp_init_stub.c above, and it
-# is worth stating twice because the file was first put in platform_s and IAR accepted it.
+# ra8m2_ddsc.c is here for the same archive-ordering reason as bsp_init_stub.c above.
 #
-# bsp_security.c (in THIS library) references gp_ddsc_{I,D}TCM_START/END for the M85 TCM
-# attribution. GNU ld searches archives left to right and does not revisit: with the
+# bsp_security.c (in this library) references gp_ddsc_{I,D}TCM_START/END for the M85 TCM
+# attribution. GNU ld searches archives left to right and does not revisit them: with the
 # definitions in libplatform_s.a, which precedes libfsp_bsp_s.a on the link line, the
-# reference introduced later by bsp_security.o goes unresolved -
+# reference bsp_security.o introduces later stays unresolved:
 #     undefined reference to `gp_ddsc_ITCM_END'
-# ILINK resolves iteratively and linked it anyway, so this was invisible until the first
-# GNUARM build. Same archive as its only consumer is the fix.
+# ILINK resolves iteratively and links either way, so only a GNUARM build shows the failure.
+# The fix is to put the file in the same archive as its only consumer.
 #
-# SECURE ROLE ONLY: R_BSP_SecurityInit sits inside #if BSP_TZ_SECURE_BUILD, and BL2 is built
+# Secure role only: R_BSP_SecurityInit sits inside #if BSP_TZ_SECURE_BUILD, and BL2 is built
 # flat (FSP_TZ_DEFS_BL2 is empty), so the bootloader compiles none of it and must not link
 # these definitions.
 if(FSP_MODULE_ROLE STREQUAL "s")
@@ -64,46 +62,44 @@ if(FSP_MODULE_ROLE STREQUAL "s")
 endif()
 
 #-------------------------------------------------------------------------------
-# Include paths for modules TF-M does NOT build
+# Include paths for modules TF-M does not build
 #
 # The generated ra_gen headers include every enabled module's header unconditionally, even
 # when nothing is instantiated from it. With the Crypto stack present, common_data.h pulls
 # "psa/crypto.h", "psa/crypto_extra.h", "mbedtls/platform.h" and "rm_psa_crypto.h" though
-# common_data.c instantiates nothing but IOPORT; in the bootloader project hal_data.h
-# pulls "rm_mcuboot_port.h", which pulls "bootutil/image.h". Those headers must be
-# resolvable to parse the generated files.
+# common_data.c instantiates nothing but IOPORT; in the bootloader project hal_data.h pulls
+# "rm_mcuboot_port.h", which pulls "bootutil/image.h". Those headers must resolve for the
+# generated files to parse.
 #
-# They are PRIVATE, by design. FSP ships its own ra/arm/mbedtls/include/psa/crypto.h;
-# exporting it would shadow TF-M's psa/crypto.h for sce_trng.c, attest_hal.c and the rest
-# of the secure image. Confining the FSP sources to this library is what makes that safe -
-# it is the main reason this is a library and not target_sources(platform_s ...).
+# They are PRIVATE by design. FSP ships its own ra/arm/mbedtls/include/psa/crypto.h; exporting
+# it would shadow TF-M's psa/crypto.h for sce_trng.c, attest_hal.c and the rest of the secure
+# image. Confining the FSP sources to this library is what makes that safe, and is the main
+# reason this is a library and not target_sources(platform_s ...).
 #
 #   ra_cfg/arm  - FSP's mbedtls/build_info.h does #include "mbedtls/config.h", which is
 #                 the generated ra_cfg/arm/mbedtls/config.h.
 #   r_sce/...   - rm_psa_crypto.h in turn includes hw_sce_private.h and
 #                 hw_sce_trng_private.h. fsp_sce exports these too, but the BSP cannot
 #                 link it (fsp_sce depends on the BSP, not the reverse), so name the paths
-#                 here. Same include set as fsp_sce.cmake; both DISCOVER the engine
+#                 here. Same include set as fsp_sce.cmake; both discover the engine
 #                 directory rather than naming it, so they cannot drift.
-#-------------------------------------------------------------------------------
 #   mcu-tools   - FSP's MCUboot headers, for rm_mcuboot_port.h -> bootutil/image.h ->
 #                 flash_map_backend.h. Bootloader project only. TF-M links its own
 #                 bootutil; these are here only so hal_data.h parses.
 #
-# This mirrors the include set e2 studio itself compiles ra_gen with. If a regenerated
-# project needs another path, read it off rather than guessing:
-#   <project>/Debug/compile_commands.json, the entry for ra_gen/hal_data.c
-# Every entry is EXISTS-guarded, so the same list serves the secure and bootloader
-# projects even though they enable different modules.
+# This mirrors the include set e2 studio compiles ra_gen with. If a regenerated project needs
+# another path, read it from <project>/Debug/compile_commands.json (the entry for
+# ra_gen/hal_data.c) rather than guessing. Every entry is EXISTS-guarded, so the same list
+# serves the secure and bootloader projects even though they enable different modules.
+#-------------------------------------------------------------------------------
 
-# The engine subdirectory under crypto_procedures/src is DISCOVERED, not hardcoded.
+# The engine subdirectory under crypto_procedures/src is discovered, not hardcoded.
 #
 # It is named for the engine: "rsip_e50d" on RA8M2, "sce9" on RA6E1/RA6M5/RA6M4. This file
-# and fsp_sce.cmake both need the same three include paths, and hardcoding the name in two
-# places is how they drift - the RA8M2 port was seeded from RA6M5 and carried "sce9" into
-# both, which resolves to nothing here and fails as missing hw_sce_*_private.h a long way
-# from the cause. Requiring exactly one match makes a new engine layout fail at CONFIGURE
-# time with the directory listing in the message.
+# and fsp_sce.cmake need the same three include paths, and naming the directory in both lets
+# them drift: a hardcoded "sce9" resolves to nothing on RA8M2 and fails as a missing
+# hw_sce_*_private.h far from the cause. Requiring exactly one match makes a new engine layout
+# fail at configure time, with the directory listing in the message.
 file(GLOB _sce_engines
      LIST_DIRECTORIES true
      "${FSP_MODULE_BASE_DIR}/ra/fsp/src/r_sce/crypto_procedures/src/*")

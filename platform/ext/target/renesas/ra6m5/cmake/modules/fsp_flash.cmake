@@ -1,6 +1,6 @@
 # FSP Flash Module Library
-# Flash HP driver. TF-M's cmsis_drivers/Driver_Flash.c wraps it as Driver_FLASH0 (code
-# flash) and Driver_FLASH1 (data flash, where ITS/PS/NV counters live), with the RA 32 KB
+# Flash HP driver. TF-M's cmsis_drivers/Driver_Flash.c wraps it as Driver_FLASH0 (code flash)
+# and Driver_FLASH1 (data flash, holding ITS, PS and the NV counters), with the RA 32 KB
 # region-1 erase geometry (DESIGN.md 4).
 #
 # Adding a module: ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md.

@@ -3,20 +3,18 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
-# RA8M2 CPU architecture for the NON-SECURE build.
+# RA8M2 CPU architecture for the non-secure build.
 #
-# Included by ns_app/CMakeLists.txt BEFORE project(). It has to be that early: the NS
+# ns_app/CMakeLists.txt includes this before project(). It has to be that early: the NS
 # toolchain file builds -mcpu/-march from TFM_SYSTEM_PROCESSOR and TFM_SYSTEM_ARCHITECTURE,
-# and CMake fixes the toolchain during project(). Included after, every compile gets a bare
+# and CMake fixes the toolchain during project(). Included later, every compile gets a bare
 # "-march=" and gcc stops with "missing argument to '-march='".
 #
-# The values must be the SAME ones the secure side used - this file exists to share them,
-# not to restate them. cpuarch.cmake is installed beside this file for that reason.
+# The values must be the ones the secure side used, so this file includes cpuarch.cmake,
+# installed beside it, rather than restating them.
 #
-# Two layouts, one file: in the source tree this lives in ra8m2/ns/ with cpuarch.cmake one
-# level up; installed, both are flattened into <api_ns>/platform/. The previous version of
-# this file only handled the first, so it could never have worked in the build it was
-# written for.
+# Two layouts: in the source tree this file is in ra8m2/ns/ with cpuarch.cmake one level up;
+# installed, both are flattened into <api_ns>/platform/.
 #-------------------------------------------------------------------------------
 
 if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/cpuarch.cmake)

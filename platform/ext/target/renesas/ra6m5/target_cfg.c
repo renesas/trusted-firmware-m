@@ -11,16 +11,16 @@
 #include "tfm_plat_defs.h"
 #include "cmsis.h"
 #include "bsp_api.h"
-/* NOT hal_data.h, by design: nothing here uses it, and once the Crypto stack is in the
- * e2 project the generated ra_gen/common_data.h it pulls in includes FSP's own
- * psa/crypto.h, which would shadow TF-M's for everything in platform_s. */
+/* Not hal_data.h, deliberately: nothing here uses it, and with the Crypto stack in the e2
+ * project its ra_gen/common_data.h includes FSP's psa/crypto.h, which would shadow TF-M's
+ * for everything in platform_s. */
 
 /* To write into AIRCR register, 0x5FA value must be write to the VECTKEY field,
  * otherwise the processor ignores the write.
  */
 #define SCB_AIRCR_WRITE_MASK ((0x5FAUL << SCB_AIRCR_VECTKEY_Pos))
 
-/* Memory region limits - initialized with region_defs.h values */
+/* Region limits from region_defs.h. */
 const struct memory_region_limits memory_regions = {
     .non_secure_code_start = NS_CODE_START,
     .non_secure_partition_base = NS_CODE_START,
@@ -36,58 +36,45 @@ const struct memory_region_limits memory_regions = {
 void sau_and_idau_cfg(void)
 {
     /*
-     * Empty by design, and NOT because the generic framework does it elsewhere.
+     * Empty by design. RA6M5 has an SAU with zero regions, which is not the same as no SAU:
+     * __SAUREGION_PRESENT is 0 in the device header, so SAU_TYPE.SREGION reads 0 and there is
+     * nothing to programme, but SAU_CTRL and SAU_TYPE exist and their state still matters.
      *
-     * RA6M5 has an SAU with ZERO REGIONS, which is not the same as having no SAU.
-     * __SAUREGION_PRESENT is 0 in the device header, so SAU_TYPE.SREGION reads 0 and there
-     * is nothing to programme - but an Armv8-M core with the Security Extension always
-     * implements SAU_CTRL and SAU_TYPE, and their state still matters.
+     * The IDAU decides attribution only because FSP's R_BSP_SecurityInit() (bsp_security.c)
+     * sets SAU_CTRL.ALLNS = 1. At reset ALLNS is 0 with the SAU disabled, and Armv8-M then
+     * attributes every address Secure, so no non-secure code could run.
+     * **Anyone replacing FSP's startup must keep that write.**
      *
-     * The IDAU decides attribution here ONLY because FSP sets SAU_CTRL.ALLNS = 1 in
-     * bsp_security.c (R_BSP_SecurityInit, "allows the security attribution of all addresses
-     * to be set by the IDAU"). At reset ALLNS is 0 with the SAU disabled, and in that state
-     * Armv8-M attributes EVERY address Secure - the part could not run non-secure code at
-     * all. **Anyone replacing FSP's startup must keep that write.** Saying "no SAU" hides
-     * that dependency, which is why this comment no longer does.
-     *
-     * The attribution itself comes from the Renesas Device Partition Manager - the
-     * BSP_PARTITION_* values in the generated bsp_linker_info.h - and is fixed before this
-     * code runs.
-     *
-     * An earlier revision of this comment said the reverse: "RA6M5 doesn't have IDAU -
-     * security attribution is done entirely via SAU". That is backwards on both halves. The
-     * part in this port with __SAUREGION_PRESENT 1 is RA8M2; ra8m2/target_cfg.c states it
-     * correctly and ra8m2/bl2_boot_hal.c is where an SAU gets programmed.
-     * DECISIONS D117.
+     * The attribution itself comes from the Renesas Device Partition Manager (the
+     * BSP_PARTITION_* values in the generated bsp_linker_info.h) and is fixed before this code
+     * runs. RA8M2 is the part in this port with SAU regions; ra8m2/bl2_boot_hal.c programmes
+     * one. DECISIONS D117.
      */
 }
 
 enum tfm_plat_err_t mpc_init_cfg(void)
 {
-    /* No MPC on this part. Memory attribution is the IDAU (see sau_and_idau_cfg above -
-     * the SAU here has no regions), and the MPU subdivides the secure side. */
+    /* No MPC on this part. Memory attribution is the IDAU (the SAU has no regions; see
+     * sau_and_idau_cfg()), and the MPU subdivides the secure side. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 enum tfm_plat_err_t ppc_init_cfg(void)
 {
-    /* RA6 has no PPC - peripheral protection is done by the IDAU (the SAU here has no
-     * regions - see sau_and_idau_cfg above) and the Renesas PSAR registers, which FSP programs from the solution.
-     * See target_cfg.h. */
+    /* No PPC on this part. Peripheral attribution is the IDAU and the Renesas PSAR registers,
+     * which FSP programmes from the solution. See target_cfg.h. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 /*
  * No-ops, present only so the shared isolation HAL links.
  *
- * tfm_hal_bind_boundary() guards these calls with
- * "if (periph_ppc_bank != PPC_SP_DO_NOT_CONFIGURE)", and every platform_data_t on this
- * port sets exactly that sentinel, so none is ever reached at run time. The call sites are
- * still COMPILED, so the symbols must resolve.
+ * tfm_hal_bind_boundary() calls these only if periph_ppc_bank != PPC_SP_DO_NOT_CONFIGURE, and
+ * every platform_data_t on this port sets that sentinel, so none runs. The call sites still
+ * compile, so the symbols must resolve.
  *
- * If a future RA6 partition genuinely needs per-peripheral attribution, this is the wrong
- * place for it: that attribution lives in PSAR and belongs in the solution, not in a
- * TF-M-side emulation of a controller the part does not have.
+ * Per-peripheral attribution belongs in PSAR, set from the solution, not in a TF-M-side
+ * emulation of a controller the part does not have.
  */
 void ppc_configure_to_secure(ppc_bank_t bank, uint32_t pos)
 {
@@ -142,104 +129,81 @@ enum tfm_plat_err_t init_debug(void)
 
 /*----------------- NVIC interrupt target state to NS configuration ----------*/
 /*
- * Both functions below are no-ops on this port, and NEITHER IS CALLED - upstream
- * platforms invoke them from tfm_hal_platform_init(), and this port's replacement
- * does not. They are kept because common_target_cfg.h declares them.
+ * Both functions below are no-ops and neither is called: upstream platforms call them from
+ * tfm_hal_platform_init(), and this port's does not. They exist because common_target_cfg.h
+ * declares them.
  *
  * ---------------------------------------------------------------------------
- * HOW SECURE INTERRUPTS WORK ON RA, AND WHY THE UPSTREAM RECIPE DOES NOT APPLY
+ * How secure interrupts work on RA, and why the upstream recipe does not apply
  * ---------------------------------------------------------------------------
- * Every Arm reference port makes an IRQ secure at run time, in the partition's
- * <source>_init() callback:
+ * Arm reference ports make an IRQ secure at run time, in the partition's <source>_init():
  *
  *     NVIC_SetPriority(irq, DEFAULT_IRQ_PRIORITY);
- *     NVIC_ClearTargetState(irq);          <-- DO NOT DO THIS ON RA
+ *     NVIC_ClearTargetState(irq);          <-- do not do this on RA
  *     NVIC_DisableIRQ(irq);
  *
- * On RA the attribution lives in TWO registers, not one: NVIC->ITNS and
- * R_CPSCU->ICUSARG. FSP writes them together in bsp_irq_cfg() (bsp_irq.c), under
- * R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR), and its own comment states
- * they MUST match - the ICU will not deliver an event whose ICU-side attribution
- * disagrees with the NVIC's. NVIC_ClearTargetState() writes only ITNS, so on RA it
- * desynchronises the pair.
+ * On RA the attribution is in two registers, NVIC->ITNS and R_CPSCU->ICUSARG. FSP writes both
+ * in bsp_irq_cfg() (bsp_irq.c), under R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR), and
+ * they must match: the ICU does not deliver an event whose ICU-side attribution disagrees with
+ * the NVIC's. NVIC_ClearTargetState() writes only ITNS, so it desynchronises the pair.
  *
- * There is also no runtime API to change it: R_BSP_IrqCfg/IrqEnable/IrqDisable/
- * IrqStatusClear/IrqClearPending set priority, context and pending only. ICUSARG is
- * written exactly once, during SystemInit(), from the generated
- * g_interrupt_event_link_select[]. The rule is therefore:
+ * There is no runtime API to change it: R_BSP_IrqCfg/IrqEnable/IrqDisable/IrqStatusClear/
+ * IrqClearPending set priority, context and pending only. ICUSARG is written once, during
+ * SystemInit(), from the generated g_interrupt_event_link_select[]. Therefore:
  *
- *     AN INTERRUPT IS SECURE IF AND ONLY IF THE SECURE e2 PROJECT CONFIGURES IT.
+ *     An interrupt is secure if and only if the secure e2 project configures it.
  *
- * bsp_irq_cfg() clears the ITNS/ICUSARG bit for every slot with a non-zero entry in
- * that array and leaves all others non-secure. With VECTOR_DATA_IRQ_COUNT == 0 in
- * the secure project today, all 96 ICU slots are non-secure.
+ * bsp_irq_cfg() clears the ITNS/ICUSARG bit for every slot with a non-zero entry in that array
+ * and leaves all others non-secure. The secure projects configure one interrupt, AGT0 in slot 0
+ * (VECTOR_DATA_IRQ_COUNT 1), for the FLIH/SLIH tests.
  *
- * To add one (DECISIONS D061):
- *   1. Add the peripheral + its interrupt to the SECURE e2 project and regenerate.
- *      FSP then sets IELSR, ITNS and ICUSARG for you at boot.
- *   2. Override that slot in startup_ra6m5.c's __VECTOR_TABLE, keyed on the
- *      generated macro so the configurator stays the source of truth:
- *          #include "vector_data.h"
- *          [16 + VECTOR_NUMBER_GPT0_COUNTER_OVERFLOW] = TFM_TIMER0_IRQ_Handler,
- *      A later designated initialiser overrides the [16 ... N] = Default_Handler
- *      range. Do NOT hardcode the index: RASC assigns slots densely from 0 in the
- *      order interrupts were added, so adding an unrelated one renumbers the rest.
- *   3. Write the ISR and the init in a new tfm_interrupts.c for this port:
- *          static struct irq_t timer0_irq;
- *          void TFM_TIMER0_IRQ_Handler(void) {
- *              R_BSP_IrqStatusClear(R_FSP_CurrentIrqGet());   // ack in the ICU
- *              spm_handle_interrupt(timer0_irq.p_pt, timer0_irq.p_ildi);
- *          }
- *          enum tfm_hal_status_t tfm_timer0_irq_init(void *p_pt,
- *                                    const struct irq_load_info_t *p_ildi) {
- *              timer0_irq.p_pt = p_pt; timer0_irq.p_ildi = p_ildi;
- *              NVIC_SetPriority(TFM_TIMER0_IRQ, DEFAULT_IRQ_PRIORITY);
- *              NVIC_ClearPendingIRQ(TFM_TIMER0_IRQ);   // BL2 may have left it set
- *              NVIC_DisableIRQ(TFM_TIMER0_IRQ);        // FF-M 1.1: partition enables
- *              return TFM_HAL_SUCCESS;
- *          }
- *      The init name is derived from the manifest: "source": "TFM_TIMER0_IRQ" gives
- *      tfm_timer0_irq_init. Use a SYMBOLIC source - a numeric one hits a stray-brace
- *      bug in tools/templates/partition_load_info.template.
- *   4. Define TFM_TIMER0_IRQ (from vector_data.h) and DEFAULT_IRQ_PRIORITY in
- *      tfm_peripherals_def.h. Keep the priority in IPL 1-7: SECURE_THREAD_EXECUTION_
- *      PRIORITY is 0x80 == IPL 8, so IPL >= 8 is masked if
- *      CONFIG_TFM_SECURE_THREAD_MASK_NS_INTERRUPT is ever enabled.
- *   5. Declare "irqs" in the owning partition's manifest. Under the SFN backend use
- *      FLIH: it runs entirely in handler mode and needs no thread. Calling ANY psa_*
- *      API from a FLIH panics (psa_interface_sfn.c checks __get_active_exc_num()).
+ * To add one (DECISIONS D061); AGT0 (TFM_TIMER0_IRQ) is the worked example:
+ *   1. Add the peripheral and its interrupt to the secure e2 project and regenerate. FSP then
+ *      sets IELSR, ITNS and ICUSARG at boot.
+ *   2. Override that slot in startup_ra6m5.c's __VECTOR_TABLE with a designated initialiser
+ *      after the [16 ... N] = Default_Handler range; the later initialiser wins. RASC assigns
+ *      slots densely from 0 in the order interrupts were added, so adding an unrelated one
+ *      renumbers the rest. Key the index on the generated VECTOR_NUMBER_* macro from
+ *      vector_data.h, or write it out and assert it against that macro as plat_test.c does.
+ *   3. Write the ISR and the init hook; see tfm_timer0_irq.c. The ISR acks the ICU with
+ *      R_BSP_IrqStatusClear() and calls spm_handle_interrupt(). The init sets the priority,
+ *      clears any pending state BL2 left, and leaves the IRQ disabled (FF-M 1.1: the partition
+ *      enables it). The init name comes from the manifest: "source": "TFM_TIMER0_IRQ" gives
+ *      tfm_timer0_irq_init. Use a symbolic source; a numeric one hits a stray-brace bug in
+ *      tools/templates/partition_load_info.template.
+ *   4. Define the IRQ (from vector_data.h) and DEFAULT_IRQ_PRIORITY in tfm_peripherals_def.h.
+ *      Keep the priority in IPL 1-7: SECURE_THREAD_EXECUTION_PRIORITY is 0x80 == IPL 8, so
+ *      IPL >= 8 is masked if CONFIG_TFM_SECURE_THREAD_MASK_NS_INTERRUPT is ever enabled.
+ *   5. Declare "irqs" in the owning partition's manifest. Under the SFN backend use FLIH: it
+ *      runs entirely in handler mode and needs no thread. Calling any psa_* API from a FLIH
+ *      panics (psa_interface_sfn.c checks __get_active_exc_num()).
  *
- * Do not use FSP's p_callback to reach TF-M. spm_handle_interrupt() must run in the
- * exception context; no upstream port routes through a vendor callback registry.
+ * Do not reach TF-M through FSP's p_callback: spm_handle_interrupt() must run in the exception
+ * context, and no upstream port routes through a vendor callback registry.
  */
 /*
- * FORCES ra_gen/vector_data.o OUT OF libfsp_bsp_s.a. Do not delete this, and do not make
- * it static.
+ * Forces ra_gen/vector_data.o out of libfsp_bsp_s.a. Do not delete this, and do not make it
+ * static.
  *
- * vector_data.c holds the STRONG g_interrupt_event_link_select[] - the table bsp_irq_cfg()
- * reads to program R_ICU->IELSR and the ITNS/ICUSARG attribution. bsp_irq.c holds a
- * BSP_WEAK_REFERENCE all-zero fallback of the same array, and both are members of the same
- * archive. The linker extracts bsp_irq.o (something calls bsp_irq_cfg()), the weak
- * definition satisfies the reference, and the member with the real table is never extracted
- * - because nothing else refers to it: the secure image uses TF-M's own __VECTOR_TABLE, not
- * FSP's g_vector_table.
+ * vector_data.c holds the strong g_interrupt_event_link_select[], the table bsp_irq_cfg()
+ * reads to programme R_ICU->IELSR and the ITNS/ICUSARG attribution. bsp_irq.c holds a
+ * BSP_WEAK_REFERENCE all-zero fallback of the same array in the same archive. The linker
+ * extracts bsp_irq.o, the weak definition satisfies the reference, and vector_data.o is never
+ * extracted, because nothing else refers to it: the secure image uses TF-M's __VECTOR_TABLE,
+ * not FSP's g_vector_table.
  *
- * With the zeros, bsp_irq_cfg()'s two guarded writes both skip: IELSR is never programmed,
- * so a configured peripheral interrupt never reaches the NVIC at all, and the vector is
- * left attributed NON-SECURE. Both silently, with no diagnostic from any tool - the only
- * tell is the symbol binding (V vs T) and the array contents in the linked image. That cost
- * two hardware runs and two rewrites of the RA6M5 timer code before it was found.
+ * With the zero table, bsp_irq_cfg() skips both writes: IELSR is never programmed, so a
+ * configured interrupt never reaches the NVIC, and the vector stays non-secure. No tool
+ * reports either; the only signs are the symbol binding (V vs T) and the array contents in
+ * the linked image.
  *
- * g_vector_table is defined ONLY in vector_data.c, so referencing it is what pulls the
- * member in. A file-scope non-static const pointer emits a real relocation, which is what
- * archive extraction keys on; moving the file into platform_s does NOT work, because that
- * is a static library too.
+ * g_vector_table is defined only in vector_data.c, so referencing it pulls the member in. A
+ * file-scope non-static const pointer emits a real relocation, which archive extraction keys
+ * on. Moving the file into platform_s does not help, because that is a static library too.
  *
- * THE GUARD MIRRORS THE GENERATED FILE'S OWN. vector_data.c wraps both symbols in
- * "#if VECTOR_DATA_IRQ_COUNT > 0", so with no interrupt configured in the secure e2 project
- * neither exists and an unconditional anchor is an undefined reference. That case needs no
- * anchor anyway: with nothing configured the weak all-zero table is the correct answer.
- * DECISIONS D069.
+ * The guard mirrors vector_data.c's own "#if VECTOR_DATA_IRQ_COUNT > 0": with no interrupt
+ * configured in the secure e2 project neither symbol exists, and the weak all-zero table is
+ * then correct. DECISIONS D069.
  */
 #if VECTOR_DATA_IRQ_COUNT > 0
 extern const fsp_vector_t g_vector_table[];
@@ -248,20 +212,17 @@ const fsp_vector_t * const ra6m5_icu_vector_data_anchor = g_vector_table;
 
 enum tfm_plat_err_t nvic_interrupt_target_state_cfg(void)
 {
-    /* Nothing to do. FSP's bsp_irq_cfg() has already written ITNS and ICUSARG from
-     * the secure project's generated event-link table, before main() ran. Writing
-     * ITNS here would undo it.
-     *
-     * That is only true because the anchor above got the real table linked - see it. */
+    /* Nothing to do: FSP's bsp_irq_cfg() writes ITNS and ICUSARG from the secure project's
+     * generated event-link table before main(), and writing ITNS here would undo it. That
+     * holds only because the anchor above links the real table. */
     return TFM_PLAT_ERR_SUCCESS;
 }
 
 /*----------------- NVIC interrupt enabling for S peripherals ----------------*/
 enum tfm_plat_err_t nvic_interrupt_enable(void)
 {
-    /* Nothing to do. RA has no MPC/PPC fault IRQ for the SPM to own, and a
-     * partition-owned IRQ must NOT be enabled here: FF-M 1.1 interrupts are
-     * deliberately left disabled by load_irqs_assuredly() so the partition can
-     * enable its own with psa_irq_enable(). */
+    /* Nothing to do. RA has no MPC/PPC fault IRQ for the SPM to own, and a partition-owned IRQ
+     * must not be enabled here: load_irqs_assuredly() deliberately leaves FF-M 1.1 interrupts
+     * disabled so the partition enables its own with psa_irq_enable(). */
     return TFM_PLAT_ERR_SUCCESS;
 }

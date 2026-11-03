@@ -5,26 +5,29 @@
 #
 # Build TF-M's crypto from FSP's Mbed TLS instead of downloading upstream.
 #
-# FSP ships Mbed TLS with its own changes to the PSA core - the GCM finish/verify handling its
-# SCE9 GCM ALT relies on, vendor key plumbing, ML-DSA/ML-KEM - and its rm_psa_crypto *_ALT
-# sources are written against that core. Pairing the ALT sources with upstream Mbed TLS
-# broke multi-part GCM and exposed contract gaps FSP's own cipher layer normally covers
-# (DECISIONS D041/D042). So the port uses FSP's tree.
+# FSP ships Mbed TLS with its own changes to the PSA core (vendor key plumbing, ML-DSA/ML-KEM,
+# GCM handling), and its rm_psa_crypto *_ALT sources depend on that core: GCM finish reports
+# its ciphertext length, GCM verify is routed to sce_gcm_verify with the expected tag, and
+# FSP's cipher_alt.c supplies the block chunking and session close its aes_alt.c assumes.
+# Paired with upstream Mbed TLS, the ALT sources broke multi-part GCM and exposed contract
+# gaps that FSP's cipher layer normally covers (DECISIONS D041/D042).
 #
-# FSP's tree is include/ + library/ only - no CMake, no scripts/config.py, no 3rdparty/p256-m -
-# and TF-M consumes Mbed TLS through add_subdirectory(${MBEDCRYPTO_PATH}) and config.py. So
-# this builds an OVERLAY in the build directory:
+# FSP's tree is include/ and library/ only: no CMake, no scripts/config.py, no 3rdparty/p256-m.
+# TF-M consumes Mbed TLS through add_subdirectory(${MBEDCRYPTO_PATH}) and config.py, so this
+# builds an overlay in the build directory:
 #
 #   upstream Mbed TLS at FSP's version  - scaffolding: CMake, scripts, framework, p256-m
 #   + FSP's include/ and library/        - copied over it, line endings normalised to LF
-#   + the TF-M patches FSP lacks          - ../mbedtls/*.patch, applied in order
+#   + the patches FSP lacks               - ../mbedtls/*.patch, applied in order
 #
 # FSP's tree already carries TF-M's builtin-key-loader patch (0001) and the CC3XX one (0005),
-# so only 0003, 0004, 0006 and 0007 are applied here - the TF-M 2.2.2 versions, which match
-# 3.6.5+. 0002 (code sharing) is not used on this port. GEN_FILES is OFF in TF-M's crypto
-# CMake, so FSP's pre-generated driver wrappers are compiled as shipped.
+# so of TF-M's patches only 0003, 0004, 0006 and 0007 are applied, in their TF-M 2.2.2
+# versions, which match 3.6.5+. 0100 is the port's own, applied after that series (TF-M's
+# config file name, owner-encoded key ids). 0002 (code sharing) is not used on this port.
+# GEN_FILES is OFF in TF-M's crypto CMake, so FSP's pre-generated driver wrappers are compiled
+# as shipped.
 #
-# The overlay is rebuilt on every configure from FSP_S_APP_DIR, so a regenerated e2 project
+# The overlay is rebuilt from FSP_S_APP_DIR on every configure, so a regenerated e2 project
 # flows through. The upstream clone is fetched once per build directory.
 #-------------------------------------------------------------------------------
 
@@ -52,7 +55,7 @@ set(_overlay  "${CMAKE_BINARY_DIR}/lib/ext/fsp_mbedtls")
 
 find_package(Git REQUIRED)
 
-# The platform config is processed BEFORE config/config_base.cmake, so MBEDCRYPTO_GIT_REMOTE
+# The platform config is processed before config/config_base.cmake, so MBEDCRYPTO_GIT_REMOTE
 # is not set yet unless it came from the command line.
 if(NOT MBEDCRYPTO_GIT_REMOTE)
     set(MBEDCRYPTO_GIT_REMOTE "https://github.com/Mbed-TLS/mbedtls.git")
@@ -95,11 +98,11 @@ endforeach()
 
 # TF-M patches FSP's tree lacks.
 #
-# GIT_CEILING_DIRECTORIES stops git discovering the enclosing TF-M checkout - the build
-# directory is inside it - which would make it resolve the patch paths against the TF-M work
-# tree instead of the overlay. Running outside a repository, git apply works relative to the
-# working directory, and the overlay stays a plain directory (a .git here would survive
-# file(REMOVE_RECURSE) on Windows and stale the next regeneration).
+# GIT_CEILING_DIRECTORIES stops git discovering the enclosing TF-M checkout (the build
+# directory is inside it), which would resolve the patch paths against the TF-M work tree.
+# Outside a repository, git apply works relative to the working directory. The overlay stays a
+# plain directory: a .git here would survive file(REMOVE_RECURSE) on Windows and leave the
+# next regeneration stale.
 file(GLOB _patches "${CMAKE_CURRENT_LIST_DIR}/../mbedtls/*.patch")
 list(SORT _patches)
 get_filename_component(_overlay_parent "${_overlay}" DIRECTORY)

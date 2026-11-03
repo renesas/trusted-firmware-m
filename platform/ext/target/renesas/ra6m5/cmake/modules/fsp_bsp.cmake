@@ -12,9 +12,9 @@ fsp_module_glob(_ra_gen_src   "ra_gen")
 fsp_module_glob(_board_src    "ra/board")
 set(_src ${_bsp_src} ${_ioport_src} ${_ra_gen_src} ${_board_src})
 
-# Files TF-M supplies itself for the S and BL2 images; taking FSP's would collide at link
-# time. (The NS image keeps all three - it is a whole FSP application and is not built
-# from these modules.)
+# Files TF-M supplies itself for the S and BL2 images; FSP's would collide at link time. The
+# NS image keeps all three: it is a whole FSP application and is not built from these
+# modules.
 #   ra_gen/main.c        - TF-M has its own main
 #   .../Source/startup.c - TF-M has its own Reset_Handler and vector table
 #   bsp_linker.c         - emits the OFS option-setting sections. TF-M emits those from
@@ -24,22 +24,20 @@ set(_src ${_bsp_src} ${_ioport_src} ${_ra_gen_src} ${_board_src})
 #                          g_main_stack, which bsp_init_stub.c replaces below.
 list(REMOVE_ITEM _src "${FSP_MODULE_BASE_DIR}/ra_gen/main.c")
 
-# ra_gen/vector_data.c STAYS here, but see target_cfg.c: it has to be forced out of this
-# archive by an explicit reference, or the weak-symbol trap below silently wins.
+# ra_gen/vector_data.c stays in the list, but target_cfg.c must force it out of this archive
+# with an explicit reference, or the weak-symbol trap below wins silently.
 #
-# vector_data.c carries the STRONG definition of g_interrupt_event_link_select[], the array
+# vector_data.c carries the strong definition of g_interrupt_event_link_select[], the array
 # bsp_irq_cfg() reads to program R_ICU->IELSR and the ITNS/ICUSARG security attribution.
-# bsp_irq.c carries a BSP_WEAK_REFERENCE fallback of the same array, all zeros, and both
-# land in this library. The linker pulls in bsp_irq.o because something calls
-# bsp_irq_cfg(); its weak definition then SATISFIES the reference, so the member holding
-# the strong one is never extracted - nothing else refers to it, because the secure image
-# uses TF-M's own __VECTOR_TABLE rather than FSP's g_vector_table.
+# bsp_irq.c carries an all-zero BSP_WEAK_REFERENCE fallback of the same array, and both land
+# in this library. The linker pulls in bsp_irq.o because something calls bsp_irq_cfg(); its
+# weak definition then satisfies the reference, so the member holding the strong one is never
+# extracted. Nothing else refers to it, because the secure image uses TF-M's own
+# __VECTOR_TABLE rather than FSP's g_vector_table.
 #
-# The consequences are not subtle. bsp_irq_cfg() guards both writes on a non-zero entry,
-# so with the zeros IELSR is never programmed - the peripheral event never reaches the NVIC
-# at all - and the "this is a secure vector" branch never runs, leaving ITNS and ICUSARG at
-# 1, non-secure. That is why the FLIH timer interrupt appeared never to fire on
-# 2026-09-30. Moving the file to platform_s does NOT help: that is a static library too.
+# bsp_irq_cfg() guards both writes on a non-zero entry. With the zeros, IELSR is never
+# programmed, so the peripheral event never reaches the NVIC, and ITNS and ICUSARG stay at 1,
+# non-secure. Moving the file to platform_s does not help: that is a static library too.
 # DECISIONS D069.
 list(REMOVE_ITEM _src "${FSP_MODULE_BASE_DIR}/ra/fsp/src/bsp/cmsis/Device/RENESAS/Source/startup.c")
 list(FILTER _src EXCLUDE REGEX "/ra/fsp/src/bsp/mcu/[^/]+/bsp_linker\\.c$")
@@ -49,11 +47,10 @@ if(NOT _src)
     message(FATAL_ERROR "RA6M5: no BSP sources under ${FSP_MODULE_BASE_DIR} - is it generated?")
 endif()
 
-# bsp_init_stub.c belongs in this module rather than platform_s/platform_bl2: FSP's
-# system.c is here and references g_init_info and g_main_stack, which the stub defines
-# weakly. platform_* is scanned before this library on the link line, so a definition
-# sitting there would already have been passed over when system.o introduces the
-# undefined reference.
+# bsp_init_stub.c belongs in this module, not platform_s/platform_bl2: FSP's system.c is here
+# and references g_init_info and g_main_stack, which the stub defines weakly. platform_* is
+# scanned before this library on the link line, so a definition there has already been passed
+# over when system.o introduces the undefined reference.
 target_sources(${FSP_BSP_TARGET}
     PRIVATE
         ${_src}
@@ -61,36 +58,35 @@ target_sources(${FSP_BSP_TARGET}
 )
 
 #-------------------------------------------------------------------------------
-# Include paths for modules TF-M does NOT build
+# Include paths for modules TF-M does not build
 #
 # The generated ra_gen headers include every enabled module's header unconditionally, even
 # when nothing is instantiated from it. With the Crypto stack present, common_data.h pulls
 # "psa/crypto.h", "psa/crypto_extra.h", "mbedtls/platform.h" and "rm_psa_crypto.h" though
-# common_data.c instantiates nothing but IOPORT; in the bootloader project hal_data.h
-# pulls "rm_mcuboot_port.h", which pulls "bootutil/image.h". Those headers must be
-# resolvable to parse the generated files.
+# common_data.c instantiates nothing but IOPORT; in the bootloader project hal_data.h pulls
+# "rm_mcuboot_port.h", which pulls "bootutil/image.h". Those headers must resolve for the
+# generated files to parse.
 #
-# They are PRIVATE, by design. FSP ships its own ra/arm/mbedtls/include/psa/crypto.h;
-# exporting it would shadow TF-M's psa/crypto.h for sce_trng.c, attest_hal.c and the rest
-# of the secure image. Confining the FSP sources to this library is what makes that safe -
-# it is the main reason this is a library and not target_sources(platform_s ...).
+# They are PRIVATE by design. FSP ships its own ra/arm/mbedtls/include/psa/crypto.h; exporting
+# it would shadow TF-M's psa/crypto.h for sce_trng.c, attest_hal.c and the rest of the secure
+# image. Confining the FSP sources to this library is what makes that safe, and is the main
+# reason this is a library and not target_sources(platform_s ...).
 #
 #   ra_cfg/arm  - FSP's mbedtls/build_info.h does #include "mbedtls/config.h", which is
 #                 the generated ra_cfg/arm/mbedtls/config.h.
 #   r_sce/...   - rm_psa_crypto.h in turn includes hw_sce_private.h and
 #                 hw_sce_trng_private.h. fsp_sce exports these too, but the BSP cannot
 #                 link it (fsp_sce depends on the BSP, not the reverse), so name the paths
-#                 here. Mirrors the include set in fsp_sce.cmake - keep them in step.
-#-------------------------------------------------------------------------------
+#                 here. Mirrors the include set in fsp_sce.cmake; keep them in step.
 #   mcu-tools   - FSP's MCUboot headers, for rm_mcuboot_port.h -> bootutil/image.h ->
 #                 flash_map_backend.h. Bootloader project only. TF-M links its own
 #                 bootutil; these are here only so hal_data.h parses.
 #
-# This mirrors the include set e2 studio itself compiles ra_gen with. If a regenerated
-# project needs another path, read it off rather than guessing:
-#   <project>/Debug/compile_commands.json, the entry for ra_gen/hal_data.c
-# Every entry is EXISTS-guarded, so the same list serves the secure and bootloader
-# projects even though they enable different modules.
+# This mirrors the include set e2 studio compiles ra_gen with. If a regenerated project needs
+# another path, read it from <project>/Debug/compile_commands.json (the entry for
+# ra_gen/hal_data.c) rather than guessing. Every entry is EXISTS-guarded, so the same list
+# serves the secure and bootloader projects even though they enable different modules.
+#-------------------------------------------------------------------------------
 set(_generated_module_includes
     "${FSP_MODULE_BASE_DIR}/ra/fsp/src/rm_psa_crypto/inc"
     "${FSP_MODULE_BASE_DIR}/ra/arm/mbedtls/include"

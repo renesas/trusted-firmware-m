@@ -27,12 +27,11 @@ MEMORY
     FLASH (rx)  : ORIGIN = BL2_CODE_START, LENGTH = BL2_CODE_SIZE
     RAM   (rwx) : ORIGIN = BL2_DATA_START, LENGTH = BL2_DATA_SIZE
 
-    /* RA6M5 option-setting memory - one DISCRETE region per register group, the
-     * way FSP's own generated linker does it (fsp_gen.ld MEMORY block). Each
-     * region is sized to exactly its register group, so ld emits a separate
-     * PT_LOAD per group and CANNOT zero-fill the registers in between.
-     * Merging these into one region/segment bricks the part, with no known recovery - see
-     * the OPTION_SETTING_* block in region_defs.h for the full explanation. */
+    /* RA6M5 option-setting memory: one discrete region per register group, as in FSP's
+     * generated fsp_gen.ld MEMORY block. Each region is exactly its group's size, so ld emits a
+     * separate PT_LOAD per group and cannot zero-fill the registers between them. Merging them
+     * into one region or segment bricks the part, with no known recovery; see region_defs.h,
+     * OPTION_SETTING_* block. */
     OPTION_SETTING_OFS0        (r) : ORIGIN = OPTION_SETTING_OFS0_START,        LENGTH = OPTION_SETTING_OFS0_LENGTH
     OPTION_SETTING_DUALSEL     (r) : ORIGIN = OPTION_SETTING_DUALSEL_START,     LENGTH = OPTION_SETTING_DUALSEL_LENGTH
     OPTION_SETTING_OFS1        (r) : ORIGIN = OPTION_SETTING_OFS1_START,        LENGTH = OPTION_SETTING_OFS1_LENGTH
@@ -165,28 +164,24 @@ SECTIONS
     Image$$SHARED_DATA$$RW$$Base = ADDR(.tfm_bl2_shared_data);
     Image$$SHARED_DATA$$RW$$Limit = ADDR(.tfm_bl2_shared_data) + SIZEOF(.tfm_bl2_shared_data);
 
-    /* FSP flash driver routines that MUST execute from RAM.
+    /* FSP flash driver routines that must execute from RAM.
      *
      * r_flash_hp.c marks flash_hp_erase, flash_hp_cf_write, flash_hp_pe_mode_exit,
      * flash_hp_status_clear and the delay loop PLACE_IN_RAM_SECTION, which resolves to
-     * BSP_PLACE_IN_SECTION(".ram_from_flash"). The reason is hardware: while the FCU is in
-     * program/erase mode for CODE flash, code flash is not readable. Any instruction fetched
-     * from it in that window returns garbage, so the routines driving the operation cannot
-     * live there.
+     * BSP_PLACE_IN_SECTION(".ram_from_flash"). While the FCU is in program/erase mode for code
+     * flash, code flash is not readable and an instruction fetched from it returns garbage, so
+     * the routines driving the operation cannot run from it.
      *
-     * Without this section the linker gave .ram_from_flash a plain flash VMA next to .text
-     * (0x0000D160), because this file never named it and FSP's own bsp_linker.c - which would
-     * have relocated it - is excluded from the build. Data flash was unaffected, since
-     * data-flash P/E leaves code flash readable; that is why NV counters, ITS and PS all
-     * worked. Code flash P/E is undefined behaviour in that state: on 2026-08-30 BL2 erased
-     * image 1's slot, then died partway through image 0's erase, leaving 0x58000 blank and
-     * the CPU executing erased flash. Surviving one erase and not the next is the expected
-     * signature - it depends on what is in the prefetch buffer and flash cache at the time.
+     * Without this output section, ld gives .ram_from_flash a flash VMA next to .text, because
+     * FSP's bsp_linker.c, which would relocate it, is excluded from the build. Data-flash P/E
+     * still works, since it leaves code flash readable, but code-flash P/E is undefined: BL2
+     * can complete one slot erase and die partway through the next, depending on what is in the
+     * prefetch buffer and flash cache at the time.
      *
-     * Kept out of .data because it is executable (the RAM region is declared rwx above), and
-     * copied by the CMSIS copy-table entry added beside .data's, which TF-M's startup already
-     * runs. That deliberately avoids adding a MEMORY region or PT_LOAD - see the
-     * OPTION_SETTING note below for why segment layout in this file is handled with care.
+     * The section is kept out of .data because it is executable (RAM is declared rwx above). It
+     * is copied by the CMSIS copy-table entry beside .data's, which TF-M's startup already
+     * runs. This deliberately adds no MEMORY region or PT_LOAD; see the option-setting note
+     * below for why segment layout in this file needs care.
      */
     .ram_from_flash : ALIGN(4)
     {
@@ -208,26 +203,23 @@ SECTIONS
     } > RAM AT > FLASH
     Image$$ER_DATA$$Base = ADDR(.data);
 
-    /* FSP uninitialised RAM - handled the same way FSP's own linker does.
+    /* FSP uninitialised RAM, handled as in FSP's own linker script.
      *
-     * FSP places state that must survive the C-runtime init in .ram_noinit via
-     * BSP_SECTION_NOINIT / BSP_SECTION_EARLY_INIT (e.g. SystemCoreClock,
+     * FSP places state that must survive the C-runtime init in .ram_noinit through
+     * BSP_SECTION_NOINIT / BSP_SECTION_EARLY_INIT (for example SystemCoreClock,
      * g_clock_freq[], g_protect_counters[]). TF-M's startup calls SystemInit()
-     * (bsp_clock_init) BEFORE __PROGRAM_START() does the C-runtime init, so
-     * anything that lands in .bss is zeroed immediately after FSP computed it -
-     * which made R_FLASH_HP_Open() see FCLK == 0 and fail with FSP_ERR_FCLK.
+     * (bsp_clock_init) before __PROGRAM_START() runs the C-runtime init, so anything in .bss
+     * is zeroed right after FSP computes it, and R_FLASH_HP_Open() then sees FCLK == 0 and
+     * fails with FSP_ERR_FCLK.
      *
-     * Declared BEFORE .bss so the prefixed variant (.bss.ram_noinit, used by
-     * toolchains where BSP_UNINIT_SECTION_PREFIX is ".bss") is matched here and
-     * not swallowed by *(.bss*), and NOLOAD so no flash image is emitted and the
-     * C-runtime init neither copies nor zeroes it. Because the zero table only
-     * covers ADDR(.bss)..SIZEOF(.bss), this region is never cleared.
+     * Declared before .bss so that the prefixed variant (.bss.ram_noinit, used by toolchains
+     * where BSP_UNINIT_SECTION_PREFIX is ".bss") matches here and not in *(.bss*). NOLOAD, so
+     * no flash image is emitted and the C-runtime init neither copies nor zeroes it. The zero
+     * table covers only ADDR(.bss)..SIZEOF(.bss), so this region is never cleared.
      *
-     * NOTE: for SystemCoreClock et al. to carry the .ram_noinit
-     * attribute, the RASC config must have BSP_CFG_EARLY_INIT = 1. With
-     * BSP_CFG_EARLY_INIT = 0 they have no section attribute and still land in
-     * .bss - the platform code additionally calls SystemCoreClockUpdate()
-     * defensively so the port is correct either way. */
+     * SystemCoreClock and the other clock state carry the .ram_noinit attribute only when the
+     * bootloader e2 project sets BSP_CFG_EARLY_INIT = 1; bl2_option_setting.c fails the build
+     * otherwise (DESIGN.md §8.1). */
     .ram_noinit (NOLOAD) : ALIGN(4)
     {
         . = ALIGN(4);
@@ -286,23 +278,22 @@ SECTIONS
 
     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
 
-    /* RA6M5 option-setting memory (OFS) - BL2 ONLY.
+    /* RA6M5 option-setting memory (OFS), BL2 only.
      *
-     * Places the RASC-configured OFS words emitted by bl2_option_setting.c. Each
-     * section goes to its OWN MEMORY region (see the MEMORY block above) - this is
-     * the whole point, and it mirrors FSP's generated fsp_gen.ld exactly.
+     * Places the RASC-configured OFS words emitted by bl2_option_setting.c. Each section goes
+     * to its own MEMORY region (see the MEMORY block above), exactly as FSP's generated
+     * fsp_gen.ld does.
      *
-     * ⚠ DO NOT rewrite these as bare addressed sections:
+     * WARNING: do not rewrite these as bare addressed sections:
      *       .option_setting_ofs0 0x0100A100 : { KEEP(*(.option_setting_ofs0)) }
-     *   With no '> REGION', ld coalesces all thirteen into ONE PT_LOAD spanning
-     *   0x0100A100..0x0100A2CC and zero-fills the 368 bytes in the gaps - eight
-     *   DEFINED registers plus reserved bytes, D133. Flashing from a debugger
-     *   bricks the part, with no known recovery - it cost two EK-RA6M4 boards on 2026-07-21.
-     *   The zero fill is invisible in the srec; check readelf -l. Full rationale
-     *   and the verification command are in region_defs.h (OPTION_SETTING_* block).
+     *   With no '> REGION', ld coalesces all thirteen into one PT_LOAD spanning
+     *   0x0100A100..0x0100A2D0 and zero-fills the 352 bytes in the gaps, which include eight
+     *   defined registers (D133). Flashing that from a debugger bricks the part, with no known
+     *   recovery (D002). The fill is invisible in the srec; check readelf -l. See
+     *   region_defs.h, OPTION_SETTING_* block, and DESIGN.md §8.4.
      *
-     * BL2-only: the secure/NS images are MCUboot-signed and imgtool needs a
-     * contiguous payload, and two images programming OFS would collide. */
+     * BL2 only: the secure and NS images are MCUboot-signed and imgtool needs a contiguous
+     * payload, and two images programming OFS would collide. */
     .option_setting_ofs0        : { KEEP(*(.option_setting_ofs0))        } > OPTION_SETTING_OFS0
     .option_setting_dualsel     : { KEEP(*(.option_setting_dualsel))     } > OPTION_SETTING_DUALSEL
     .option_setting_ofs1        : { KEEP(*(.option_setting_ofs1))        } > OPTION_SETTING_OFS1

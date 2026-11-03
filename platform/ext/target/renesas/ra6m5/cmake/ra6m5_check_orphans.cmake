@@ -4,51 +4,49 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #-------------------------------------------------------------------------------
 #
-# Post-link check: report allocatable ORPHAN sections.
+# Post-link check: report allocatable orphan sections.
 #
 # Why this exists
 # ---------------
 # FSP's linker script is generated per project. `<project>/script/fsp.ld` is a stub that
 # INCLUDEs `memory_regions.ld` and `fsp_gen.ld`, and fsp_gen.ld carries the device's memory
-# section contract - `.ram_from_flash`, `.ram_code_from_flash`, `.fsp_dtc_vector_table`,
+# section contract: `.ram_from_flash`, `.ram_code_from_flash`, `.fsp_dtc_vector_table`,
 # `.ram_nocache` / `.bss.*_fsp_nocache` at 32-byte alignment, `.ram_noinit`, `.qspi_flash*`,
 # `.data_flash*`, the option_setting_* windows.
 #
-# tfm_s and bl2 do NOT use fsp.ld. tfm_s links TF-M's generated tfm_isolation_s.ld and bl2
-# links ra6m5_bl2.ld. So an FSP section that neither script names is not diagnosed - GNU ld
-# silently ORPHANS it, inventing an output section and placing it next to whatever looks
-# similar. No warning, no error.
+# tfm_s and bl2 do not use fsp.ld: tfm_s links TF-M's generated tfm_isolation_s.ld and bl2
+# links ra6m5_bl2.ld. GNU ld silently orphans an FSP section that neither script names: it
+# invents an output section and places it next to whatever looks similar, with no warning
+# and no error.
 #
-# That is not hypothetical. It is exactly how the r_flash_hp code-flash program/erase
-# routines came to execute from code flash: FSP marks them PLACE_IN_RAM_SECTION
+# Example: FSP marks the r_flash_hp code-flash program/erase routines PLACE_IN_RAM_SECTION
 # (".ram_from_flash") because the FCU makes the whole code flash unreadable during a
-# code-flash P/E, ld orphaned the section into .text, and the failure was a hardware hang
-# with no diagnostic. See RA6M5_SOLUTION.md.
+# code-flash P/E. Orphaned into .text, they execute from code flash, and the result is a
+# hardware hang with no diagnostic. See CONFIGURATION.md section 7, the S_RAM_CODE_SIZE row.
 #
 # Why not diff fsp_gen.ld against our scripts
 # -------------------------------------------
-# Because fsp_gen.ld is device boilerplate, not a per-module subset. The secure, bootloader
-# and non-secure projects place the same 53 sections despite different module sets; they
-# differ only in the TrustZone entries (.flash_nsc, .gnu.sgstubs*, .ram_nsc and the
-# _sec/_sel option-setting variants). Diffing it would flag ~30 sections that nothing emits
-# into. This check instead asks the only question that matters: is there a section in the
-# LINKED IMAGE that the script never named?
+# fsp_gen.ld is device boilerplate, not a per-module subset. The secure, bootloader and
+# non-secure projects place the same 53 sections despite different module sets; they differ
+# only in the TrustZone entries (.flash_nsc, .gnu.sgstubs*, .ram_nsc and the _sec/_sel
+# option-setting variants). A diff would flag ~30 sections that nothing emits into. This
+# check asks instead whether the linked image has a section the script never names.
 #
 # Why not --orphan-handling=warn
 # ------------------------------
-# ld has that flag, and it is the same idea, but it reports every non-allocatable orphan
-# too - .debug_*, .comment and .ARM.attributes from every object. On tfm_s that is hundreds
-# of lines, and TF-M links with -Wl,-fatal-warnings, so it cannot be switched on as is.
+# ld's flag implements the same idea, but it also reports every non-allocatable orphan:
+# .debug_*, .comment and .ARM.attributes from every object. On tfm_s that is hundreds of
+# lines, and TF-M links with -Wl,-fatal-warnings, so it cannot be enabled as is.
 #
 # How it decides
 # --------------
-# An orphan output section's name appears nowhere in the linker script - that is what made
-# it an orphan. So: list allocatable, non-empty sections in the ELF, and report any whose
-# name is not a token in the (preprocessed, comment-stripped) script. Substring matching,
-# not grammar parsing: ld's output-section syntax is `.NAME <addr-expr> <(ATTRS)> :` where
-# the address expression is arbitrary, and parsing it is not worth the fragility.
+# An orphan output section's name appears nowhere in the linker script; that is what makes it
+# an orphan. The check lists allocatable, non-empty sections in the ELF and reports any whose
+# name is not a token in the preprocessed, comment-stripped script. It matches tokens rather
+# than parsing the grammar: ld's output-section syntax is `.NAME <addr-expr> <(ATTRS)> :`,
+# where the address expression is arbitrary, and parsing it is not worth the fragility.
 #
-# Inputs: IMAGE, AXF, SCATTER (the PREPROCESSED script - pass
+# Inputs: IMAGE, AXF, SCATTER (the preprocessed script - pass
 # $<TARGET_OBJECTS:<target>_scatter>), OBJDUMP, ALLOW (;-list), STRICT.
 #-------------------------------------------------------------------------------
 

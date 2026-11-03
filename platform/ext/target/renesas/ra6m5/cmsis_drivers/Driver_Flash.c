@@ -4,8 +4,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Enhanced CMSIS Flash Driver for Renesas RA6M5 using FSP Flash HP
- * Based on RA8 TF-M port implementation with RA6M5-specific adaptations
+ * CMSIS flash driver for Renesas RA6M5 over FSP Flash HP, derived from the RA8 TF-M port.
  */
 
 #include "Driver_Flash.h"
@@ -14,11 +13,11 @@
 #include "bsp_feature.h"
 #include <string.h>
 
-/* The two generated instance objects this driver drives, declared directly rather than by
- * including ra_gen/hal_data.h. That header pulls ra_gen/common_data.h, which - once the
- * Crypto stack is present in the e2 project - includes FSP's own psa/crypto.h and would
- * shadow TF-M's for every file in platform_s. Their types come from r_flash_hp.h above.
- * The definitions live in ra_gen/hal_data.c, built as part of the fsp_bsp module. */
+/* The two generated instance objects this driver uses, declared here instead of by
+ * including ra_gen/hal_data.h. That header pulls in ra_gen/common_data.h, which includes
+ * FSP's own psa/crypto.h once the Crypto stack is in the e2 project, and would shadow
+ * TF-M's for every file in platform_s. The types come from r_flash_hp.h above; the
+ * definitions are in ra_gen/hal_data.c, built as part of the fsp_bsp module. */
 extern flash_hp_instance_ctrl_t g_flash0_ctrl;
 extern const flash_cfg_t        g_flash0_cfg;
 
@@ -26,15 +25,14 @@ extern const flash_cfg_t        g_flash0_cfg;
 #define ARG_UNUSED(arg)  (void)(arg)
 #endif
 
-/* RA6M5 Flash HP code-flash block size for the MCUboot-managed region.
- * Region 0 (0x0-0xFFFF) uses 8KB blocks; region 1 (0x10000+) uses 32KB blocks.
- * All MCUboot slots are in region 1, so use the region-1 (32KB) block size -
- * this must match FLASH_AREA_IMAGE_SECTOR_SIZE so erases are full 32KB blocks. */
+/* RA6M5 code-flash block size for the MCUboot-managed region. Region 0 (0x0-0xFFFF) uses
+ * 8KB blocks and region 1 (0x10000+) uses 32KB blocks. All MCUboot slots are in region 1,
+ * so this is the region-1 (32KB) size. It must match FLASH_AREA_IMAGE_SECTOR_SIZE so that
+ * erases are whole 32KB blocks. */
 #define FLASH_HP_BLOCK_SIZE  BSP_FEATURE_FLASH_HP_CF_REGION1_BLOCK_SIZE
 
-#define ARM_FLASH_DRV_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(1,1) /* Enhanced version */
+#define ARM_FLASH_DRV_VERSION ARM_DRIVER_VERSION_MAJOR_MINOR(1,1)
 
-/* Driver version */
 static const ARM_DRIVER_VERSION DriverVersion = {
     ARM_FLASH_API_VERSION,
     ARM_FLASH_DRV_VERSION
@@ -42,22 +40,18 @@ static const ARM_DRIVER_VERSION DriverVersion = {
 
 /* Driver capabilities.
  *
- * data_width MUST stay 0 (8-bit). In CMSIS the `cnt` argument of ReadData/ProgramData is a
- * count of DATA ITEMS of data_width bytes, not a byte count, and every TF-M consumer divides
- * a byte length by data_width before calling - bl2/src/flash_map.c, its_flash_nor.c,
- * its_flash_nand.c and flash_otp_nv_counters_backend.c all do. The functions below are
- * implemented in BYTES throughout (memcpy(.., cnt), R_FLASH_HP_Write(.., cnt), and the
- * addr + cnt range checks), so 8-bit items make items == bytes and the two agree.
+ * data_width must stay 0 (8-bit). In CMSIS the `cnt` argument of ReadData/ProgramData
+ * counts data items of data_width bytes, not bytes, and every TF-M consumer divides a byte
+ * length by data_width before calling: bl2/src/flash_map.c, its_flash_nor.c,
+ * its_flash_nand.c and flash_otp_nv_counters_backend.c. The functions below work in bytes
+ * throughout (R_FLASH_HP_Write(.., cnt), memcpy(.., cnt) and the addr + cnt range checks),
+ * so only 8-bit items keep items and bytes equal. A wider setting makes every transfer move
+ * a fraction of the requested data; at 32-bit, init_otp_nv_counters_flash() fails on every
+ * boot.
  *
- * This was 2 (32-bit), which made every transfer move a quarter of the requested data. It
- * showed up as init_otp_nv_counters_flash() failing on every boot: it reads the 4-byte
- * init_value, the backend asked for 4/4 = 1 item, the driver copied 1 byte, and the
- * remaining three bytes were uninitialised stack - so the area never looked initialised and
- * the repair path then wrote at quarter size too.
- *
- * Honest as well as convenient: RA flash is memory-mapped and byte-readable. Write
- * granularity is a separate concern and is carried by the *_PROGRAM_UNIT macros in
- * flash_layout.h (4 for data flash, 128 for code flash), not by data_width.
+ * RA flash is memory-mapped and byte-readable, so 8-bit is also accurate. Write granularity
+ * is carried by the *_PROGRAM_UNIT macros in flash_layout.h (4 for data flash, 128 for code
+ * flash), not by data_width.
  */
 static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0, /* event_ready */
@@ -66,35 +60,33 @@ static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0  /* reserved */
 };
 
-/* Code flash info structure.
+/* Code flash info.
  *
- * program_unit is the real 128-byte RA6M5 code flash write size
- * (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE, bsp_feature.h:300). It was 1 until 2026-08-29.
- *
- * This value is load-bearing in two places that must agree:
+ * program_unit is the RA6M5 code flash write size, 128 bytes
+ * (BSP_FEATURE_FLASH_HP_CF_WRITE_SIZE, bsp_feature.h:300). Two places depend on it and
+ * must agree:
  *   - bl2/src/flash_map.c:422 returns it as flash_area_align(), which MCUboot uses to size
  *     and place the image trailer, and to pad every write it makes to a slot.
  *   - bl2/ext/mcuboot/CMakeLists.txt:204 signs with --align ${MCUBOOT_ALIGN_VAL} --pad, so
  *     imgtool computes the same trailer geometry ahead of time.
- * config.cmake therefore sets MCUBOOT_ALIGN_VAL to 128 alongside this. Change the two
- * together or BL2 looks for the trailer magic where imgtool did not put it.
+ * config.cmake therefore sets MCUBOOT_ALIGN_VAL to 128. Change the two together, or BL2
+ * looks for the trailer magic where imgtool did not put it.
  *
- * Raising it needed three list edits, because 128 was outside the range TF-M's signing
- * path would accept - see scripts/wrapper/wrapper.py and mcuboot_default_config.cmake for
- * the reasoning. Note the constraint is NOT imgtool's own --align choice list: wrapper.py
- * builds imgtool.image.Image() directly and never invokes imgtool's CLI, and Image() only
- * requires a power of two. For OVERWRITE_ONLY the trailer is
- * max_align*2 + align_up(16, max_align) = 384 bytes, and _trailer_size()'s
- * "write_size not in [1,2,4,8,16,32]" rejection sits on the swap path, which this port
- * does not use.
+ * TF-M's signing path accepts 128 only through three list edits; see
+ * scripts/wrapper/wrapper.py and mcuboot_default_config.cmake for the reasoning. imgtool's
+ * own --align choice list is not the constraint: wrapper.py builds imgtool.image.Image()
+ * directly, which requires only a power of two. For OVERWRITE_ONLY the trailer is
+ * max_align*2 + align_up(16, max_align) = 384 bytes. The "write_size not in
+ * [1,2,4,8,16,32]" rejection in _trailer_size() is on the swap path, which this port does
+ * not use.
  *
- * On the runtime side mcuboot already handles a write unit larger than the 16-byte magic:
+ * At runtime MCUboot handles a write unit larger than the 16-byte magic:
  * boot_write_trailer() pads from ALIGN_DOWN(off, BOOT_MAX_ALIGN), and the >=8 && <=32
- * _Static_assert in bootutil_public.c is guarded on the SWAP modes only.
+ * _Static_assert in bootutil_public.c applies to the swap modes only.
  *
- * NOT YET EXERCISED ON HARDWARE. It only takes effect once BL2 WRITES code flash, on an
- * upgrade; validate-and-boot reads only, which is why the port booted fine while this was
- * still 1. Proving it needs a real two-version upgrade with a populated secondary slot. */
+ * NOTE: not yet exercised on hardware. The value matters only when BL2 writes code flash,
+ * during an upgrade; validate-and-boot only reads. Proving it needs a two-version upgrade
+ * with a populated secondary slot. */
 static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_TOTAL_SIZE / FLASH_AREA_IMAGE_SECTOR_SIZE,
@@ -104,17 +96,16 @@ static ARM_FLASH_INFO FlashInfo = {
     .erased_value = 0xFF
 };
 
-/* Data flash info structure.
+/* Data flash info.
  *
- * program_unit and page_size are DERIVED, not literals. ITS and PS both compare the
- * advertised program_unit against their compile-time TFM_HAL_*_PROGRAM_UNIT and refuse to
- * start on a mismatch - tfm_internal_trusted_storage.c:210 and :246, returning
- * PSA_ERROR_PROGRAMMER_ERROR (-129) out of init_its_fs_cfg(). This said 1 while
- * flash_layout.h said 4, so ITS failed at spm_init_function() and PS would have followed.
+ * program_unit and page_size are derived, not literals. ITS and PS compare the advertised
+ * program_unit with their compile-time TFM_HAL_*_PROGRAM_UNIT and refuse to start on a
+ * mismatch: tfm_internal_trusted_storage.c:210 and :246 return PSA_ERROR_PROGRAMMER_ERROR
+ * (-129) from init_its_fs_cfg().
  *
- * 4 is the RA6M5 data flash write size (BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE); the 64-byte
- * figure is the ERASE block, which is sector_size. page_size is the programming page, so
- * it is the write size too - not the erase size it used to hold. */
+ * 4 is the RA6M5 data flash write size (BSP_FEATURE_FLASH_HP_DF_WRITE_SIZE). The 64-byte
+ * figure is the erase block, which is sector_size. page_size is the programming page, so
+ * it is also the write size, not the erase size. */
 static ARM_FLASH_INFO DataFlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_DATA_FLASH_SIZE / FLASH_DATA_FLASH_SECTOR_SIZE,
@@ -124,7 +115,6 @@ static ARM_FLASH_INFO DataFlashInfo = {
     .erased_value = 0xFF
 };
 
-/* Driver state */
 typedef struct {
     ARM_FLASH_STATUS status;
     uint8_t initialized;
@@ -183,11 +173,10 @@ static int32_t ARM_Flash_Initialize(ARM_Flash_SignalEvent_t cb_event)
         return ARM_DRIVER_ERROR;
     }
 
-    /* Validate flash parameters match our configuration
-     * RA6M5 code flash: 2 MB total; 8 KB blocks in region 0, 32 KB in region 1 */
+    /* Check the last code-flash region's block size against the MCUboot sector size.
+     * RA6M5 code flash: 2 MB total; 8 KB blocks in region 0, 32 KB in region 1. */
     uint32_t page_size = info.code_flash.p_block_array[info.code_flash.num_regions - 1U].block_size;
 
-    /* Validate against configured values */
     if (page_size != FLASH_AREA_IMAGE_SECTOR_SIZE) {
         R_FLASH_HP_Close(&g_flash0_ctrl);
         flash_state.status.busy = 0;
@@ -350,8 +339,8 @@ static int32_t ARM_DataFlash_Initialize(ARM_Flash_SignalEvent_t cb_event)
 
 static int32_t ARM_DataFlash_Uninitialize(void)
 {
-    /* Data flash shares initialization with code flash
-     * Don't uninitialize here as code flash may still need it */
+    /* Does not close: data flash shares the controller with code flash, which may still
+     * need it. */
     return ARM_DRIVER_OK;
 }
 

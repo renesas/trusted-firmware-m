@@ -5,32 +5,24 @@
  */
 
 /*
- * RA8M2 non-secure smoke test - exercises each secure service in turn.
+ * RA8M2 non-secure smoke test: calls each secure service in turn across the boundary.
  *
- * Up to now the port has only ever been shown to BOOT: BL2 verifies and jumps, tfm_s
- * initialises its partitions, and the NS image runs. Not one PSA service had ever been
- * called across the boundary. This is what closes that gap.
+ * One service at a time, and each step prints its banner before the call it describes.
+ * Several failure modes on this port return no status: the SPM calls tfm_core_panic() and
+ * spins, or the boundary faults and the NS side never runs again. The last line on the RTT
+ * channel is then the only evidence, so it must name the call that did not return rather
+ * than the last one that did.
  *
- * ONE SERVICE AT A TIME, and each step prints its banner BEFORE the call it describes.
- * That ordering is the whole point. A PSA call that fails usually returns a status, but
- * several failure modes on this port do not: the SPM calls tfm_core_panic() and spins, or
- * the boundary faults and the NS side never runs again. In those cases the last line on
- * the RTT channel is the only evidence, so it has to name the call that did not come back
- * rather than the last one that did.
- *
- * Output goes to RTT channel 0 via SEGGER_RTT_WriteString. Not printf: the NS
- * image is built with nano.specs and its heap is whatever the FSP project configured, and
- * a smoke test that needs a working heap to report a broken heap is no use. The formatting
- * here is a hand-rolled hex conversion for the same reason - no varargs, no reentrancy,
- * no allocation.
+ * Output goes to RTT channel 0 through SEGGER_RTT_WriteString, not printf: the NS image is
+ * built with nano.specs and its heap is whatever the FSP project configured, and a smoke
+ * test must not need a working heap to report a broken one. The hex formatting is
+ * hand-written for the same reason: no varargs, no reentrancy, no allocation.
  *
  * Reading the output: every line starts "[NS] ". A step prints "N. <name> ... " and then
- * either "ok" or "FAIL <status>". If a line has no "ok" or "FAIL" after it, that call is
- * where the port died.
+ * either "ok" or "FAIL <status>". A line with neither marks the call where the port died.
  *
- * RTT is not the only channel. Every result is also written to g_ns_test_results, which a
- * debugger can read with no host tooling - see the block below. That matters here because
- * the three images have three separate RTT control blocks and they overwrite each other.
+ * Every result is also written to g_ns_test_results, which a debugger can read with no
+ * host tooling (see "Debugger-readable results" below).
  */
 
 #include <stdint.h>
@@ -50,21 +42,21 @@
 /* ------------------------------------------------------------------------- */
 /* Debugger-readable results                                                  */
 /*                                                                            */
-/* RTT is not dependable on this port yet: BL2, tfm_s and tfm_ns each have    */
-/* their OWN control block, each in its own .bss, and tfm_s's crypto BSS      */
-/* (0x200022D8 + 0x7E14) covers BL2's block at 0x20003480 - so starting the   */
-/* secure image zeroes the block the viewer was attached to. Combined with    */
-/* SEGGER_RTT_MODE_NO_BLOCK_SKIP, which silently drops writes when no viewer  */
-/* is draining, a run can complete with nothing to show for it.               */
+/* RTT can show nothing on this port: BL2, tfm_s and tfm_ns each have their   */
+/* own control block in their own .bss, and a later image's .bss can cover    */
+/* an earlier image's block, zeroing the block the viewer was attached to     */
+/* (measured on RA6M5; see that part's tfm_service_tests.c, "Debugger-        */
+/* readable results"). SEGGER_RTT_MODE_NO_BLOCK_SKIP also drops writes        */
+/* silently when no viewer is draining.                                       */
 /*                                                                            */
-/* So the results are also recorded here, where a debugger can read them with */
-/* no host tooling at all. After a run the CPU parks in Reset_Handler's       */
-/* one-instruction spin (FSP's normal end of main, NOT a fault) - break       */
-/* there and inspect:                                                         */
+/* The results are therefore also recorded here, where a debugger can read    */
+/* them with no host tooling. After a run the CPU parks in Reset_Handler's    */
+/* one-instruction spin (FSP's normal end of main, not a fault); break there  */
+/* and inspect:                                                               */
 /*                                                                            */
 /*   g_ns_test_results.magic       0x52545354 ('RTST') once the run finished  */
 /*   g_ns_test_results.failures    0 = everything passed                      */
-/*   g_ns_test_results.last_step   the step that was RUNNING - if magic is    */
+/*   g_ns_test_results.last_step   the step that was running - if magic is    */
 /*                                 unset, this names what did not come back   */
 /*   g_ns_test_results.status[n]   0 = ok, otherwise the PSA status           */
 /*                                                                            */
@@ -120,8 +112,8 @@ static void ns_puts(const char *s)
     (void)SEGGER_RTT_WriteString(0U, s);
 }
 
-/* Signed-aware: PSA statuses are negative, and reading -135 as 0xFFFFFF79 in every log was
- * a real source of confusion during secure-side bring-up. Print both forms. */
+/* Signed-aware: PSA statuses are negative, so both forms are printed (-135 as well as
+ * 0xFFFFFF79). */
 static void ns_put_status(int32_t v)
 {
     static const char digits[] = "0123456789ABCDEF";
@@ -268,10 +260,10 @@ static void test_boundary(void)
 }
 
 /*
- * 3-5: crypto. init first, because everything else in the partition depends on it and a
- * failure here would otherwise surface as a confusing error inside a later call. Random
- * before hash: it is the shorter path, and it exercises the RSIP-E50D TRNG that this port wires
- * up itself (sce_trng.c) instead of using a stored NV seed.
+ * 3-5: crypto. Init first: everything else in the partition depends on it, and a failure
+ * here would otherwise surface as a confusing error in a later call. Random before hash: it
+ * is the shorter path, and it exercises the RSIP-E50D TRNG that this port wires up itself
+ * (sce_trng.c) instead of a stored NV seed.
  */
 static void test_crypto(void)
 {
@@ -323,10 +315,10 @@ static void test_crypto(void)
 }
 
 /*
- * 6-8: ITS. set/get/remove as one sequence, because a get that never had a matching set
- * proves nothing. This is the partition whose init returned -135 during secure bring-up
- * (block geometry), so it is worth reaching from the NS side rather than trusting that a
- * clean boot means a working filesystem.
+ * 6-8: ITS. set/get/remove as one sequence, because a get without a matching set proves
+ * nothing. This partition's init returned -135 (block geometry) during secure bring-up, so
+ * it is reached from the NS side rather than trusting that a clean boot means a working
+ * filesystem.
  */
 static void test_its(void)
 {
@@ -355,8 +347,7 @@ static void test_its(void)
         ok();
     }
 
-    /* Removed so a re-run starts from the same state - the data flash is only 8 KB and
-     * these tests are expected to be run repeatedly during bring-up. */
+    /* Removed so a re-run starts from the same state; these tests run repeatedly. */
     step("psa_its_remove");
     st = psa_its_remove(TEST_UID_ITS);
     if (st != PSA_SUCCESS) {
@@ -410,12 +401,11 @@ static void test_ps(void)
 /*
  * 12: attestation, asked only for the token SIZE.
  *
- * Not a full token: fetching one needs a
- * PSA_INITIAL_ATTEST_MAX_TOKEN_SIZE buffer on the NS stack and pulls in COSE signing over
- * the attestation key. The size query still proves the partition is alive, that its HAL
- * answers (this port supplies attest_hal.c), and that the boundary carries an
- * out-parameter correctly. Widen this once the split build lands and there is somewhere
- * sensible to put the buffer.
+ * Not a full token: fetching one needs a PSA_INITIAL_ATTEST_MAX_TOKEN_SIZE buffer on the NS
+ * stack and pulls in COSE signing over the attestation key. The size query still proves the
+ * partition is alive, that its HAL answers (this port supplies attest_hal.c), and that the
+ * boundary carries an out-parameter correctly. Widen this when there is somewhere sensible
+ * to put the buffer.
  */
 static void test_attestation(void)
 {

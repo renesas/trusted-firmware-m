@@ -3,12 +3,12 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * One-time SCE9 bring-up - see ra_sce_init.h.
+ * One-time SCE9 bring-up; see ra_sce_init.h.
  *
  * Built into the secure image (TRNG, and the cipher accelerator when CRYPTO_HW_ACCELERATOR
  * is on) and, with the accelerator on, into BL2 (SHA-256 for the image hash). Each image
- * has its own latch: BL2 resets the engine once for itself, and the secure image resets
- * it once more for its own use. BL2 does NOT de-initialise it before handing over (R147).
+ * has its own latch, so BL2 resets the engine once for itself and the secure image resets
+ * it once more. BL2 does not de-initialise it before handing over (R147).
  */
 
 #include <stdbool.h>
@@ -20,7 +20,7 @@
  * consumer of the platform library. */
 extern fsp_err_t HW_SCE_McuSpecificInit(void);
 
-/* Only a SUCCESSFUL init is latched, so a failure is retried on the next call. */
+/* Only a successful init is latched, so a failure is retried on the next call. */
 static bool ra_sce_ready = false;
 
 fsp_err_t ra_sce_init(void)

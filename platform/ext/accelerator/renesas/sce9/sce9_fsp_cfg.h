@@ -20,9 +20,9 @@
 
 /* rm_psa_crypto module configuration.
  *
- * Key format is PLAINTEXT only (0x01). FSP's default is 3 (plaintext + wrapped); with the
+ * Key format is plaintext only (0x01). FSP's default is 3 (plaintext + wrapped). With the
  * wrapped bit clear, every PSA_CRYPTO_IS_WRAPPED_SUPPORT_REQUIRED() branch in the ALT sources
- * compiles out, which is what keeps the wrapped-key vendor driver out of the image. */
+ * compiles out, which keeps the wrapped-key vendor driver out of the image. */
 #define PSA_CRYPTO_CFG_PLAINTEXT_KEY_SUPPORT                (0x01)
 #define PSA_CRYPTO_CFG_WRAPPED_KEY_SUPPORT                  (0x02)
 #define PSA_CRYPTO_CFG_WRAPPED_AND_PLAINTEXT_KEY_SUPPORT    ((PSA_CRYPTO_CFG_PLAINTEXT_KEY_SUPPORT) | \

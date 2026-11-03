@@ -4,44 +4,42 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * CMSIS Flash Driver for Renesas RA8M2 - MRAM, via FSP's r_mram.
+ * CMSIS flash driver for Renesas RA8M2 MRAM, over FSP's r_mram.
  *
- * Two driver instances over ONE device:
+ * Two driver instances over one device:
  *
  *   Driver_FLASH0 - the whole 1 MB MRAM. BL2's flash map (the four MCUboot slots).
- *   Driver_FLASH1 - windowed onto DF_EMULATION only. ITS, PS and the NV counters.
+ *   Driver_FLASH1 - a window onto DF_EMULATION only. ITS, PS and the NV counters.
  *
- * That is not the arrangement RA6E1/RA6M5 use, and the difference is the reason this file
- * needed rewriting rather than renaming. There, FLASH0 was code flash (r_flash_hp) and
- * FLASH1 was a genuinely separate data-flash device on the same controller. RA8M2 HAS NO
- * DATA FLASH (flash_layout.h), so FLASH1 is a second view of the same MRAM array, bounded to
- * the DF_EMULATION partition. Their address ranges therefore OVERLAP by design: FLASH0's
- * range spans the whole device, DF_EMULATION included. Nothing arbitrates that - BL2 only
- * ever hands FLASH0 offsets inside a slot, and DF_EMULATION is deliberately outside every
- * slot (asserted in ra8m2_layout_checks.c), so the two never write the same bytes.
+ * RA8M2 has no data flash (flash_layout.h), so FLASH1 is a second view of the same MRAM
+ * array, bounded to the DF_EMULATION partition; on RA6M5 FLASH1 is a separate data-flash
+ * device. The two address ranges therefore overlap by design: FLASH0 spans the whole
+ * device, DF_EMULATION included. Nothing arbitrates them. BL2 only passes FLASH0 offsets
+ * inside a slot, and DF_EMULATION is outside every slot (asserted in
+ * ra8m2_layout_checks.c), so the two never write the same bytes.
  *
- * ============================ THE OFFSET / ADDRESS TRAP ============================
+ * ================================ Offset/address trap ================================
  *
- * The two instances are called with DIFFERENT conventions, and on RA6M5 that distinction was
- * invisible because its code flash is based at 0x00000000 so offsets and addresses were the
- * same number. On RA8M2 MRAM is based at 0x02000000 and they are 32 MB apart.
+ * The two instances take different arguments. MRAM is based at 0x02000000, so an offset
+ * and its address are 32 MB apart; on RA6M5 code flash is based at 0x00000000 and the two
+ * are the same number.
  *
- *   FLASH0 receives a flat OFFSET into the device. bl2/src/flash_map.c calls
- *     ReadData(area->fa_off + off, ...) where fa_off is FLASH_AREA_n_OFFSET, already
+ *   FLASH0 receives a flat offset into the device. bl2/src/flash_map.c calls
+ *     ReadData(area->fa_off + off, ...), where fa_off is FLASH_AREA_n_OFFSET, already
  *     alias-stripped by flash_layout.h. The same file forms an address for its DMA path as
- *     "FLASH_BASE_ADDRESS + area->fa_off + off" (flash_map.c:147), which settles it.
+ *     "FLASH_BASE_ADDRESS + area->fa_off + off" (flash_map.c:147), which confirms it.
  *     => every FLASH0 entry point converts with MRAM_ADDR() before touching memory.
  *
- *   FLASH1 receives an absolute ADDRESS. its_flash_nor.c and
+ *   FLASH1 receives an absolute address. its_flash_nor.c and
  *     flash_otp_nv_counters_backend.c pass the platform's own
  *     TFM_HAL_ITS_FLASH_AREA_ADDR / TFM_NV_COUNTERS_AREA_OFFSET, and flash_layout.h defines
  *     those from BSP_PARTITION_DF_EMULATION_START, which is 0x02010000.
  *     => FLASH1 uses the value as given.
  *
- * Getting FLASH0 wrong is a wild access, not a diagnostic: offset 0x20000 with no base at
- * all lands in CPU0's secure DTCM. Getting the BASE right but the ALIAS wrong is a
- * HardFault instead, and only on a partitioned part - see MRAM_ADDR() below.
- * ==================================================================================
+ * A FLASH0 offset used with no base is a wild access, not a diagnostic: offset 0x20000
+ * lands in CPU0's secure DTCM. The right base with the wrong alias is a HardFault instead,
+ * and only on a partitioned part; see MRAM_ADDR() below.
+ * ===================================================================================
  */
 
 #include "Driver_Flash.h"
@@ -52,12 +50,12 @@
 #include <stdint.h>
 #include <string.h>
 
-/* The generated MRAM instance, declared directly rather than by including
- * ra_gen/common_data.h. That header includes FSP's own psa/crypto.h once the Crypto stack is
- * present in the e2 project, and would shadow TF-M's for every file in platform_s. The types
- * come from r_mram.h above; the definitions live in ra_gen/common_data.c, built as part of
- * the fsp_bsp module. (On RA6M5 the equivalent externs came from hal_data.c - FSP emits the
- * flash instance into common_data.c on this part.) */
+/* The generated MRAM instance, declared here instead of by including
+ * ra_gen/common_data.h. That header includes FSP's own psa/crypto.h once the Crypto stack
+ * is in the e2 project, and would shadow TF-M's for every file in platform_s. The types
+ * come from r_mram.h above; the definitions are in ra_gen/common_data.c, built as part of
+ * the fsp_bsp module. FSP emits the flash instance into common_data.c on this part, not
+ * hal_data.c as on RA6M5. */
 extern mram_instance_ctrl_t g_mram0_ctrl;
 extern const flash_cfg_t    g_mram0_cfg;
 
@@ -65,47 +63,41 @@ extern const flash_cfg_t    g_mram0_cfg;
 #define ARG_UNUSED(arg)  (void)(arg)
 #endif
 
-/* Offset -> address, for FLASH0 only. See THE OFFSET / ADDRESS TRAP above.
+/* Offset to address, for FLASH0 only. See "Offset/address trap" in the file header.
  *
- * THE ALIAS IS PART OF THE ADDRESS, AND IT IS NOT CONSTANT ACROSS THE DEVICE.
+ * The alias is part of the address, and it is not constant across the device.
  *
- * MRAM answers at two bases - 0x02000000 secure, 0x12000000 non-secure, which is
- * BSP_FEATURE_TZ_NS_OFFSET apart. Which one reaches a given byte is decided by the
- * TrustZone boundary burned in with the Device Partition Manager: below it the cells
- * respond on the secure alias only, at or above it on the non-secure alias only. Both
- * aliases do NOT reach every byte. Only the OFFSET is alias-independent, which is what
- * lets one Driver_FLASH0 serve all four slots - the address formed from it is not.
+ * MRAM answers at two bases, 0x02000000 secure and 0x12000000 non-secure,
+ * BSP_FEATURE_TZ_NS_OFFSET apart. The TrustZone boundary programmed with the Device
+ * Partition Manager decides which alias reaches a byte: below it, the secure alias only; at
+ * or above it, the non-secure alias only. Only the offset is alias-independent, which is
+ * what lets one Driver_FLASH0 serve all four slots.
  *
- * An earlier revision added FLASH_BASE_ADDRESS unconditionally. That is correct for the
- * three secure areas and wrong for the two non-secure ones, and it cost a full debug
- * session because the failure needs a PARTITIONED part to appear: on a virgin device the
- * whole of MRAM is secure, the secure alias reaches everything, and the bug is invisible.
- * Once RDPM is programmed, BL2 reads the secure primary slot at 0x02068000 fine, then
- * takes a HardFault inside memcpy() on the first access at or above 0x020B0000 - the NS
- * primary slot, written by the programmer at 0x120B0000 and read back through an alias
- * that does not answer there.
+ * Adding FLASH_BASE_ADDRESS unconditionally is correct for the secure areas and wrong for
+ * the non-secure ones, and the error shows only on a partitioned part. On a virgin device
+ * all of MRAM is secure, so the secure alias reaches everything. Once RDPM is programmed,
+ * BL2 takes a HardFault in memcpy() on the first access at or above 0x020B0000: the NS
+ * primary slot, written by the programmer at 0x120B0000 and read through an alias that does
+ * not answer there. D073.
  *
- * RA6M5 has BSP_FEATURE_TZ_NS_OFFSET = 0 and genuinely has one alias, so its driver adds
- * a single base and is right to. This file was derived from it.
+ * RA6M5 has BSP_FEATURE_TZ_NS_OFFSET = 0 and one alias, so its driver adds a single base.
  *
- * TWO CONSTANTS, FROM TWO DIFFERENT PLACES, AND NEITHER SUBSTITUTES FOR THE OTHER:
+ * Two constants, from two sources; neither substitutes for the other:
  *
- *   The DELTA between the aliases is BSP_FEATURE_TZ_NS_OFFSET, 0x10000000. It is a property
- *   of the device family, FSP states it, and it is taken from there rather than restated.
- *   flash_layout.h has to spell it as the literal FLASH_NS_ALIAS_BASE because that header is
- *   preprocessed into ra8m2_bl2.ld and cannot reach bsp_feature.h; ra8m2_layout_checks.c
- *   asserts the two agree, so the literal cannot drift.
+ *   The delta between the aliases is BSP_FEATURE_TZ_NS_OFFSET, 0x10000000. It is a property
+ *   of the device family, taken from FSP rather than restated. flash_layout.h spells it as
+ *   the literal FLASH_NS_ALIAS_BASE because that header is preprocessed into ra8m2_bl2.ld
+ *   and cannot reach bsp_feature.h; ra8m2_layout_checks.c asserts that the two agree.
  *
- *   The BOUNDARY is where secure MRAM ends, and that is a property of THIS partitioning, not
- *   of the family - it is whatever was programmed into CFSAMONA with RDPM. It has to move
- *   when the layout moves, or the driver picks the wrong alias again. Taken as the end of
- *   the NSC region, which is the boundary by definition here: RDPM can only express a
- *   contiguous Secure|NSC|NS triple, so the NSC is always the last secure thing.
- *   ra8m2_layout_checks.c asserts that, and that no secure area sits above it.
+ *   The boundary is where secure MRAM ends. It is a property of this partitioning, not of
+ *   the family: whatever RDPM programmed into CFSAMONA. It must move when the layout moves,
+ *   or the driver picks the wrong alias. It is taken as the end of the NSC region, which is
+ *   the boundary by definition here: RDPM can only express a contiguous Secure|NSC|NS
+ *   triple, so the NSC is always the last secure region. ra8m2_layout_checks.c asserts
+ *   that, and that no secure area sits above it.
  *
- *   Deriving the boundary from FLASH_AREA_1_OFFSET instead would give the same number today
- *   but name the wrong thing - it is where the first non-secure SLOT starts, which coincides
- *   with the boundary only as long as nobody reorders the areas. */
+ *   FLASH_AREA_1_OFFSET gives the same number today but names the first non-secure slot,
+ *   which coincides with the boundary only while the areas keep their order. D074. */
 #define MRAM_NS_BASE                                                     \
     ((uint32_t)(FLASH_BASE_ADDRESS) + (uint32_t)(BSP_FEATURE_TZ_NS_OFFSET))
 
@@ -118,21 +110,19 @@ extern const flash_cfg_t    g_mram0_cfg;
      ((uint32_t)(off) >= MRAM_NS_BOUNDARY ? MRAM_NS_BASE                 \
                                           : (uint32_t)(FLASH_BASE_ADDRESS)))
 
-/* R_MRAM_Erase() counts blocks of BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, i.e. 32 bytes -
- * NOT of FLASH_AREA_IMAGE_SECTOR_SIZE. mram_erase_blocks() writes 0xFF over
+/* R_MRAM_Erase() counts blocks of BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, 32 bytes, not
+ * of FLASH_AREA_IMAGE_SECTOR_SIZE. mram_erase_blocks() writes 0xFF over
  * num_blocks * PROGRAMMING_SIZE bytes, and R_MRAM_InfoGet() reports the same 32 as
- * block_size. So an erase of one MCUboot sector is 0x8000 / 32 = 1024 blocks, and one
+ * block_size. One MCUboot sector is therefore 0x8000 / 32 = 1024 blocks, and one
  * DF_EMULATION sector is 64 / 32 = 2.
  *
- * Three different numbers live in this area and none of them is the write granularity, which
- * is ONE BYTE (mram_write_data() copies byte at a time - see flash_layout.h):
+ * None of the three sizes here is the write granularity, which is one byte
+ * (mram_write_data() copies a byte at a time; see flash_layout.h):
  *   32      - the programming buffer / "erase" block, what R_MRAM_Erase counts
  *   0x8000  - the MCUboot sector, FSP's RM_MCUBOOT_MRAM_BLOCK_SIZE
  *   64      - DF_EMULATION's logical FS sector
- * MRAM has no erase granularity in the flash sense at all; its "erase" is a normal
- * programming pass writing the erased value. The RA6M5 driver this came from computed its
- * data-flash block count as SECTOR_SIZE / SECTOR_SIZE, which is 1 and was right only because
- * a data-flash block happened to equal its sector. */
+ * MRAM has no erase granularity in the flash sense; its "erase" is a normal programming
+ * pass that writes the erased value. */
 #define MRAM_ERASE_BLOCK_SIZE    (BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES)
 #define MRAM_BLOCKS_PER(sector)  ((sector) / MRAM_ERASE_BLOCK_SIZE)
 
@@ -145,24 +135,19 @@ static const ARM_DRIVER_VERSION DriverVersion = {
 
 /* Driver capabilities.
  *
- * data_width MUST stay 0 (8-bit). In CMSIS the `cnt` argument of ReadData/ProgramData is a
- * count of DATA ITEMS of data_width bytes, not a byte count, and every TF-M consumer divides
- * a byte length by data_width before calling - bl2/src/flash_map.c, its_flash_nor.c,
- * its_flash_nand.c and flash_otp_nv_counters_backend.c all do. The functions below are
- * implemented in BYTES throughout (memcpy(.., cnt), R_MRAM_Write(.., cnt), and the
- * addr + cnt range checks), so 8-bit items make items == bytes and the two agree.
+ * data_width must stay 0 (8-bit). In CMSIS the `cnt` argument of ReadData/ProgramData
+ * counts data items of data_width bytes, not bytes, and every TF-M consumer divides a byte
+ * length by data_width before calling: bl2/src/flash_map.c, its_flash_nor.c,
+ * its_flash_nand.c and flash_otp_nv_counters_backend.c. The functions below work in bytes
+ * throughout (R_MRAM_Write(.., cnt), memcpy(.., cnt) and the addr + cnt range checks), so
+ * only 8-bit items keep items and bytes equal. A wider setting makes every transfer move a
+ * fraction of the requested data; on RA6M5, 32-bit made init_otp_nv_counters_flash() fail
+ * on every boot.
  *
- * On RA6M5 this was briefly 2 (32-bit), which made every transfer move a quarter of the
- * requested data. It showed up as init_otp_nv_counters_flash() failing on every boot: it
- * reads the 4-byte init_value, the backend asked for 4/4 = 1 item, the driver copied 1 byte,
- * and the remaining three bytes were uninitialised stack - so the area never looked
- * initialised and the repair path then wrote at quarter size too. Kept at 0 here for the
- * same reason, not by inheritance.
- *
- * Honest as well as convenient: MRAM is memory-mapped and byte-readable. Write granularity is
- * a separate concern, carried by the *_PROGRAM_UNIT macros in flash_layout.h - 32 for FLASH0
- * because FSP fixes MCUboot's alignment there, 4 for FLASH1 so ITS/PS stay off the NAND path -
- * not by data_width.
+ * MRAM is memory-mapped and byte-readable, so 8-bit is also accurate. Write granularity is
+ * carried by the *_PROGRAM_UNIT macros in flash_layout.h (32 for FLASH0 because FSP fixes
+ * MCUboot's alignment there, 4 for FLASH1 so ITS and PS stay off the NAND path), not by
+ * data_width.
  */
 static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0, /* event_ready */
@@ -171,30 +156,28 @@ static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
     0  /* reserved */
 };
 
-/* MRAM info, as BL2 sees it (Driver_FLASH0).
+/* MRAM info as BL2 sees it (Driver_FLASH0).
  *
- * program_unit is the MRAM write size, BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES = 32. It is
- * load-bearing in two places that must agree:
+ * program_unit is the MRAM programming size, BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES = 32,
+ * not the write granularity (see MRAM_ERASE_BLOCK_SIZE above). Two places depend on it and
+ * must agree:
  *   - bl2/src/flash_map.c:422 returns it as flash_area_align(), which MCUboot uses to size
  *     and place the image trailer, and to pad every write it makes to a slot.
  *   - bl2/ext/mcuboot/CMakeLists.txt signs with --align ${MCUBOOT_ALIGN_VAL} --pad, so
  *     imgtool computes the same trailer geometry ahead of time.
- * config.cmake therefore sets MCUBOOT_ALIGN_VAL to 32 alongside this. Change the two
- * together or BL2 looks for the trailer magic where imgtool did not put it. FSP agrees
- * independently: its generated mcuboot_config.h sets MCUBOOT_BOOT_MAX_ALIGN from the same
- * BSP feature.
+ * config.cmake therefore sets MCUBOOT_ALIGN_VAL to 32. Change the two together, or BL2
+ * looks for the trailer magic where imgtool did not put it. FSP's generated
+ * mcuboot_config.h sets MCUBOOT_BOOT_MAX_ALIGN from the same BSP feature.
  *
- * 32 needs none of the special handling RA6M5's 128 did: it is inside the [1,2,4,8,16,32]
- * range that MCUboot's _trailer_size() and the bootutil_public.c _Static_assert accept, so
- * the wrapper.py and mcuboot_default_config.cmake list edits that port needed do not apply
- * here.
+ * 32 is inside the [1,2,4,8,16,32] range that MCUboot's _trailer_size() and the
+ * bootutil_public.c _Static_assert accept, so the wrapper.py and
+ * mcuboot_default_config.cmake list edits that RA6M5's 128 needs do not apply here.
  *
- * sector_size is the MCUboot sector, which is NOT the same as program_unit - see
+ * sector_size is the MCUboot sector, which differs from program_unit; see
  * MRAM_ERASE_BLOCK_SIZE above and flash_layout.h.
  *
- * NOT YET EXERCISED ON HARDWARE. It only takes effect once BL2 WRITES MRAM, on an upgrade;
- * validate-and-boot reads only. Proving it needs a real two-version upgrade with a populated
- * secondary slot.
+ * BL2 writes MRAM only during an upgrade; validate-and-boot only reads. The upgrade path
+ * has run on this part (TEST_RESULTS.md §4, D100).
  */
 static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL,
@@ -205,23 +188,22 @@ static ARM_FLASH_INFO FlashInfo = {
     .erased_value = 0xFF
 };
 
-/* DF_EMULATION info, as ITS/PS/OTP see it (Driver_FLASH1).
+/* DF_EMULATION info as ITS, PS and OTP see it (Driver_FLASH1).
  *
- * program_unit and page_size are DERIVED, not literals. ITS and PS both compare the
- * advertised program_unit against their compile-time TFM_HAL_*_PROGRAM_UNIT and refuse to
- * start on a mismatch - tfm_internal_trusted_storage.c:210 and :246, returning
- * PSA_ERROR_PROGRAMMER_ERROR (-129) out of init_its_fs_cfg(). On RA6M5 this said 1 while
- * flash_layout.h said 4, and ITS failed at spm_init_function() with PS to follow.
+ * program_unit and page_size are derived, not literals. ITS and PS compare the advertised
+ * program_unit with their compile-time TFM_HAL_*_PROGRAM_UNIT and refuse to start on a
+ * mismatch: tfm_internal_trusted_storage.c:210 and :246 return PSA_ERROR_PROGRAMMER_ERROR
+ * (-129) from init_its_fs_cfg().
  *
- * 4, not FLASH0's 32, even though it is the same array - because MRAM writes single bytes
- * and the two consumers want different things from the number. MCUboot takes 32 because FSP's
- * generated mcuboot_config.h says so; ITS and PS take 4 because above 16 its_flash.c switches
- * to a NAND emulation that would allocate about 62 KB of RAM buffers for no benefit. See
- * TFM_HAL_DATA_FLASH_PROGRAM_UNIT in flash_layout.h for the whole argument.
+ * The value is 4, not FLASH0's 32, although the array is the same: MRAM writes single bytes,
+ * and the two consumers want different things. MCUboot takes 32 because FSP's generated
+ * mcuboot_config.h says so. ITS and PS take 4 because above 16 its_flash.c switches to a
+ * NAND emulation that allocates about 62 KB of RAM buffers for no benefit. See
+ * TFM_HAL_DATA_FLASH_PROGRAM_UNIT in flash_layout.h.
  *
- * The 64-byte figure is the LOGICAL sector the flash filesystem rotates on, which is
- * sector_size; MRAM imposes no erase granularity of its own, so 64 is a choice carried over
- * from RA6M5's data flash and must stay a multiple of the program unit.
+ * The 64-byte sector_size is the logical sector the flash filesystem rotates on. MRAM has
+ * no erase granularity of its own, so 64 is carried over from RA6M5's data flash and must
+ * stay a multiple of the program unit.
  *
  * erased_value 0xFF matches mram_erase_blocks(), which writes UINT8_MAX bytes.
  */
@@ -296,13 +278,13 @@ static int32_t mram_open_once(void)
         return ARM_DRIVER_ERROR;
     }
 
-    /* Validate that the driver and this file agree on the write granularity.
+    /* Check that the driver and this file agree on the erase block.
      *
      * R_MRAM_InfoGet() reports block_size = BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES for its
-     * single code region. Compare against the PROGRAM UNIT, not the MCUboot sector size -
-     * the RA6M5 driver compared the reported block size against FLASH_AREA_IMAGE_SECTOR_SIZE,
-     * which was right there only because its code-flash region-1 erase block and its MCUboot
-     * sector were both 32 KB. Here they are 32 and 0x8000, so that test would always fail. */
+     * single code region. Compare it with MRAM_ERASE_BLOCK_SIZE, not the MCUboot sector
+     * size: here they are 32 and 0x8000. The RA6M5 driver compares with the sector size,
+     * which works there only because its region-1 erase block and its MCUboot sector are
+     * both 32 KB. */
     flash_info_t info;
     if (FSP_SUCCESS != R_MRAM_InfoGet(&g_mram0_ctrl, &info)) {
         R_MRAM_Close(&g_mram0_ctrl);
@@ -326,7 +308,7 @@ static int32_t mram_open_once(void)
     return ARM_DRIVER_OK;
 }
 
-/* Shared write/erase bodies. `addr` is an ABSOLUTE address by the time it reaches these. */
+/* Shared write/erase bodies. `addr` is an absolute address by the time it reaches these. */
 static int32_t mram_program(uint32_t addr, const void *data, uint32_t cnt)
 {
     if (!flash_state.initialized) {
@@ -384,7 +366,7 @@ static int32_t ARM_Flash_Uninitialize(void)
     return ARM_DRIVER_OK;
 }
 
-/* Offsets are bounded by the device SIZE, not by an address range - see the trap note. */
+/* Offsets are bounded by the device size, not by an address range; see the trap note. */
 static bool flash0_range_ok(uint32_t off, uint32_t cnt)
 {
     return (cnt <= FLASH_TOTAL_SIZE) && (off <= (FLASH_TOTAL_SIZE - cnt));
@@ -428,9 +410,9 @@ static int32_t ARM_Flash_EraseSector(uint32_t addr)
 
 static int32_t ARM_Flash_EraseChip(void)
 {
-    /* Erases the WHOLE device, DF_EMULATION and BL2 included. Present because
-     * DriverCapabilities advertises erase_chip and nothing in this port calls it; if
-     * something ever does, it destroys ITS, PS and the NV counters too. */
+    /* WARNING: erases the whole device, BL2 and DF_EMULATION included, so ITS, PS and the
+     * NV counters are lost too. It exists because DriverCapabilities advertises erase_chip;
+     * nothing in this port calls it. */
     for (uint32_t off = 0U; off < FLASH_TOTAL_SIZE; off += FLASH_AREA_IMAGE_SECTOR_SIZE) {
         if (ARM_Flash_EraseSector(off) != ARM_DRIVER_OK) {
             return ARM_DRIVER_ERROR;
@@ -472,8 +454,8 @@ static int32_t ARM_DataFlash_Initialize(ARM_Flash_SignalEvent_t cb_event)
 
 static int32_t ARM_DataFlash_Uninitialize(void)
 {
-    /* Does NOT close, by design: FLASH0 may still be using the controller, and on this
-     * part they are the same device rather than two peripherals. */
+    /* Does not close: FLASH0 may still use the controller, and on this part the two are
+     * the same device, not two peripherals. */
     return ARM_DRIVER_OK;
 }
 

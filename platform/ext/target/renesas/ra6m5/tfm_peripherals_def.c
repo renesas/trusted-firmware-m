@@ -11,11 +11,11 @@
 
 /*
  * RA6 has no MPC/PPC, so every platform_data_t here carries the PPC_SP_DO_NOT_CONFIGURE
- * sentinel and tfm_hal_bind_boundary() skips the peripheral-programming branch entirely.
- * See target_cfg.h for why the type exists at all.
+ * sentinel and tfm_hal_bind_boundary() skips the peripheral-programming branch. See
+ * target_cfg.h for why the type exists.
  *
- * SCI0 base is 0x40118000 on RA6M5 (R_SCI0), 0x100 of register space. Taken as the "std
- * UART" because TFM_DRIVER_STDIO names Driver_USART0 (device_cfg.h).
+ * SCI0 (R_SCI0) is at 0x40118000 on RA6M5, with 0x100 bytes of register space. It is the
+ * "std UART" because TFM_DRIVER_STDIO names Driver_USART0 (device_cfg.h).
  */
 struct platform_data_t tfm_peripheral_std_uart = {
     .periph_start     = 0x40118000,
@@ -25,10 +25,9 @@ struct platform_data_t tfm_peripheral_std_uart = {
 };
 
 /*
- * AGT0 (R_AGT0) is at 0x400E8000 on RA6M5, 0x100 of register space - AGT1 starts at
- * 0x400E8100. The block is a union of a 32-bit (AGTW) and 16-bit (AGT) register view
- * over the same addresses, so the region is the same either way; the secure project
- * selects the 16-bit view.
+ * AGT0 (R_AGT0) is at 0x400E8000 on RA6M5, with 0x100 bytes of register space; AGT1 starts
+ * at 0x400E8100. The 32-bit (AGTW) and 16-bit (AGT) register views share these addresses,
+ * so the region is the same for either; the secure project selects the 16-bit view.
  *
  * Claimed by tf-m-tests' FLIH and SLIH test services as TFM_PERIPHERAL_TIMER0.
  */
@@ -40,9 +39,9 @@ struct platform_data_t tfm_peripheral_timer0 = {
 };
 
 /*
- * Allow-list of named MMIO a partition may claim. A partition asking for anything not in
- * here fails tfm_hal_bind_boundary() with TFM_HAL_ERROR_GENERIC, which the SPM turns into
- * a panic during partition init - so an addition to a manifest needs an addition here.
+ * Allow-list of named MMIO regions a partition may claim. A claim not listed here fails
+ * tfm_hal_bind_boundary() with TFM_HAL_ERROR_GENERIC, which the SPM turns into a panic at
+ * partition init, so a new mmio_region in a manifest needs an entry here.
  */
 const uintptr_t partition_named_mmio_list[] = {
     (uintptr_t)TFM_PERIPHERAL_STD_UART,

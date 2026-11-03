@@ -1,15 +1,15 @@
 # FSP Flash Module Library - MRAM (r_mram), not Flash HP.
 #
-# RA8M2 has MRAM and NO DATA FLASH, so this is not the r_flash_hp module RA6E1/RA6M5 build.
-# TF-M's cmsis_drivers/Driver_Flash.c wraps the one driver as TWO CMSIS instances over the
-# same array:
+# RA8M2 has MRAM and no data flash, so this builds r_mram rather than the r_flash_hp of
+# RA6E1/RA6M5. TF-M's cmsis_drivers/Driver_Flash.c wraps the one driver as two CMSIS
+# instances over the same array:
 #
 #   Driver_FLASH0 - the whole 1 MB MRAM, for BL2's four MCUboot slots
 #   Driver_FLASH1 - windowed onto DF_EMULATION, for ITS, PS and the NV counters
 #
-# Both are needed in both roles: the secure image for storage, BL2 for slot access. See
-# flash_layout.h for the partitioning and Driver_Flash.c for the offset-vs-address
-# convention the two instances use.
+# Both roles need both: the secure image for storage, BL2 for slot access. See flash_layout.h
+# for the partitioning and Driver_Flash.c for the offset-versus-address convention of the two
+# instances.
 #
 # Adding a module: ra_fsp_cmake_tfm/ADDING_FSP_MODULES.md.
 

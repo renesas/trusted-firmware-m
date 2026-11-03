@@ -1,91 +1,82 @@
 #!/usr/bin/env python3
 """
-check_ofs.py - BRICK GUARD for Renesas RA option-setting (OFS) memory.
+check_ofs.py - brick guard for Renesas RA option-setting (OFS) memory.
 
-Root cause of the two bricked EK-RA6M4 boards on 2026-07-21 (DESIGN.md 8.4): the OFS words
-were placed so GNU ld coalesced them into ONE PT_LOAD segment spanning
-0x0100A100-0x0100A284 with the gaps ZERO-FILLED. A debugger flashes by program header, so it
-wrote 0x00000000 across the span - eight DEFINED option registers (BPS/PBPS among them) plus
-the reserved bytes between them - and the parts never came back (DECISIONS D133).
-
-Having OFS in an image is FINE and expected. What bricks the part is a LOAD segment spanning more
-than one option word (i.e. covers gaps that get zero-filled and programmed). FSP's fsp_gen.ld
-avoids this by giving each word its own MEMORY region -> a separate, tiny PT_LOAD segment.
+Having OFS in an image is expected. What bricks the part is a PT_LOAD segment spanning more than
+one option word, because its gaps are zero-filled and programmed. A debugger flashes by program
+header, so it writes 0x00000000 across every defined option register and reserved byte in the
+span. Two EK-RA6M4 boards were destroyed this way, with no recovery known: GNU ld coalesced
+their OFS words into one segment spanning 0x0100A100-0x0100A284, which covered eight defined
+option registers, BPS and PBPS among them (DESIGN.md 8.4, DECISIONS D133). FSP's fsp_gen.ld
+avoids this by giving each word its own MEMORY region, and so its own small PT_LOAD segment.
 This guard enforces the same.
 
 ---------------------------------------------------------------------------------------------
-THE OFS REGION IS PER PART AND MUST BE GIVEN. Earlier revisions of this file hardcoded
-RA6's 0x0100A100-0x0100A2CF and claimed "the RA6E1 option-setting map is byte-identical to the
-RA6M4's ... so one copy serves both parts". That is true of RA6E1/RA6M4/RA6M5 and FALSE of
-RA8M2, whose option memory is at 0x02c9f040+ with a second OTP block at 0x02e07600+.
+The OFS region is per part and must be given. RA6E1, RA6M4 and RA6M5 share
+0x0100A100-0x0100A2CF (--ra6-default). RA8M2's option memory is at 0x02c9f040+ with OTP blocks
+from 0x02e07600+, in five windows (ra8m2/CMakeLists.txt, RA8M2_OFS_REGIONS).
 
-The consequence was worse than no guard. Run against an RA8M2 bl2.axf carrying six OFS
-segments, the hardcoded window matched none of them and it printed
-
-    bl2.axf        CLEAN (no OFS segments)
-    PASS: OFS (if any) is in discrete per-word segments - safe to flash.
-
-- a false negative that reads as verification. It would also have passed the genuinely wrong
-build that placed RA8M2's OFS0 at RA6M5's 0x0100A100, because that address IS inside the old
-window and the segment was discrete: this guard checks SPANNING, not whether the addresses
-belong to the device.
-
-So --region is now required unless --ra6-default is given explicitly, and an image that is
-expected to carry OFS can demand it with --require-segments. "I looked in the wrong place" can
-no longer print as PASS.
+This guard checks spanning, not whether the addresses belong to the device. A window that
+misses the image's OFS segments reports CLEAN and PASS, a false negative that reads as
+verification. A discrete OFS word placed at another part's address also passes. --region is
+therefore required unless --ra6-default is given, and an image expected to carry OFS can
+demand it with --require-segments.
 ---------------------------------------------------------------------------------------------
 
 ---------------------------------------------------------------------------------------------
-THE FLAT .bin IS A SECOND WAY IN, AND THE ELF CHECK DOES NOT COVER IT. An image whose ELF is
-perfectly correct - discrete per-word OFS segments, this guard PASSing - and `objcopy -O
-binary` still bricks the part. objcopy flattens from the lowest load address to the highest, ZERO-FILLING
-everything between, so RA8M2's bl2, whose last OFS word sits at 0x02c9f124, produces a
-13,234,472-byte bl2.bin spanning 0x02000000-0x02c9f128. Flash that at the MRAM base and the
-zero fill lands on the option memory: the brick, reconstituted, from a build that passed.
+The flat .bin is a second route to the brick, and the ELF check does not cover it. An ELF with
+discrete per-word OFS segments passes this guard, yet `objcopy -O binary` still bricks the
+part. objcopy flattens from the lowest load address to the highest and zero-fills everything
+between. RA8M2's bl2, whose last OFS word sits at 0x02c9f124, becomes a 13,234,472-byte bl2.bin
+spanning 0x02000000-0x02c9f128; flashed at the MRAM base, its zero fill lands on the option
+memory.
 
-The .hex and .srec are record-based and skip the gaps, so they are safe. Only the flat binary
-coalesces. --check-flat-bin looks for the sibling .bin and fails when the ELF carries OFS but
-the .bin is sized as if it spans to it.
+The .hex and .srec are record-based and skip the gaps, so they are safe; only the flat binary
+coalesces. --emit-safe-bin writes a flat binary without the OFS segments. --check-flat-bin
+looks for the sibling .bin and fails when the ELF carries OFS but the .bin is sized as if it
+spans to it.
 ---------------------------------------------------------------------------------------------
 
 Usage:
     check_ofs.py --region 0xSTART:0xEND [--region ...] [--require-segments] ELF [ELF ...]
     check_ofs.py --ra6-default [--require-segments] ELF [ELF ...]
 
-    --region S:E        OFS address window, END EXCLUSIVE. Repeatable - RA8M2 needs two.
+    --region S:E        OFS address window, END exclusive. Repeatable; RA8M2 needs five.
     --ra6-default       use 0x0100A100:0x0100A2D0, the RA6E1/RA6M4/RA6M5 map.
-    --require-segments  FAIL if an image has no OFS segment at all. Use for BL2, which is
-                        the image that carries the option words; a CLEAN result there means
-                        either the sections were dropped or the window is wrong.
-    --forbid-segments   FAIL if an image has ANY OFS segment. Use for tfm_s, which must
-                        never carry option words: without it a secure image that picked
-                        one up passes as "1 discrete OFS segment", because discrete is all
-                        the default check asks for.
+    --require-segments  FAIL if an image has no OFS segment. Use for BL2, which carries the
+                        option words; a CLEAN result there means the sections were dropped
+                        or the window is wrong.
+    --forbid-segments   FAIL if an image has any OFS segment. Use for tfm_s, which must never
+                        carry option words. Without it, a secure image that picked one up
+                        passes as "1 discrete OFS segment", because the default check asks
+                        only for discrete segments.
     --max-word N        largest single option word in bytes (default 0x80: RA8M2's BPS is
                         0x80, RA6M5's BPS and PBPS are 0x10, RA6E1's and RA6M4's are 0xC).
                         Take it from the part's own region_defs.h. Too small is not safe
-                        either: a legitimately placed BPS group then reads as SPANNING and
+                        either: a correctly placed BPS group then reads as SPANNING and
                         fails the build.
-    --check-flat-bin    also FAIL if the sibling <image>.bin spans from the image base up
-                        into an OFS region. See the note above - the ELF can be correct and
-                        the .bin still brick the part.
+    --check-flat-bin    also FAIL if the sibling <image>.bin spans from the image base into
+                        an OFS region. The ELF can be correct and the .bin still brick the
+                        part.
+    --emit-safe-bin OUT before the checks, write a flat binary of the image's non-OFS
+                        PT_LOAD segments to OUT. Takes exactly one image.
     --quarantine        on FAIL, rename the image and every flashable sibling (.axf .bin
                         .elf .hex .srec) to *.UNSAFE. A failing build still leaves those
                         files on disk, and the committed debug launches flash bl2.elf with
-                        ATTR_BUILD_BEFORE_LAUNCH disabled - so a failed guard does not stop
-                        the next launch from programming the image it just rejected.
+                        ATTR_BUILD_BEFORE_LAUNCH disabled. Without the rename, the next
+                        launch programs the image the guard rejected.
 
-Exit: 0 = safe, 1 = a spanning OFS segment (DO NOT FLASH) or a required segment missing,
-      2 = tool error.
+Exit: 0 = safe; 1 = DO NOT FLASH: a spanning or forbidden OFS segment, a required segment
+      missing, a missing image, or a flat .bin that reaches OFS or is missing; 2 = tool error.
 """
 import os, re, shutil, subprocess, sys
 
 
 def die(msg):
-    """A TOOL error: exit 2, never 1.
+    """Report a tool error and exit 2, never 1.
 
-    Exit 1 is this guard's DO NOT FLASH verdict. A missing readelf or a bad argument
-    must not be readable as a finding about the image, so they exit 2 instead.
+    Exit 1 is this guard's DO NOT FLASH verdict. A missing readelf or a bad argument must not
+    read as a finding about the image.
     """
     print(msg, file=sys.stderr)
     raise SystemExit(2)
@@ -100,10 +91,9 @@ QUARANTINE_EXTS = (".axf", ".bin", ".elf", ".hex", ".srec")
 def quarantine(elf):
     """Rename the image and its flashable siblings to *.UNSAFE. Returns what moved.
 
-    Renamed, not deleted: the image is the evidence. bringup/bricking_evidence holds the
-    one that destroyed two EK-RA6M4 boards, and it is the reason D133 could be written at
-    all. What has to stop is a rejected image staying in bin/ under the name a launch
-    expects.
+    Renamed, not deleted: a rejected image is evidence. bringup/bricking_evidence holds the
+    one that destroyed two EK-RA6M4 boards (D133). The rename stops a rejected image staying
+    in bin/ under the name a launch expects.
     """
     stem = os.path.splitext(elf)[0]
     moved = []
@@ -184,10 +174,9 @@ def parse_args(argv):
 def all_load_segments(elf):
     """Every PT_LOAD with filesz > 0, as (file_offset, vaddr, paddr, filesz).
 
-    objcopy -O binary lays the flat image out by PHYSICAL address, so the flat-binary
-    check below must use paddr. The OFS check uses vaddr, which is what the option words
-    are addressed by and what the RA6M4 post-mortem was written against; for OFS segments
-    the two are equal anyway (see the readelf output in DESIGN.md 8.4).
+    objcopy -O binary lays out the flat image by physical address, so the flat-binary code
+    below uses paddr. The OFS check uses vaddr, by which the option words are addressed; for
+    OFS segments the two are equal (see the readelf output in DESIGN.md 8.4).
     """
     try:
         out = subprocess.run([READELF, "-l", elf], capture_output=True, text=True,
@@ -217,19 +206,18 @@ def load_segments(elf, regions):
 
 
 def emit_safe_bin(elf, regions, outpath):
-    """Write a flat binary from the ELF's PT_LOAD segments, EXCLUDING the OFS ones.
+    """Write a flat binary from the ELF's PT_LOAD segments, excluding the OFS ones.
 
-    THIS IS ADDRESS-DRIVEN ON PURPOSE. The obvious implementation is
-    `objcopy -O binary --remove-section=.option_setting*`, and it works only on GNU
-    output. IAR's ILINK renames sections to opaque positional names taken from the .icf
-    block order - the RA6M5 bl2 comes out with the three option words in sections called
-    P1, P7 and P11 - so a name pattern matches nothing, objcopy copies everything, and the
-    result is the full multi-megabyte brick with no error reported. Those names also move
-    whenever the .icf block order changes, so hardcoding them is no better.
+    Deliberately address-driven. `objcopy -O binary --remove-section=.option_setting*` works
+    only on GNU output. IAR's ILINK renames sections to opaque positional names taken from the
+    .icf block order: the RA6M5 bl2 puts its three option words in sections P1, P7 and P11.
+    A name pattern then matches nothing, objcopy copies everything, and the result is the full
+    multi-megabyte brick with no error reported. The names also move whenever the .icf block
+    order changes, so hardcoding them does not help.
 
-    Addresses do not move: they come from the device's option memory map, which is what
-    --region already describes for the check. So the safe binary is emitted here from the
-    program headers directly, and no objcopy is involved on either toolchain.
+    Addresses do not move: they come from the device's option memory map, which --region
+    already describes for the check. This function therefore emits the safe binary from the
+    program headers directly, with no objcopy on either toolchain.
     """
     segs = all_load_segments(elf)
     keep = [(o, p, f) for (o, v, p, f) in segs if not in_regions(v, f, regions)]
@@ -256,18 +244,17 @@ def emit_safe_bin(elf, regions, outpath):
 
 
 def flat_bin_verdict(elf, regions):
-    """Check the FLAT BINARY on disk, not what the ELF implies.
+    """Check the flat binary on disk, not what the ELF implies.
 
-    `objcopy -O binary` spans lowest paddr to highest and zero-fills the gaps, so an ELF
-    whose OFS words sit far above the image produces a flat binary tens of MB long whose
-    fill covers the option memory. The platform build defeats that by regenerating the
-    .bin with --remove-section=.option_setting*, and this checks that it did:
-    the safe binary is the non-OFS span, and anything longer still reaches the
-    option words.
+    `objcopy -O binary` spans lowest paddr to highest and zero-fills the gaps, so an ELF whose
+    OFS words sit far above the image yields a flat binary tens of MB long whose fill covers
+    the option memory. The platform build regenerates the .bin with --emit-safe-bin
+    (emit_safe_bin()), and this checks that it did: the safe binary is the non-OFS span, and
+    anything longer still reaches the option words.
 
-    A MISSING .bin is a FAILURE, never a pass. The guard target depends on the bin target
-    (bl2/ is configured before platform/, so it exists), and "I could not find it" must
-    not read as "it is fine" - that is the mistake this whole file was rewritten over.
+    A missing .bin is a failure, never a pass: "I could not find it" must not read as "it is
+    fine". The guard target depends on the bin target (bl2/ is configured before platform/,
+    so it exists).
 
     Returns (status, detail).
     """

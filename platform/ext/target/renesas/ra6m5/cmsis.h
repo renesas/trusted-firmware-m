@@ -9,7 +9,7 @@
 #ifndef __CMSIS_H__
 #define __CMSIS_H__
 
-/* Include Renesas BSP API which includes CMSIS core headers */
+/* bsp_api.h includes the CMSIS core headers. */
 #include "bsp_api.h"
 
 #endif /* __CMSIS_H__ */

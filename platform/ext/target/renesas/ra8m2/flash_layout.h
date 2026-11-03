@@ -8,23 +8,20 @@
 #define __FLASH_LAYOUT_H__
 
 /*
- * RA8M2 flash layout - DERIVED, NOT HAND-MAINTAINED.
+ * RA8M2 flash layout, derived from the e2 solution. Do not edit it by hand.
  *
- * Every address and size below comes from bsp_linker_info.h, which the e2 studio
- * SOLUTION generates for each project from solution.xml. Change the partitions in
- * the solution, rebuild the projects in e2, and this header follows with no edits.
+ * Every address and size comes from bsp_linker_info.h, which e2 studio generates for each
+ * project from solution.xml. To change the layout, change the partitions in the solution and
+ * rebuild the projects in e2; this header follows. RASC/e2 is the source of truth
+ * (DESIGN.md §3).
  *
- * This inverts the ra6m4 model, where flash_layout.h was authoritative and the RASC
- * values were vestigial (DESIGN.md 3). Here RASC/e2 is the source of truth.
+ * bsp_linker_info.h is in <project>/Debug/, so the solution must be built in e2 at least once
+ * before TF-M can configure. The platform CMakeLists stops with a message if it is missing.
  *
- * bsp_linker_info.h lives in <project>/Debug/, so the solution must have been built
- * in e2 at least once before TF-M can configure. The platform CMakeLists fails with a
- * clear message if it is absent.
- *
- * We include bsp_partitions.h, not bsp_linker_info.h directly: the platform CMakeLists
- * filters the generated file down to its #define BSP_PARTITION_* lines. This header is
- * preprocessed into ra8m2_bl2.ld as well as compiled, and bsp_linker_info.h also
- * declares C types and externs that a linker script cannot parse.
+ * This header includes bsp_partitions.h, which the platform CMakeLists filters from
+ * bsp_linker_info.h down to its #define BSP_PARTITION_* lines. The header is also preprocessed
+ * into ra8m2_bl2.ld, and a linker script cannot parse the C types and externs in
+ * bsp_linker_info.h.
  *
  * Partition -> TF-M mapping:
  *   FLASH_BL_CPU0_S   -> BL2 (MCUboot)
@@ -35,18 +32,18 @@
  *   __BL_1_S_*        -> image 1 secondary = non-secure (FLASH_AREA_3)
  *
  * ----------------------------------------------------------------------------------
- * HOW THIS DIFFERS FROM RA6M5, which it was derived from:
+ * Differences from RA6M5, from which this port was derived:
  *
- *   1. The storage is MRAM, not code flash. Write unit 32 B, not 128; the MCUboot
- *      sector stays 32 KB, which FSP defines as RM_MCUBOOT_MRAM_BLOCK_SIZE.
- *   2. There is NO DATA FLASH on this part (DATA_FLASH_CPU0_S_SIZE is 0), so ITS, PS
- *      and the NV counters come out of a reserved MRAM region, DF_EMULATION.
- *   3. BSP_PARTITION_*_START values are ABSOLUTE addresses in their own security
- *      alias, not offsets - see TFM_MRAM_S_OFF / TFM_MRAM_NS_OFF.
- *   4. The secure SECONDARY slot sits BELOW the primary, so the primary is the topmost
- *      secure slot and its NSC region ends exactly at the secure/non-secure boundary. RDPM
- *      only expresses a contiguous Secure|NSC|NS triple, not the split the SAU supports.
- *      RA6E1/RA6M5 order them the same way for the same reason.
+ *   1. Storage is MRAM, not code flash. The write unit is 32 B, not 128; the MCUboot sector
+ *      stays 32 KB, which FSP defines as RM_MCUBOOT_MRAM_BLOCK_SIZE.
+ *   2. There is no data flash (DATA_FLASH_CPU0_S_SIZE is 0), so ITS, PS and the NV counters
+ *      use a reserved MRAM region, DF_EMULATION.
+ *   3. BSP_PARTITION_*_START values are absolute addresses in their own security alias, not
+ *      offsets; see TFM_MRAM_S_OFF / TFM_MRAM_NS_OFF.
+ *   4. As on RA6E1/RA6M5, the secure secondary slot sits below the primary, so the primary is
+ *      the topmost secure slot and its NSC region ends exactly at the secure/non-secure
+ *      boundary. RDPM expresses only a contiguous Secure|NSC|NS triple, not the split the SAU
+ *      supports.
  * ----------------------------------------------------------------------------------
  */
 
@@ -55,22 +52,20 @@
 /* ---------------------------------------------------------------------------------
  * Device geometry - MRAM.
  *
- * MRAM is aliased twice: secure at 0x02000000 and non-secure at 0x12000000, one
- * megabyte each describing the SAME physical array. bsp_linker_info.h emits each
- * partition's start as an absolute address in whichever alias its security attribute
- * selects, so the secure partitions come out as 0x020xxxxx and the non-secure ones as
- * 0x120xxxxx. MCUboot wants a single flat offset into one device, so each start is
- * converted below by subtracting its own alias base, so one Driver_FLASH0 can serve all
- * four slots from a single flat offset space.
+ * MRAM is aliased twice, secure at 0x02000000 and non-secure at 0x12000000, 1 MB each over the
+ * same physical array. bsp_linker_info.h emits each partition start as an absolute address in
+ * the alias its security attribute selects: 0x020xxxxx for secure partitions, 0x120xxxxx for
+ * non-secure ones. MCUboot wants one flat offset space, so each start is converted below by
+ * subtracting its own alias base, and one Driver_FLASH0 serves all four slots.
  *
- * THE REVERSE IS NOT TRUE. An offset is alias-independent; the ADDRESS formed from it is
- * not. Once RDPM has partitioned the part, the cells below the boundary answer on the
- * secure alias only and those at or above it on the non-secure alias only, so a driver
- * cannot add one fixed base to every offset. Driver_Flash.c's MRAM_ADDR() chooses the
- * alias per offset - see the comment there, which is where this cost a debug session.
+ * The reverse does not hold. An offset is alias-independent; the address formed from it is
+ * not. Once RDPM has partitioned the part, cells below the boundary answer only on the secure
+ * alias and cells at or above it only on the non-secure alias, so a driver cannot add one
+ * fixed base to every offset. Driver_Flash.c's MRAM_ADDR() chooses the alias per offset; see
+ * the comment there.
  *
- * RA6M5 needed none of this: its code flash is based at 0x00000000, so the generated
- * starts doubled as offsets and were used directly.
+ * RA6M5 needs none of this: its code flash is based at 0x00000000, so the generated starts
+ * are also offsets.
  * ------------------------------------------------------------------------------- */
 #define FLASH_BASE_ADDRESS              (0x02000000)     /* MRAM, secure alias */
 #define FLASH_NS_ALIAS_BASE             (0x12000000)     /* MRAM, non-secure alias */
@@ -82,26 +77,24 @@
 
 /* MCUboot's write unit: BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES, 32.
  *
- * READ THE NEXT PARAGRAPH BEFORE REUSING THIS NUMBER. 32 is the size of the MRAM
- * PROGRAMMING BUFFER, not a minimum write. MRAM's write granularity is ONE BYTE:
- * r_mram.c's flash_info reports block_size 32 (the ERASE block) and
- * block_size_write 1, mram_write_data() copies byte at a time and flushes a partial
- * buffer through MRCFLR - the FSP comment there cites the hardware manual's
- * "smaller than 32-bytes programming" procedure - and
- * r_mram_write_erase_parameter_checking() enforces no alignment or multiple at all.
+ * WARNING: 32 is the size of the MRAM programming buffer, not a minimum write; read this
+ * before reusing the number. MRAM write granularity is one byte: r_mram.c's flash_info reports
+ * block_size 32 (the erase block) and block_size_write 1. mram_write_data() copies a byte at a
+ * time and flushes a partial buffer through MRCFLR (the FSP comment there cites the hardware
+ * manual's "smaller than 32-bytes programming" procedure), and
+ * r_mram_write_erase_parameter_checking() enforces no alignment or multiple.
  *
- * It is 32 HERE because FSP says so for MCUboot specifically: its generated
- * mcuboot_config.h sets MCUBOOT_BOOT_MAX_ALIGN from the same BSP feature. Driver_Flash.c
- * advertises it as FLASH0's program_unit and bl2/src/flash_map.c returns it as
- * flash_area_align(); config.cmake must keep MCUBOOT_ALIGN_VAL equal to it, since the
- * images are signed with --align and the trailer geometry has to match at runtime.
- * Consume FSP's choice rather than second-guessing it.
+ * It is 32 here because FSP chooses it for MCUboot: the generated mcuboot_config.h sets
+ * MCUBOOT_BOOT_MAX_ALIGN from the same BSP feature. Driver_Flash.c advertises it as FLASH0's
+ * program_unit, and bl2/src/flash_map.c returns it as flash_area_align(). config.cmake must
+ * keep MCUBOOT_ALIGN_VAL equal to it: the images are signed with --align, and the trailer
+ * geometry must match at run time. Consume FSP's choice; do not override it.
  *
- * The ITS/PS side is NOT 32 - see TFM_HAL_DATA_FLASH_PROGRAM_UNIT below. */
+ * The ITS/PS program unit is not 32; see TFM_HAL_DATA_FLASH_PROGRAM_UNIT below. */
 #define TFM_HAL_FLASH_PROGRAM_UNIT      (32)
 #define TFM_HAL_CODE_FLASH_PROGRAM_UNIT (32)
 
-/* Sector size - TAKEN FROM FSP, NOT CHOSEN HERE.
+/* Sector size, taken from FSP, not chosen here.
  *
  * FSP's generated ra_cfg/mcu-tools/include/mcuboot_config/mcuboot_config.h has the
  * authoritative value:
@@ -111,37 +104,30 @@
  *      #define FLASH_AREA_IMAGE_SECTOR_SIZE   (RM_MCUBOOT_MRAM_BLOCK_SIZE)
  *      #define MCUBOOT_BOOT_MAX_ALIGN         (RM_MCUBOOT_MRAM_PROGRAMMING_SIZE_BYTES)
  *
- * That directory IS on this build's include path (cmake/modules/fsp_bsp.cmake), so a
- * different value here is a conflicting redefinition, not merely a duplicated constant.
- * The port's contract is that FSP-generated configuration is consumed, not restated -
- * the user configures in e2/RASC and the TF-M build follows.
+ * That directory is on this build's include path (cmake/modules/fsp_bsp.cmake), so a
+ * different value here is a conflicting redefinition. The port consumes FSP-generated
+ * configuration rather than restating it (DESIGN.md §1).
  *
- * NOTE the two are DIFFERENT numbers and both matter:
- *   - 0x8000 is the MCUboot SECTOR, what flash_area_get_sectors() walks.
- *   - 32 is the MRAM WRITE unit (BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES), which FSP
- *     uses for MCUBOOT_BOOT_MAX_ALIGN and which MCUBOOT_ALIGN_VAL matches.
- * r_mram.c's flash_info block_size is the latter (32), NOT the sector size. Reading it
- * as the sector size produced a layout whose slots were 9.875 sectors long - accepted by
- * every build step and failing only on hardware, as boot_read_sectors() returning
- * BOOT_EFLASH.
+ * The sector and the write unit are different numbers, and both matter:
+ *   - 0x8000 is the MCUboot sector, which flash_area_get_sectors() walks.
+ *   - 32 is the MRAM write unit (BSP_FEATURE_MRAM_PROGRAMMING_SIZE_BYTES), which FSP uses for
+ *     MCUBOOT_BOOT_MAX_ALIGN and MCUBOOT_ALIGN_VAL matches.
+ * r_mram.c's flash_info block_size is 32, not the sector size. Reading it as the sector size
+ * produced slots 9.875 sectors long, which every build step accepted and which failed only on
+ * hardware, as boot_read_sectors() returning BOOT_EFLASH.
  *
- * Every MCUboot area's offset AND size must be a whole multiple of this. On a 1 MB
- * device that is a real constraint on the partitioning: with BL2 at 64 KB it forces
- * DF_EMULATION to 64 KB, because 8 or 32 KB leaves a remainder that cannot be split into
- * two secure and two non-secure slots on a 32 KB boundary. ra8m2_layout_checks.c asserts
- * that sizing.
+ * Every MCUboot area's offset and size must be a whole multiple of this. On a 1 MB device that
+ * constrains the partitioning: with BL2 at 64 KB, DF_EMULATION must be 64 KB, because 8 or
+ * 32 KB leaves a remainder that cannot split into two secure and two non-secure slots on a
+ * 32 KB boundary. ra8m2_layout_checks.c asserts that sizing.
  *
- * It does NOT assert the 0x8000 against FSP: FSP hardcodes it in the generated
- * mcuboot_config.h rather than deriving it from a BSP_FEATURE macro, and that header also
- * defines FLASH_AREA_IMAGE_SECTOR_SIZE, so it cannot be included alongside this one. What
- * is checked is that the part reports MRAM and that the sector is a whole number of MRAM
- * write units. After an FSP uprev, diff that generated header - see the note in
- * ra8m2_layout_checks.c.
+ * The 0x8000 itself is not asserted against FSP; see ra8m2_layout_checks.c,
+ * "FLASH_AREA_IMAGE_SECTOR_SIZE against FSP". After an FSP uprev, diff the generated
+ * mcuboot_config.h.
  *
- * Stated as a literal rather than including mcuboot_config.h because this header is also
- * preprocessed into ra8m2_bl2.ld, and that header includes bsp_api.h. Extracting it into
- * the generated bsp_partitions.h - the mechanism already used for the partitions - is the
- * proper fix and is on the TODO list. */
+ * It is a literal, not an include of mcuboot_config.h, because this header is also
+ * preprocessed into ra8m2_bl2.ld and mcuboot_config.h includes bsp_api.h.
+ * TODO: extract it into the generated bsp_partitions.h, as is done for the partitions. */
 #define FLASH_AREA_IMAGE_SECTOR_SIZE    (0x8000)         /* == RM_MCUBOOT_MRAM_BLOCK_SIZE */
 
 /* BL2 */
@@ -150,27 +136,26 @@
 
 /* A slot spans its header through the end of its trailer.
  *
- * The solution's components MUST be contiguous, so that this span equals the sum of the
- * component sizes. Everything downstream assumes that: the FSP generator emits
- * .fa_size as a plain sum of the parts (linker_macros_bsp_h.j2), imgtool pads to
- * FLASH_AREA_0_SIZE via RE_SIGN_BIN_SIZE, and bootutil reads the trailer magic at
- * fa_off + fa_size - 16. A gap between components makes the span exceed the sum, and
- * the two views of the slot silently diverge.
+ * The solution's components must be contiguous, so that the span equals the sum of the
+ * component sizes. Everything downstream assumes this: the FSP generator emits .fa_size as the
+ * sum of the parts (linker_macros_bsp_h.j2), imgtool pads to FLASH_AREA_0_SIZE via
+ * RE_SIGN_BIN_SIZE, and bootutil reads the trailer magic at fa_off + fa_size - 16. A gap
+ * between components makes the span exceed the sum, and the two views of the slot silently
+ * diverge.
  *
- * Both ends are in the same security alias, so the alias base cancels and this needs no
- * TFM_MRAM_*_OFF conversion - it is a difference, not an address.
+ * Both ends are in the same security alias, so the alias base cancels and no TFM_MRAM_*_OFF
+ * conversion is needed.
  *
- * The trailers are ZERO-SIZE END MARKERS, as on RA6E1 and RA6M5 - the solution used real
- * 0x100 trailers until the 2026-09-24 repartition. The arithmetic is identical either way,
- * but the marker convention is required here: a real trailer after FLASH_CPU0_C would put
- * 256 secure bytes between the NSC and the non-secure boundary, and RDPM cannot describe
- * that. MCUboot takes its trailer from the slot end backwards, out of the image region.
+ * The trailers are zero-size end markers, as on RA6E1 and RA6M5. A real trailer after
+ * FLASH_CPU0_C would put 256 secure bytes between the NSC region and the non-secure boundary,
+ * which RDPM cannot describe. MCUboot takes its trailer from the slot end backwards, out of
+ * the image region.
  *
  * ra8m2_layout_checks.c asserts contiguity and whole-sector sizing at build time. */
 #define TFM_SLOT_SPAN(h, t)             (((t##_START) + (t##_SIZE)) - (h##_START))
 
-/* Image 0 = secure. Secondary 0x20000, primary 0x68000, 0x48000 each - the SECONDARY
- * slot is the lower one on this part. */
+/* Image 0 = secure. Secondary at 0x20000, primary at 0x68000, 0x48000 each; the secondary is
+ * the lower slot. */
 #define FLASH_AREA_0_ID                 (1)
 #define FLASH_AREA_0_OFFSET             TFM_MRAM_S_OFF(BSP_PARTITION___BL_0_P_H_START)
 #define FLASH_AREA_0_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_0_P_H, \
@@ -180,8 +165,8 @@
 #define FLASH_AREA_2_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_0_S_H, \
                                                       BSP_PARTITION___BL_0_S_T)
 
-/* Image 1 = non-secure. Primary 0xB0000, secondary 0xD8000, 0x28000 each.
- * NS alias base, not the secure one - see the geometry note above. */
+/* Image 1 = non-secure. Primary at 0xB0000, secondary at 0xD8000, 0x28000 each. These use the
+ * non-secure alias base; see "Device geometry" above. */
 #define FLASH_AREA_1_ID                 (FLASH_AREA_0_ID + 1)
 #define FLASH_AREA_1_OFFSET             TFM_MRAM_NS_OFF(BSP_PARTITION___BL_1_P_H_START)
 #define FLASH_AREA_1_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_1_P_H, \
@@ -191,14 +176,13 @@
 #define FLASH_AREA_3_SIZE               TFM_SLOT_SPAN(BSP_PARTITION___BL_1_S_H, \
                                                       BSP_PARTITION___BL_1_S_T)
 
-/* The solution is configured overwrite-only, so there is no scratch area.
+/* The solution is overwrite-only, so there is no scratch area.
  *
- * Unlike RA6M5, NO block is reserved for one: the 1 MB device is fully allocated
- * (64 K BL2 + 64 K DF_EMULATION + 2 x 288 K secure + 2 x 160 K non-secure = 1024 K
- * exactly). Switching to swap-using-scratch therefore needs the partitioning changed in
- * the solution first, not just these three macros repointed - something has to give up
- * the space. A scratch area must be SECURE when it exists: during a swap it holds
- * fragments of the secure image, so an NS-writable scratch would leak and corrupt it. */
+ * Unlike RA6M5, no block is reserved for one. The 1 MB device is fully allocated
+ * (64 K BL2 + 64 K DF_EMULATION + 2 x 288 K secure + 2 x 160 K non-secure = 1024 K exactly),
+ * so swap-using-scratch needs the solution repartitioned first, not only these three macros
+ * repointed. A scratch area must be secure: during a swap it holds fragments of the secure
+ * image, so an NS-writable scratch would leak and corrupt it. */
 #define FLASH_AREA_SCRATCH_ID           (FLASH_AREA_0_ID + 4)
 #define FLASH_AREA_SCRATCH_OFFSET       (0)
 #define FLASH_AREA_SCRATCH_SIZE         (0)
@@ -210,34 +194,31 @@
 /*
  * Combined S+NS image, for assemble.py.
  *
- * The two primary slots ARE adjacent - the secure slot ends exactly where the non-secure slot
- * begins - so a plain concatenation describes the flash correctly, with these as the offsets
- * relative to the start of the combined image. That was NOT true before the 2026-09-24
- * repartition, when the secure secondary sat between them; both this note and the assertion in
- * ra8m2_layout_checks.c said so, and both have been corrected. Adjacency is a consequence of
- * putting the primary slot topmost so its NSC touches the boundary, not a goal in itself, so
- * the assertion stays: it is a property of the current partitioning, not a rule.
+ * The two primary slots are adjacent (the secure slot ends exactly where the non-secure slot
+ * begins), so a plain concatenation describes the flash, with these as offsets from the start
+ * of the combined image. Adjacency follows from putting the secure primary slot topmost so
+ * that its NSC region touches the boundary; it is not a goal in itself.
+ * ra8m2_layout_checks.c asserts it, because it is a property of the current partitioning, not
+ * a rule.
  *
- * Nothing on this port FLASHES the combined image: ns_app excludes the target, because as an
- * extra row in the debug session's program list it carries no address of its own and is
- * silently destructive at the wrong one. But the macros stay, because TF-M's NSPE rules build
- * tfm_s_ns_signed.bin for any NS application that does not exclude it - tf-m-tests' regression
- * app does not - and without them assemble.py dies with
- * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined". Removing them once already broke
- * that build.
+ * Nothing on this port flashes the combined image. ns_app excludes the target: as an extra row
+ * in the debug session's program list it has no address of its own and is silently
+ * destructive at the wrong one. The macros stay because TF-M's NSPE rules build
+ * tfm_s_ns_signed.bin for any NS application that does not exclude it, including tf-m-tests'
+ * regression app. Without them assemble.py fails with
+ * "NameError: name 'SECURE_IMAGE_OFFSET' is not defined".
  */
 #define SECURE_IMAGE_OFFSET             (0x0)
 #define SECURE_IMAGE_MAX_SIZE           FLASH_AREA_0_SIZE
 #define NON_SECURE_IMAGE_OFFSET         (SECURE_IMAGE_OFFSET + SECURE_IMAGE_MAX_SIZE)
 #define NON_SECURE_IMAGE_MAX_SIZE       FLASH_AREA_1_SIZE
 
-/* Sectors bootutil must be able to track for one image. ra6m4 sized this from the
- * scratch area; overwrite-only has no scratch, so size it from the largest slot,
- * rounded up. 0x48000 / 0x8000 = 9.
+/* Sectors bootutil must track for one image. Overwrite-only has no scratch area, so this is
+ * sized from the largest slot, rounded up: 0x48000 / 0x8000 = 9.
  *
- * FSP computes its own as RM_MCUBOOT_LARGEST_SECTOR / FLASH_AREA_IMAGE_SECTOR_SIZE,
- * over FSP's partition view. TF-M has its own flash map, so this one is derived from
- * TF-M's areas - the sector SIZE is shared, the sector COUNT deliberately is not. */
+ * FSP computes its own value as RM_MCUBOOT_LARGEST_SECTOR / FLASH_AREA_IMAGE_SECTOR_SIZE over
+ * its partition view. TF-M has its own flash map, so this one is derived from TF-M's areas:
+ * the sector size is shared, the sector count deliberately is not. */
 #define MCUBOOT_MAX_IMG_SECTORS         ((FLASH_MAX_PARTITION_SIZE + \
                                           FLASH_AREA_IMAGE_SECTOR_SIZE - 1) / \
                                          FLASH_AREA_IMAGE_SECTOR_SIZE)
@@ -250,57 +231,57 @@
 /* =================================================================================
  * Storage - ITS, PS and the MCUboot NV counters.
  *
- * RA8M2 HAS NO DATA FLASH. BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE is 0, and the rzone
- * gives the whole DATA_FLASH region size 0. On RA6E1 and RA6M5 these three services
- * shared 0x2000 of secure data flash; here they share DF_EMULATION, an 0x10000 region
- * of SECURE MRAM at 0x02010000, between BL2 and the secure secondary slot.
+ * RA8M2 has no data flash: BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE is 0, and the rzone gives the
+ * whole DATA_FLASH region size 0. On RA6E1 and RA6M5 these services share 0x2000 of secure
+ * data flash; here they share DF_EMULATION, an 0x10000 region of secure MRAM at 0x02010000,
+ * between BL2 and the secure secondary slot.
  *
- * ra8m2_layout_checks.c asserts DF_EMULATION is a whole number of 0x8000 MRAM sectors,
- * so this size cannot drift from the solution without failing the build.
+ * ra8m2_layout_checks.c asserts that DF_EMULATION is a whole number of 0x8000 MRAM sectors,
+ * so its size cannot drift from the solution without failing the build.
  *
- * DF_EMULATION is OUTSIDE every MCUboot area, by design. An update overwrites a whole
- * slot, so storage placed inside one would be destroyed by the first image upgrade -
- * which is also why it cannot be carved out of the slack in a slot.
+ * DF_EMULATION is deliberately outside every MCUboot area. An update overwrites a whole slot,
+ * so storage inside one would be destroyed by the first image upgrade; for the same reason it
+ * cannot use the slack in a slot.
  *
  * The split follows RA6M5's proportions: NV counters 2048 B, then PS and ITS take half the
- * remainder each. At DF_EMULATION 0x10000 that is PS and ITS 31,744 B apiece, about 10x what
- * the RA6 parts get from 8 KB of data flash. The program unit is the SAME 4 as theirs - MRAM
- * writes single bytes - so the backends behave identically; only the capacity differs.
+ * remainder each. At DF_EMULATION 0x10000 that is 31,744 B each for PS and ITS, about 10x what
+ * the RA6 parts get from 8 KB of data flash. The program unit is 4, as on those parts, because
+ * MRAM writes single bytes; the backends behave identically and only the capacity differs.
  * ============================================================================== */
 #define FLASH_DEV_NAME_DATA             Driver_FLASH1
 
-/* 4, NOT the 32 that MCUboot uses - and this is load-bearing, not cosmetic.
+/* 4, not the 32 that MCUboot uses. This value selects the ITS/PS backend.
  *
  * MRAM writes single bytes (see TFM_HAL_FLASH_PROGRAM_UNIT above), so any small value is
- * honest. 4 matches what RA6E1/RA6M5 advertise for their data flash, which keeps the ITS and
- * PS backends on the same code path across all three ports.
+ * valid. 4 matches the RA6E1/RA6M5 data flash and keeps the ITS and PS backends on the same
+ * code path across all three ports.
  *
- * WHY IT MATTERS: its_flash.c selects its backend on this number.
+ * its_flash.c selects its backend on this number:
  *
  *     #elif (TFM_HAL_ITS_PROGRAM_UNIT > 16)
  *     #ifndef ITS_FLASH_NAND_BUF_SIZE
  *     #error "ITS_FLASH_NAND_BUF_SIZE must be defined by the target in flash_layout.h"
  *
- * Above 16 it switches to the NAND emulation, which needs ITS_FLASH_NAND_BUF_SIZE and
- * PS_FLASH_NAND_BUF_SIZE and allocates TWO static buffers of that size for each of ITS and
- * PS. At this port's block size that is 4 x 15,872 = about 62 KB of secure RAM bought for
- * nothing, since the hardware never needed the coarse unit. Setting 32 here is what first
- * revealed the distinction - the build stopped on exactly that #error.
+ * Above 16 it switches to NAND emulation, which needs ITS_FLASH_NAND_BUF_SIZE and
+ * PS_FLASH_NAND_BUF_SIZE and allocates two static buffers of that size for each of ITS and
+ * PS. At this port's block size that is 4 x 15,872 = about 62 KB of secure RAM for no benefit,
+ * since the hardware does not need the coarse unit. A value of 32 stops the build at that
+ * #error.
  *
- * Both backends also CHECK this at run time against the driver's advertised program_unit
+ * Both backends also check this at run time against the driver's advertised program_unit
  * (tfm_internal_trusted_storage.c:210 and :246, returning PSA_ERROR_PROGRAMMER_ERROR), so
- * Driver_Flash.c's DataFlashInfo must derive from this macro and not carry its own literal. */
+ * Driver_Flash.c's DataFlashInfo must derive from this macro, not carry its own literal. */
 #define TFM_HAL_DATA_FLASH_PROGRAM_UNIT (4)
 
 /* DF_EMULATION geometry, as cmsis_drivers/Driver_Flash.c names it.
  *
- * Driver_FLASH1 is a SECOND INSTANCE OVER THE SAME MRAM DEVICE, windowed to this region
- * - not a second physical device as it was on RA6M5. The PS/ITS backends pass an ABSOLUTE
- * address and the driver uses it as given - unlike FLASH0, which converts through
- * MRAM_ADDR(). The region is in the secure alias, unreachable from the non-secure side.
+ * Driver_FLASH1 is a second instance over the same MRAM device, windowed to this region, not a
+ * second physical device as on RA6M5. The PS/ITS backends pass an absolute address and the
+ * driver uses it as given, unlike FLASH0, which converts through MRAM_ADDR(). The region is in
+ * the secure alias and unreachable from the non-secure side.
  *
- * There is no erase sector to respect, so 64 B is a logical choice carried over from
- * RA6M5's data flash rather than a device property. It must stay a multiple of
+ * There is no erase sector to respect, so 64 B is a logical size carried over from RA6M5's
+ * data flash, not a device property. It must stay a multiple of
  * TFM_HAL_DATA_FLASH_PROGRAM_UNIT. */
 #define FLASH_DATA_FLASH_BASE           (BSP_PARTITION_DF_EMULATION_START)
 #define FLASH_DATA_FLASH_SIZE           (BSP_PARTITION_DF_EMULATION_SIZE)
@@ -310,30 +291,26 @@
 
 /* 2048 B = 32 sectors, split into a 1024 B area and a 1024 B backup mirror.
  *
- * The floor is sizeof(struct flash_otp_nv_counters_region_t), which the backend requires
- * to fit in EACH half. That is 784 B for this configuration:
+ * The floor is sizeof(struct flash_otp_nv_counters_region_t), which must fit in each half.
+ * That is 784 B for this configuration:
  *
  *     init_value 4 | OTP items 284 | BL2 ROTPKs x4 + BL2 NV counters x4 384
  *     | entropy_seed + secure_debug_pk 96 | flash_nv_counters[3] 12 | swap_count 4
  *
  * It grows with MCUBOOT_BUILTIN_KEY (ROTPKs become 68/100 B each, not a 32 B hash),
- * PLATFORM_NS_NV_COUNTERS (64 B each, currently 0) and FLASH_NV_COUNTER_AM. On RA6E1
- * this was 512 B total, i.e. 256 B per half - far under the floor - and the effect was
- * invisible: init_otp_nv_counters_flash() opens with a compile-time-constant size check,
- * so the whole function folded to "return TFM_PLAT_ERR_SYSTEM_ERR" and never touched
- * flash. ra8m2_layout_checks.c makes that a build error instead.
+ * PLATFORM_NS_NV_COUNTERS (64 B each, currently 0) and FLASH_NV_COUNTER_AM. Below the floor,
+ * init_otp_nv_counters_flash() compiles to an unconditional failure that never touches flash.
+ * ra8m2_layout_checks.c ("OTP / NV counter area size") makes that a build error.
  *
- * NOTE for this part: R_MRAM also exposes HARDWARE anti-rollback counters
- * (R_MRAM_AntiRollbackCounterIncrement / Refresh / Read). They are a better home for
- * MCUboot's NV counters than an emulated-OTP region, and are not used here - the port
- * keeps the portable backend so RA8M2 behaves as RA6M5 does for bring-up. Worth
- * revisiting once the port boots.
+ * NOTE: R_MRAM also has hardware anti-rollback counters (R_MRAM_AntiRollbackCounterIncrement /
+ * Refresh / Read), a better home for MCUboot's NV counters than an emulated-OTP region. They
+ * are not used: the port keeps the portable backend so that RA8M2 behaves as RA6M5 does.
  */
 #define TFM_NV_COUNTERS_AREA_SIZE       (FLASH_DATA_FLASH_SECTOR_SIZE * 32)   /* 2048 B */
 
-/* platform/ext/common/template/flash_otp_nv_counters_backend.c is the backend, and it
- * mirrors the area so a power loss mid-write is recoverable - hence the backup, which
- * must be a separate erase sector. The two halves split TFM_NV_COUNTERS_AREA_SIZE. */
+/* The backend, platform/ext/common/template/flash_otp_nv_counters_backend.c, mirrors the area
+ * so that a power loss mid-write is recoverable. The backup must be a separate erase sector.
+ * The two halves split TFM_NV_COUNTERS_AREA_SIZE. */
 #define TFM_OTP_NV_COUNTERS_SECTOR_SIZE      (FLASH_DATA_FLASH_SECTOR_SIZE)
 #define TFM_OTP_NV_COUNTERS_AREA_SIZE        (TFM_NV_COUNTERS_AREA_SIZE / 2)
 #define TFM_OTP_NV_COUNTERS_AREA_ADDR        (TFM_NV_COUNTERS_AREA_OFFSET)
@@ -367,27 +344,27 @@
 #define TFM_HAL_PS_PROGRAM_UNIT         TFM_HAL_DATA_FLASH_PROGRAM_UNIT
 #define TFM_HAL_ITS_PROGRAM_UNIT        TFM_HAL_DATA_FLASH_PROGRAM_UNIT
 
-/* DF_EMULATION must hold NV counters + PS + ITS with room for wear levelling. If this
- * fires, give DF_EMULATION more space in the solution rather than shrinking the
- * services here - and on a 1 MB device the space has to come from a slot, so
- * check the image sizes still fit (RA8M2_SOLUTION.md has the measured figures). */
+/* DF_EMULATION must hold the NV counters, PS and ITS with room for wear levelling. If this
+ * fires, give DF_EMULATION more space in the solution rather than shrinking the services. On a
+ * 1 MB device the space must come from a slot, so check that the image sizes still fit
+ * (RA8M2_SOLUTION.md has the measured figures). */
 #if (BSP_PARTITION_DF_EMULATION_SIZE) < 0x1000
 #error "RA8M2: DF_EMULATION is too small for NV counters + PS + ITS"
 #endif
 
-/* This part genuinely has no data flash; if a future device in the family does, the
- * services should move back onto it rather than staying in MRAM. Catch that change. */
+/* RA8M2 has no data flash. If a future device in the family has it, the services should move
+ * back onto it rather than stay in MRAM; this catches that change. */
 #if (BSP_PARTITION_DATA_FLASH_CPU0_S_SIZE) != 0
 #error "RA8M2: secure data flash is no longer 0 - storage should move off DF_EMULATION"
 #endif
 
 /* Flash device IDs used by the CMSIS flash driver shim.
  *
- * NO FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1, by design. Those are per-flash-area driver
- * overrides for a target whose images live on different devices; all four of our areas
- * are in MRAM, so bl2/src/default_flash_map.c defaulting them to FLASH_DEV_NAME is what
- * we want. Defining a _0/_1 name without the matching FLASH_DEVICE_ID_0/_1 also trips
- * the paired-definition check in bl2/ext/mcuboot/include/target.h. */
+ * FLASH_DEV_NAME_0 / FLASH_DEV_NAME_1 are deliberately not defined. They are per-area driver
+ * overrides for a target whose images live on different devices. All four areas are in MRAM, so
+ * bl2/src/default_flash_map.c correctly defaults them to FLASH_DEV_NAME. Defining a _0/_1
+ * name without the matching FLASH_DEVICE_ID_0/_1 also trips the paired-definition check in
+ * bl2/ext/mcuboot/include/target.h. */
 #define FLASH_DEVICE_ID                 (100)
 #define FLASH_DEVICE_ID_DATA            (101)
 
