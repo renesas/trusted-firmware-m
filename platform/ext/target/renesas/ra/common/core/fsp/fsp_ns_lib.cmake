@@ -35,6 +35,7 @@ set(FSP_COMMON_BSP_PATH   ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/bsp/mcu/all)
 set(FSP_TARGET_BSP_PATH   ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/bsp/mcu/${FSP_SOC_TARGET})
 set(FSP_BOARD_BSP_PATH    ${RENESAS_RA_FSP_LIB_PATH}/ra/board)
 set(FSP_LIBS_CORE_PATH    ${RENESAS_RA_COMMON_SOURCE_DIR}/${FSP_SOC_TARGET}/fsp)
+set(FSP_GENERATED_PATH    ${CMAKE_CURRENT_SOURCE_DIR}/fsp)
 
 # Include security configuration for RA platform code
 include(${FSP_LIBS_CORE_PATH}/s_ns_memory.cmake)
@@ -76,6 +77,7 @@ target_include_directories(fsp_library
     ${FSP_LIBS_CORE_PATH}/ra_cfg/bsp
     ${FSP_LIBS_CORE_PATH}/ra_gen
     ${TARGET_PLATFORM_PATH}/CMSIS_Driver/Config
+    ${FSP_GENERATED_PATH}
     # CMSIS core headers from the exported NS platform tree (CMSIS_PATH is
     # not available in the NS build)
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/cmsis/Include

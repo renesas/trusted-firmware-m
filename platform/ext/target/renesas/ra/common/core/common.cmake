@@ -205,6 +205,10 @@ install(FILES       ${CMAKE_BINARY_DIR}/generated/platform/cmake/cpuarch.cmake
         DESTINATION ${INSTALL_PLATFORM_NS_DIR}
 )
 
+install(FILES       ${CMAKE_BINARY_DIR}/generated/platform/fsp/bsp_clock_cfg.h
+        DESTINATION ${INSTALL_PLATFORM_NS_DIR}/fsp
+)
+
 install(DIRECTORY   ${TARGET_PLATFORM_PATH}/ns/
         DESTINATION ${INSTALL_PLATFORM_NS_DIR}
 )
