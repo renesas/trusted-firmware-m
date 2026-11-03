@@ -22,7 +22,7 @@ void tfm_hal_boot_ns_cpu(uintptr_t start_addr)
 
 void tfm_hal_wait_for_ns_cpu_ready(void)
 {
-    volatile uint16_t cnt = UINT32_MAX;
+    volatile uint16_t cnt = UINT16_MAX;
 
     /* Stub: will be supported in other MRs*/
     /*

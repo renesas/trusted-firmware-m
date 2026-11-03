@@ -26,10 +26,11 @@
  * with comment.
  */
 
-/* FLASH_AREA_IMAGE_SECTOR_SIZE and FLASH_PROGRAM_UNIT are the values the generic
- * MCUboot flash map uses for every flash area; with an NS image in the external
- * flash they are the largest of the flash instances (post_config.cmake). The
- * storage areas are always in MRAM and use the FLASH0_* values.
+/* FLASH_AREA_IMAGE_SECTOR_SIZE and TFM_HAL_FLASH_PROGRAM_UNIT (defined below)
+ * are the values the generic MCUboot flash map uses for every flash area; with
+ * an NS image in the external flash they are the largest of the flash
+ * instances (post_config.cmake). The storage areas are always in MRAM and use
+ * the FLASH0_* values.
  */
 
 /* All geometry values below are injected as compiler -D definitions from the
@@ -50,14 +51,14 @@
 #ifndef FLASH_PAGE_SIZE
 #error "FLASH_PAGE_SIZE must be defined by config.cmake"
 #endif
-#ifndef FLASH_PROGRAM_UNIT
-#error "FLASH_PROGRAM_UNIT must be defined by config.cmake"
-#endif
 #ifndef FLASH0_SECTOR_SIZE
 #error "FLASH0_SECTOR_SIZE must be defined by config.cmake"
 #endif
 #ifndef FLASH0_PROGRAM_UNIT
 #error "FLASH0_PROGRAM_UNIT must be defined by config.cmake"
+#endif
+#ifndef FLASH1_PROGRAM_UNIT
+#error "FLASH1_PROGRAM_UNIT must be defined by config.cmake"
 #endif
 #ifndef FLASH_AREA_BL2_OFFSET
 #error "FLASH_AREA_BL2_OFFSET must be defined by config.cmake"
@@ -76,9 +77,6 @@
 #endif
 #ifndef FLASH_S_REGION_SIZE
 #error "FLASH_S_REGION_SIZE must be defined by config.cmake"
-#endif
-#ifndef TFM_HAL_FLASH_PROGRAM_UNIT
-#error "TFM_HAL_FLASH_PROGRAM_UNIT must be defined by config.cmake"
 #endif
 #ifndef CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET
 #error "CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET must be defined by config.cmake"
@@ -309,13 +307,23 @@
 #if defined(RA_CPU0_NS_EXTERNAL) || defined(RA_CPU1_NS_EXTERNAL)
 /* Drivers initialized by BL2, each one once */
 #define FLASH_DRIVER_LIST { &FLASH_DEV_NAME, &FLASH1_DEV_NAME }
+/* bl2/src/flash_map.c uses a single program unit for every flash area:
+ * the largest one of the drivers in FLASH_DRIVER_LIST.
+ */
+#if (FLASH1_PROGRAM_UNIT > FLASH0_PROGRAM_UNIT)
+#define TFM_HAL_FLASH_PROGRAM_UNIT FLASH1_PROGRAM_UNIT
+#endif
 #endif
 #endif /* FLASH1_DEV_NAME */
-/* Smallest flash programmable unit in bytes: TFM_HAL_FLASH_PROGRAM_UNIT is
- * injected by common.cmake (the largest program unit of the flash instances,
- * FLASH_PROGRAM_UNIT). bl2/src/flash_map.c defines FLASH_PROGRAM_UNIT as
- * TFM_HAL_FLASH_PROGRAM_UNIT, so it must be a number, not FLASH_PROGRAM_UNIT.
+
+/* Smallest flash programmable unit in bytes, the MRAM one (Driver_Flash0)
+ * unless a larger listed driver set it above. FLASH_PROGRAM_UNIT must not be
+ * passed in by the build system: bl2/src/flash_map.c defines it as
+ * TFM_HAL_FLASH_PROGRAM_UNIT.
  */
+#ifndef TFM_HAL_FLASH_PROGRAM_UNIT
+#define TFM_HAL_FLASH_PROGRAM_UNIT FLASH0_PROGRAM_UNIT
+#endif
 
 /* Protected Storage (PS) Service definitions
  * Note: Further documentation of these definitions can be found in the
