@@ -22,7 +22,9 @@
  *
  * Key format is plaintext only (0x01). FSP's default is 3 (plaintext + wrapped). With the
  * wrapped bit clear, every PSA_CRYPTO_IS_WRAPPED_SUPPORT_REQUIRED() branch in the ALT sources
- * compiles out, which keeps the wrapped-key vendor driver out of the image. */
+ * compiles out, so the wrapped entries of the lookup tables in rsa_alt_process.c and its peers
+ * are NULL. Nothing selects them: a wrapped key also needs MBEDTLS_PSA_CRYPTO_ACCEL_DRV_C,
+ * which this port does not define either. The two settings move together - see crypto_hw.c. */
 #define PSA_CRYPTO_CFG_PLAINTEXT_KEY_SUPPORT                (0x01)
 #define PSA_CRYPTO_CFG_WRAPPED_KEY_SUPPORT                  (0x02)
 #define PSA_CRYPTO_CFG_WRAPPED_AND_PLAINTEXT_KEY_SUPPORT    ((PSA_CRYPTO_CFG_PLAINTEXT_KEY_SUPPORT) | \

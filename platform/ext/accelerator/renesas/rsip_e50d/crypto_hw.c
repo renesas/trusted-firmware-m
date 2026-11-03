@@ -22,14 +22,21 @@
 
 /*
  * FSP's gcm_alt.c (and ccm_alt.c) call this when ctx->vendor_flag is set, to switch the
- * context onto a wrapped key. The flag is a RUNTIME value set by FSP's patched Mbed TLS core
- * (psa_crypto_cipher.c, psa_crypto_mac.c under ra/arm/mbedtls), which is the core this port
- * compiles, so the call is reachable: no TF-M test asks for a wrapped key, but nothing stops
- * an application from asking. The implementation lives in aes_vendor.c, the wrapped-key
- * driver this accelerator does not build, so the symbol is needed here to link.
+ * context onto a wrapped key. The only writes to that flag in the whole compiled set are two
+ * in FSP's psa_crypto_aead.c, both inside #if defined(MBEDTLS_PSA_CRYPTO_ACCEL_DRV_C), and
+ * nothing here defines that macro: FSP generates it into ra_cfg/arm/mbedtls/config.h, which
+ * TF-M does not compile - rsip_e50d_fsp_cfg.h restates the parts the ALT sources need, and that is
+ * not one of them. So the flag stays 0 and this function never runs.
  *
- * Reaching it means a wrapped-key procedure with no driver behind it, so fail loudly rather
- * than carry on.
+ * An application cannot reach it through the API either. psa_crypto.c gates its vendor-key
+ * branches on the same macro, so a vendor-defined key type falls through psa_generate_key()
+ * and psa_import_key() to the transparent path and returns PSA_ERROR_NOT_SUPPORTED. Wrapped
+ * keys are unavailable in this port, not merely untested.
+ *
+ * The call site in gcm_alt.c is not under the macro, so the symbol is still needed to link.
+ * It panics rather than returning: defining MBEDTLS_PSA_CRYPTO_ACCEL_DRV_C without also
+ * building the vendor driver should fail at once, not run a wrapped-key procedure with
+ * nothing behind it.
  */
 void psa_aead_setup_vendor(void *ctx);
 

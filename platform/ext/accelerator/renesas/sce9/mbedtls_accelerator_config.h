@@ -79,7 +79,7 @@
  *       MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG and the platform's sce_trng.c.
  *   MBEDTLS_PLATFORM_SETUP_TEARDOWN_ALT - nothing in TF-M calls mbedtls_platform_setup();
  *       crypto_hw_accelerator_init() brings the engine up instead.
- *   MBEDTLS_PSA_CRYPTO_ACCEL_DRV_C - the wrapped-key vendor driver; plaintext keys only, so a
- *       wrapped-key request panics in crypto_hw.c. */
+ *   MBEDTLS_PSA_CRYPTO_ACCEL_DRV_C - the wrapped-key vendor driver. Without it a
+ *       vendor-defined key type returns PSA_ERROR_NOT_SUPPORTED; see crypto_hw.c. */
 
 #endif /* MBEDTLS_ACCELERATOR_CONFIG_H */
