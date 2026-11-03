@@ -144,10 +144,10 @@ static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
 
 static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL, /* Uniform sector layout */
-    .sector_count = FLASH_TOTAL_SIZE / FLASH_AREA_IMAGE_SECTOR_SIZE,
-    .sector_size  = FLASH_AREA_IMAGE_SECTOR_SIZE,
+    .sector_count = FLASH_TOTAL_SIZE / FLASH0_SECTOR_SIZE,
+    .sector_size  = FLASH0_SECTOR_SIZE,
     .page_size    = FLASH_PAGE_SIZE,
-    .program_unit = FLASH_PROGRAM_UNIT,
+    .program_unit = FLASH0_PROGRAM_UNIT,
     .erased_value = 0xFF
 };
 
@@ -298,7 +298,7 @@ static int32_t ARM_Flash_ProgramData(uint32_t addr, const void *data, uint32_t c
         return ARM_DRIVER_ERROR_PARAMETER;
     }
 
-    /* Only FLASH_PROGRAM_UNIT aligned writes are allowed. */
+    /* Only FLASH0_PROGRAM_UNIT aligned writes are allowed. */
     if (!is_range_valid(FLASH0_DEV, addr, cnt)
         || !is_write_aligned(FLASH0_DEV, addr)
         || !is_write_aligned(FLASH0_DEV, cnt)) {
@@ -337,7 +337,7 @@ static int32_t ARM_Flash_EraseSector(uint32_t addr)
 
     FLASH0_DEV->status->error = DRIVER_STATUS_NO_ERROR;
 
-    if (!is_range_valid(FLASH0_DEV, addr, FLASH_AREA_IMAGE_SECTOR_SIZE)
+    if (!is_range_valid(FLASH0_DEV, addr, FLASH0_SECTOR_SIZE)
         || !is_sector_aligned(FLASH0_DEV, addr)) {
         FLASH0_DEV->status->error = DRIVER_STATUS_ERROR;
         return ARM_DRIVER_ERROR_PARAMETER;
@@ -351,13 +351,13 @@ static int32_t ARM_Flash_EraseSector(uint32_t addr)
 
     __disable_irq();
     /* Erase operates on hardware erase blocks, so FLASH_PAGE_SIZE must match
-     * the device-reported erase block size. FLASH_AREA_IMAGE_SECTOR_SIZE is
+     * the device-reported erase block size. FLASH0_SECTOR_SIZE is
      * converted to a block count by dividing it by FLASH_PAGE_SIZE; therefore,
      * any mismatch between FLASH_PAGE_SIZE and the actual erase block size may
      * result in an incorrect erase range.
      */
     err = FLASH0_DEV->instance->p_api->erase(FLASH0_DEV->instance->p_ctrl, get_flash_access_addr(addr),
-                       FLASH_AREA_IMAGE_SECTOR_SIZE / FLASH_PAGE_SIZE);
+                       FLASH0_SECTOR_SIZE / FLASH_PAGE_SIZE);
 
     /* Re-enable the interrupts */
     __set_PRIMASK(primask);

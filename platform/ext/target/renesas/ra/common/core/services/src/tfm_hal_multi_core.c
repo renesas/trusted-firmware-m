@@ -22,5 +22,13 @@ void tfm_hal_boot_ns_cpu(uintptr_t start_addr)
 
 void tfm_hal_wait_for_ns_cpu_ready(void)
 {
+    volatile uint16_t cnt = UINT32_MAX;
+
     /* Stub: will be supported in other MRs*/
+    /*
+     * Add a delay to wait CPU1 completely done it initialization
+     * to avoid RACE condition while both core configure the MSTPB in STDIO initialization
+     */
+    while (cnt--) {
+    }
 }
