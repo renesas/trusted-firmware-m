@@ -22,14 +22,14 @@
 
 /*
  * FSP's gcm_alt.c (and ccm_alt.c) call this when ctx->vendor_flag is set, to switch the
- * context onto a wrapped key. The flag is a RUNTIME value, so the symbol is needed to link
- * even though the call is dead here: vendor_flag is only ever set by FSP's patched Mbed TLS
- * core (psa_crypto_cipher.c, psa_crypto_mac.c under ra/arm/mbedtls), never by TF-M's
- * upstream one, and mbedtls_gcm_init() zeroes the context. The real implementation lives in
- * aes_vendor.c, the wrapped-key driver this accelerator deliberately does not build.
+ * context onto a wrapped key. The flag is a RUNTIME value set by FSP's patched Mbed TLS core
+ * (psa_crypto_cipher.c, psa_crypto_mac.c under ra/arm/mbedtls), which is the core this port
+ * compiles, so the call is reachable: no TF-M test asks for a wrapped key, but nothing stops
+ * an application from asking. The implementation lives in aes_vendor.c, the wrapped-key
+ * driver this accelerator does not build, so the symbol is needed here to link.
  *
- * Reaching it would mean a plaintext key being handed to a wrapped-key procedure, so fail
- * loudly rather than carry on.
+ * Reaching it means a wrapped-key procedure with no driver behind it, so fail loudly rather
+ * than carry on.
  */
 void psa_aead_setup_vendor(void *ctx);
 
