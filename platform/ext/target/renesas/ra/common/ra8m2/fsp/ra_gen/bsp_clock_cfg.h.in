@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
+ * Generated from ra_gen/bsp_clock_cfg.h.in by CMake. The options and their
+ * defaults are listed in fsp/bsp_clock_options.cmake: do not edit.
+ */
+
+#ifndef BSP_CLOCK_CFG_H_
+#define BSP_CLOCK_CFG_H_
+
+@RA_BSP_CLK_DEFINES@
+
+/*******************************************************************************************************************//**
+ * TF-M BSP Clock Configuration
+ **********************************************************************************************************************/
+/* TODO: Provide a mechanism to configure the clock settings at runtime. */
+#define BSP_CFG_CLOCK_CPUCLK_SRC_FREQ (BSP_CFG_PLL1P_FREQUENCY_HZ)
+#define BSP_CFG_SCICLK_SRC_FREQ (BSP_CFG_PLL2R_FREQUENCY_HZ)
+
+#endif /* BSP_CLOCK_CFG_H_ */

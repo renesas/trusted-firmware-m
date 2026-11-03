@@ -43,6 +43,13 @@ set(FSP_COMMON_BSP_PATH ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/bsp/mcu/all)
 set(FSP_TARGET_BSP_PATH ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/bsp/mcu/${FSP_SOC_TARGET})
 set(FSP_BOARD_BSP_PATH ${RENESAS_RA_FSP_LIB_PATH}/ra/board)
 set(FSP_LIBS_CORE_PATH ${RENESAS_RA_COMMON_SOURCE_DIR}/${FSP_SOC_TARGET}/fsp)
+set(FSP_GENERATED_PATH ${CMAKE_BINARY_DIR}/generated/platform/fsp)
+
+# Resolve the BSP clock options (-DRA_BSP_CLK_*) and generate the bsp_clock_cfg.h
+include(${FSP_LIBS_CORE_PATH}/bsp_clock_options.cmake)
+configure_file(${FSP_LIBS_CORE_PATH}/ra_gen/bsp_clock_cfg.h.in
+               ${FSP_GENERATED_PATH}/bsp_clock_cfg.h
+               @ONLY)
 
 # Include security configuration for RA platform code
 include(${FSP_LIBS_CORE_PATH}/s_ns_memory.cmake)
@@ -74,6 +81,7 @@ target_include_directories(fsp_library
     ${FSP_LIBS_CORE_PATH}/ra_cfg
     ${FSP_LIBS_CORE_PATH}/ra_cfg/bsp
     ${FSP_LIBS_CORE_PATH}/ra_gen
+    ${FSP_GENERATED_PATH}
     PRIVATE
     # RTE_PinCfg.h / RTE_Device.h, needed by ra_gen/pin_data.c and common_data.h
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/Native_Driver
