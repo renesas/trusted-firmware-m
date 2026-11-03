@@ -99,7 +99,7 @@ static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_TOTAL_SIZE / FLASH_AREA_IMAGE_SECTOR_SIZE,
     .sector_size  = FLASH_AREA_IMAGE_SECTOR_SIZE,
-    .page_size    = 4,
+    .page_size    = TFM_HAL_CODE_FLASH_PROGRAM_UNIT,
     .program_unit = TFM_HAL_CODE_FLASH_PROGRAM_UNIT,
     .erased_value = 0xFF
 };

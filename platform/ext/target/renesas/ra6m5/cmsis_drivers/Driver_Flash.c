@@ -86,12 +86,17 @@ static const ARM_FLASH_CAPABILITIES DriverCapabilities = {
  *
  * NOTE: not yet exercised on hardware. The value matters only when BL2 writes code flash,
  * during an upgrade; validate-and-boot only reads. Proving it needs a two-version upgrade
- * with a populated secondary slot. */
+ * with a populated secondary slot.
+ *
+ * page_size is the programming page, so it is the write size, as in DataFlashInfo below and in
+ * RA8M2's copy. It was the literal 4 - the data-flash write size - until 2026-11-03. Nothing
+ * in this build reads the field: no caller of GetInfo() in BL2, the SPM, ITS/PS or MCUboot
+ * looks at page_size, so the correction cannot change behaviour either way. */
 static ARM_FLASH_INFO FlashInfo = {
     .sector_info  = NULL,
     .sector_count = FLASH_TOTAL_SIZE / FLASH_AREA_IMAGE_SECTOR_SIZE,
     .sector_size  = FLASH_AREA_IMAGE_SECTOR_SIZE,
-    .page_size    = 4,
+    .page_size    = TFM_HAL_CODE_FLASH_PROGRAM_UNIT,
     .program_unit = TFM_HAL_CODE_FLASH_PROGRAM_UNIT,
     .erased_value = 0xFF
 };

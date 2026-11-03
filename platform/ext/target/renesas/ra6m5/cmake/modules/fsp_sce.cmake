@@ -23,13 +23,13 @@ if(NOT EXISTS "${_sce_dir}")
         "build the project once.")
 endif()
 
-# 181 generated primitive files, the same tree as RA6E1 (both SCE9). Only the TRNG path is
-# reachable from mbedtls_psa_external_get_random(); -ffunction-sections and --gc-sections drop
-# the rest at link. Measured on RA6M5 (2026-09-21): 8.9 KB of secure image, from
-# hw_sce_p_p92/p40/p02/subprc01 and a short tail.#
-# When sizing this module from a linker map, skip everything above "Linker script and memory
-# map": the discarded-section list at the top of the map makes the same objects look like
-# ~185 KB.
+# 181 generated primitive files, the same tree as RA6E1 (both SCE9). Most of the module links.
+# Only with CRYPTO_HW_ACCELERATOR OFF is the TRNG path the only reachable one; with it on, the
+# default, the ALT sources call HW_SCE_* directly and --gc-sections keeps every primitive that
+# AES, GCM, CMAC, SHA-256, ECC and RSA reach. Measured 2026-11-03, Debug: tfm_s links 115 of
+# these objects for 146.1 KB (128,330 text + 21,284 rodata) and 6,148 bytes of .bss; bl2, which
+# uses SHA-256 only, links 20 for 9.5 KB. Size this from below "Linker script and memory map":
+# the discarded-section list above it makes the same objects look like ~185 KB.
 fsp_module_glob(_src "ra/fsp/src/r_sce")
 target_sources(${FSP_SCE_TARGET} PRIVATE ${_src})
 

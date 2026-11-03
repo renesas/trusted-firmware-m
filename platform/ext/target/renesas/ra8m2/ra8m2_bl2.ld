@@ -290,10 +290,13 @@ SECTIONS
      * WARNING: do not rewrite these as bare addressed sections:
      *       .option_setting_ofs0 0x02c9f040 : { KEEP(*(.option_setting_ofs0)) }
      *   With no '> REGION', ld coalesces them into one PT_LOAD spanning the whole range and
-     *   zero-fills every register and reserved byte in the gaps, including the block-protect
-     *   permanence word. Flashing that from a debugger permanently bricks the part (D002). The
-     *   six groups placed here run from OFS0 at 0x02c9f040 to OFS3_SEL at 0x02c9f124, and the
-     *   gaps include SAS at 0x02c9f074. The fill is invisible in the srec; check readelf -l.
+     *   zero-fills every register and reserved byte in the gaps. Flashing that from a debugger
+     *   writes option words nobody chose (D002). The six groups placed here run from OFS0 at
+     *   0x02c9f040 to OFS3_SEL at 0x02c9f124, 24 bytes placed in a 232-byte span, so the gaps
+     *   are 208 bytes - SAS at 0x02c9f074 and 204 reserved. On this part the block-protect and
+     *   permanence words are outside that span (BPS_SEC 0x02c9f200, BPS 0x12c9f600, PBPS_SEC
+     *   0x02e17700, PBPS 0x12e17780); it was RA6M4's layout that put them in range (D133).
+     *   The fill is invisible in the srec; check readelf -l.
      *   See region_defs.h, OPTION_SETTING_* block, and DESIGN.md §8.4.
      *
      * BL2 only: the secure and NS images are MCUboot-signed and imgtool needs a contiguous

@@ -25,10 +25,15 @@ if(NOT EXISTS "${_sce_dir}")
         "build the project once.")
 endif()
 
-# The generated primitive tree. Only the TRNG path is reachable from
-# mbedtls_psa_external_get_random(); -ffunction-sections and --gc-sections drop the rest at
-# link. RA6M5's measured 8.9 KB does not carry over: E50D has a larger procedure set (it adds
-# SHA-512, SHA-3, ChaCha, ML-KEM, ML-DSA), so re-measure on this part.#
+# The generated primitive tree. Most of it links: only with CRYPTO_HW_ACCELERATOR OFF is the
+# TRNG path the only reachable one, and with it on - the default - the ALT sources call
+# HW_SCE_* directly, so --gc-sections keeps every primitive the enabled algorithms reach.
+#
+# Measured 2026-11-03, MinSizeRel: tfm_s links 118 of these objects for 105.7 KB (104,858 text
+# + 3,380 rodata) and 136 bytes of .bss; bl2, which uses SHA-256 only, links 16 for 7.3 KB.
+# RA6M5 Debug is 115 objects and 146.1 KB, so the two parts are close on object count despite
+# E50D's larger procedure set (SHA-512, SHA-3, ChaCha, ML-KEM, ML-DSA).
+#
 # When sizing this module from a linker map, skip everything above "Linker script and memory
 # map": the discarded-section list at the top of the map makes the same objects look like
 # ~185 KB.

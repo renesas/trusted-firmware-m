@@ -46,7 +46,7 @@
  * image's check is in ra8m2_layout_checks.c; this file is BL2-only, so BL2's is here.
  * See DESIGN.md 8.1. */
 #if !defined(BSP_CFG_EARLY_INIT) || !(BSP_CFG_EARLY_INIT)
-#error "RA8M2: BSP_CFG_EARLY_INIT is 0 in the bootloader e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit() and R_MRAM_Open() fails with FSP_ERR_FCLK. See DESIGN.md 8.1."
+#error "RA8M2: BSP_CFG_EARLY_INIT is 0 in the bootloader e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit(), every MRAM timeout is computed as 0, and the first command that has to wait returns FSP_ERR_TIMEOUT. See DESIGN.md 8.1."
 #endif
 
 /* UNCRUSTIFY-OFF */

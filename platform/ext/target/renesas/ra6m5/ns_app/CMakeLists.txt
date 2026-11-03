@@ -90,15 +90,18 @@ add_subdirectory(${CONFIG_SPE_PATH} ${CMAKE_BINARY_DIR}/spe)
 # two separate images in two separate slots.
 #
 # It is dropped because it is a hazard. It is another entry in the debug session's program
-# list with no address of its own, and a wrong address is silent and destructive: entered at
-# its size rather than its start, it overwrites part of the secure slot, the NSC veneers, the
-# whole non-secure slot and part of the non-secure secondary slot. Being last in the list, it
-# does so after the correct images have been written.
+# list with no address of its own, and a wrong address is silent and destructive. The file is
+# 0xF0000 long (FLASH_AREA_0_SIZE 0x80000 + FLASH_AREA_1_SIZE 0x70000) and belongs at
+# 0xA0000. Typing its size instead of its start writes 0xF0000..0x1E0000: the top 192 KB of
+# the secure primary slot, which is where the NSC veneers sit, all 448 KB of the non-secure
+# primary slot at 0x120000, and the first 320 KB of the non-secure secondary slot at 0x190000.
+# Being last in the list, it does so after the correct images have been written.
 #
-# To restore it: remove this, and restore SECURE_IMAGE_OFFSET / SECURE_IMAGE_MAX_SIZE /
-# NON_SECURE_IMAGE_OFFSET / NON_SECURE_IMAGE_MAX_SIZE in flash_layout.h with the adjacency
-# assert in ra6m5_layout_checks.c. Without those, building this target explicitly fails in
-# assemble.py with "NameError: name 'SECURE_IMAGE_OFFSET' is not defined".
+# To restore it, remove this block. SECURE_IMAGE_OFFSET / SECURE_IMAGE_MAX_SIZE /
+# NON_SECURE_IMAGE_OFFSET / NON_SECURE_IMAGE_MAX_SIZE are still defined in flash_layout.h and
+# the adjacency assert is still in ra6m5_layout_checks.c, so nothing else has to come back.
+# Removing those macros is what produces "NameError: name 'SECURE_IMAGE_OFFSET' is not
+# defined" in assemble.py.
 #-------------------------------------------------------------------------------
 if(TARGET tfm_s_ns_signed_bin)
     set_target_properties(tfm_s_ns_signed_bin PROPERTIES EXCLUDE_FROM_ALL TRUE)

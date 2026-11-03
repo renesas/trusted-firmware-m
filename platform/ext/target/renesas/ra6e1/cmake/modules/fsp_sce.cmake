@@ -21,9 +21,11 @@ if(NOT EXISTS "${_sce_dir}")
         "build the project once.")
 endif()
 
-# ~180 generated primitive files. Only the TRNG path is reachable from
-# mbedtls_psa_external_get_random(); -ffunction-sections + --gc-sections drop the rest at
-# link, which measured at about 8 KB of secure image for the whole module.
+# ~180 generated primitive files. The TRNG path is the only reachable one only with
+# CRYPTO_HW_ACCELERATOR OFF; with it on the ALT sources call HW_SCE_* directly and most of the
+# module links. The ~8 KB figure here is unverified: this part is reference-only and is not
+# built by the release scripts. On RA6M5, the other SCE9 part, the measured secure image takes
+# 115 objects and 146.1 KB with the accelerator on, and BL2 20 objects and 9.5 KB without it.
 fsp_module_glob(_src "ra/fsp/src/r_sce")
 target_sources(${FSP_SCE_TARGET} PRIVATE ${_src})
 

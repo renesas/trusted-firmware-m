@@ -38,16 +38,17 @@
  *
  * TF-M's Reset_Handler calls SystemInit() before the C runtime zeroes .bss. With early init
  * off, FSP keeps SystemCoreClock and its other clock state in ordinary .bss, so the value
- * SystemInit() computed is wiped. R_MRAM_Open() then derives FCLK = 0 and fails with
- * FSP_ERR_FCLK. Early init moves that state into .ram_noinit, which the port's linker scripts
- * keep out of .bss.
+ * SystemInit() computed is wiped. R_FSP_SystemClockHzGet(FSP_PRIV_CLOCK_CPUCLK) then returns
+ * 0, mram_init() computes all five MRAM timeouts as 0 - it is void, so nothing reports it -
+ * and the first command that has to wait for MRDY returns FSP_ERR_TIMEOUT. Early init moves
+ * that state into .ram_noinit, which the port's linker scripts keep out of .bss.
  *
  * The linker half of this fix is in the port; this half is in the e2 project and does not
  * carry over (E2_PROJECT_REQUIREMENTS.md). bl2_option_setting.c carries the same check for
  * BL2.
  * --------------------------------------------------------------------------------- */
 #if !defined(BSP_CFG_EARLY_INIT) || !(BSP_CFG_EARLY_INIT)
-#error "RA8M2: BSP_CFG_EARLY_INIT is 0 in the secure e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit() and R_MRAM_Open() fails with FSP_ERR_FCLK. See DESIGN.md 8.1."
+#error "RA8M2: BSP_CFG_EARLY_INIT is 0 in the secure e2 project. Set BSP > Early BSP Initialization to Enabled, regenerate and rebuild in e2 - otherwise SystemCoreClock is zeroed after SystemInit(), every MRAM timeout is computed as 0, and the first command that has to wait returns FSP_ERR_TIMEOUT. See DESIGN.md 8.1."
 #endif
 
 _Static_assert(S_MSP_STACK_SIZE == (BSP_CFG_STACK_MAIN_BYTES + STACKSEAL_SIZE),

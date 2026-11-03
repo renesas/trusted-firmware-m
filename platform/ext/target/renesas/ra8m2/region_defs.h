@@ -267,8 +267,10 @@
  *
  * WARNING: the placement rule is the brick hazard. These must stay separate regions in
  * ra8m2_bl2.ld / .icf, each section assigned with '> REGION'. One coalesced PT_LOAD zero-fills
- * every register and reserved byte in the gaps, including the block-protect permanence word,
- * and bricks the part with no known recovery (DECISIONS D002).
+ * every register and reserved byte in the gaps, writing option words nobody chose (DECISIONS
+ * D002). The six groups BL2 places span 0x02c9f040..0x02c9f127; the gaps in it hold SAS at
+ * 0x02c9f074 and 204 reserved bytes. BPS, BPS_SEC and the OTP permanence words sit outside
+ * that span on this part - on RA6M4 they did not, and two boards did not recover (D133).
  *
  * The fill is invisible in the srec: it is in the program header, and an srec is emitted from
  * sections. Verify the segments, not the sections:

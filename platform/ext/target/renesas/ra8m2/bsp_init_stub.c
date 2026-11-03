@@ -43,7 +43,9 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
  *
  * Both describe the stack the CPU runs on, which TF-M owns: the linker script places it and
  * the vector table's initial SP points at its limit. The 0x400 array this file once defined
- * was wrong in both directions:
+ * was wrong in both directions. The two measurements below are RA6M5's, from before the alias
+ * - RA6 SRAM is at 0x20000000, RA8M2's at 0x22000000 - and they are kept because they are
+ * what the failure looked like:
  *
  *   tfm_s: array at 0x2000C578, real stack 0x20000E00..0x200015F8. MSPLIM landed 44 KB above
  *          the live SP, so the first push in SystemRuntimeInit() raised a stack-overflow
@@ -51,6 +53,11 @@ __attribute__((weak)) const bsp_init_info_t g_init_info =
  *   bl2:   array at 0x200032E0, real stack 0x200036E0..0x20004EE0. MSPLIM landed just below
  *          the stack, so it did not fault, by luck. BL2 is a flat build, so
  *          BSP_TZ_SECURE_BUILD is 0 and it skips the seal write.
+ *
+ * On RA8M2 with the alias in place, measured from bin/*.map (MinSizeRel): tfm_s puts
+ * g_main_stack and Image$$ARM_LIB_STACK$$ZI$$Base together at 0x22000760, the stack runs to
+ * 0x22001760, and __StackSeal is at that limit, which is where the seal write lands. BL2's
+ * stack is 0x22002ec0..0x220046c0.
  *
  * Aliased to Image$$ARM_LIB_STACK$$ZI$$Base, MSPLIM protects the real stack and the seal lands
  * on the eight bytes the generated script reserves at __StackSeal. That needs FSP's stack size

@@ -90,14 +90,18 @@ add_subdirectory(${CONFIG_SPE_PATH} ${CMAKE_BINARY_DIR}/spe)
 # two separate images in two separate slots.
 #
 # It is dropped because it is a hazard. It is another entry in the debug session's program
-# list with no address of its own, and a wrong address is silent and destructive: entered at
-# its size rather than its start, it overwrites part of the secure slot, the NSC veneers, the
-# whole non-secure slot and part of the non-secure secondary slot. Being last in the list, it
-# does so after the correct images have been written.
+# list with no address of its own, and a wrong address is silent and destructive. The file is
+# 0x70000 long (FLASH_AREA_0_SIZE 0x48000 + FLASH_AREA_1_SIZE 0x28000) and belongs at
+# 0x02068000. RA6M5's version of this warning does not carry over literally: there flash
+# starts at 0, so typing the size lands inside it, while MRAM here starts at 0x02000000 and
+# 0x70000 is not a flash address at all. Any wrong address that IS in MRAM still overwrites
+# whatever it covers, and being last in the list it does so after the correct images have been
+# written.
 #
-# To restore it: remove this, and restore SECURE_IMAGE_OFFSET / SECURE_IMAGE_MAX_SIZE /
-# NON_SECURE_IMAGE_OFFSET / NON_SECURE_IMAGE_MAX_SIZE in flash_layout.h with the adjacency
-# assert in ra8m2_layout_checks.c. Without those, building this target explicitly fails in
+# To restore it, remove this block. SECURE_IMAGE_OFFSET / SECURE_IMAGE_MAX_SIZE /
+# NON_SECURE_IMAGE_OFFSET / NON_SECURE_IMAGE_MAX_SIZE are still defined in flash_layout.h and
+# the adjacency assert is still in ra8m2_layout_checks.c, so nothing else has to come back.
+# Removing those macros is what produces the failure below in
 # assemble.py with "NameError: name 'SECURE_IMAGE_OFFSET' is not defined".
 #-------------------------------------------------------------------------------
 if(TARGET tfm_s_ns_signed_bin)
