@@ -31,14 +31,7 @@ extern struct platform_data_t tfm_peripheral_timer0;
 #define TFM_PERIPHERAL_TIMER0   (&tfm_peripheral_timer0)
 
 #define TFM_TIMER0_IRQ 0
-
-#ifdef TFM_MULTI_CORE_TOPOLOGY
-/*
- * ns_agent_mailbox.yaml declares an IRQ with "source": "MAILBOX_IRQ", so the
- * manifest tool needs this symbol to resolve.
- */
-#define MAILBOX_IRQ FSP_INVALID_VECTOR
-#endif /* TFM_MULTI_CORE_TOPOLOGY */
+#define MAILBOX_IRQ 1
 
 #ifdef __cplusplus
 }

@@ -4,16 +4,25 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/*
+ * Renesas RA8 SPE mailbox interrupt integration.
+ */
+
+#include <stddef.h>
 #include <stdint.h>
-#include "tfm_hal_device_header.h"
-#include "spm.h"
-#include "tfm_hal_interrupt.h"
-#include "tfm_peripherals_def.h"
+
+#include "r_ipc.h"
+#include "bsp_api.h"
 #include "interrupt.h"
 #include "load/interrupt_defs.h"
-#include "bsp_api.h"
+#include "tfm_multi_core.h"
+#include "tfm_peripherals_def.h"
 
 static struct irq_t timer0_irq = {0};
+
+#ifdef TFM_PARTITION_NS_AGENT_MAILBOX
+static struct irq_t mailbox_irq = {0};
+#endif /* TFM_PARTITION_NS_AGENT_MAILBOX */
 
 /*
  * The ICU secure interrupt initialization for Renesas RA MCUs:
@@ -51,3 +60,56 @@ IRQ_HANDLER(TFM_TIMER0_IRQ)
 {
     spm_handle_interrupt(timer0_irq.p_pt, timer0_irq.p_ildi);
 }
+
+#ifdef TFM_PARTITION_NS_AGENT_MAILBOX
+
+/* Initialize the Secure runtime mailbox interrupt. */
+enum tfm_hal_status_t mailbox_irq_init(void *p_pt,
+                                       const struct irq_load_info_t *p_ildi)
+{
+    if ((p_pt == NULL) ||
+        (p_ildi == NULL) ||
+        (p_ildi->source != (uint32_t) MAILBOX_IRQ)) {
+        return TFM_HAL_ERROR_INVALID_INPUT;
+    }
+
+    /*
+     * Associate the remote NSPE client ID range with the mailbox interrupt
+     * source so that requests are routed to the correct NS Agent.
+     */
+    if (tfm_multi_core_register_client_id_range(
+            CLIENT_ID_OWNER_MAGIC,
+            p_ildi->source) != 0) {
+        return TFM_HAL_ERROR_INVALID_INPUT;
+    }
+
+    mailbox_irq.p_pt = p_pt;
+    mailbox_irq.p_ildi = p_ildi;
+    icu_secure_irq_setup(MAILBOX_IRQ, ELC_EVENT_IPC_IRQ0);
+
+    NVIC_ClearTargetState(MAILBOX_IRQ);
+    NVIC_SetPriority(MAILBOX_IRQ, DEFAULT_IRQ_PRIORITY);
+    NVIC_DisableIRQ(MAILBOX_IRQ);
+
+    return TFM_HAL_SUCCESS;
+}
+
+/* Handle a runtime mailbox notification through the FSP IPC ISR. */
+IRQ_HANDLER(MAILBOX_IRQ)
+{
+    /*
+     * The patched FSP ipc_isr() must tolerate a NULL callback. It clears
+     * the ICU request and acknowledges the received IPC event.
+     */
+    ipc_isr();
+
+    if ((mailbox_irq.p_pt == NULL) ||
+        (mailbox_irq.p_ildi == NULL)) {
+        tfm_core_panic();
+    }
+
+    spm_handle_interrupt(mailbox_irq.p_pt,
+                         mailbox_irq.p_ildi);
+}
+
+#endif /* TFM_PARTITION_NS_AGENT_MAILBOX */

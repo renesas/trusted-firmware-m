@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+void ipc_isr(void);
+
 /* The number of entries required for the ICU vector table. */
 #define BSP_ICU_VECTOR_NUM_ENTRIES (96)
 
