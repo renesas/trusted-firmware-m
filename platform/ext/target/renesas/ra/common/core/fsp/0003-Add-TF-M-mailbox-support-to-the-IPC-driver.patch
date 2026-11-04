@@ -1,0 +1,51 @@
+From 037bd4aab38e06e214ce01ca36841d95523f3912 Mon Sep 17 00:00:00 2001
+From: Bao Tran Gia <bao.tran.wt@bp.renesas.com>
+Date: Thu, 29 Oct 2026 09:23:00 +0000
+Subject: [PATCH] [tfm patch] Add TF-M mailbox support to the IPC driver
+
+Signed-off-by: Bao Tran Gia <bao.tran.wt@bp.renesas.com>
+---
+ ra/fsp/src/r_ipc/r_ipc.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/ra/fsp/src/r_ipc/r_ipc.c b/ra/fsp/src/r_ipc/r_ipc.c
+index 9524277f6..624e3a0cf 100644
+--- a/ra/fsp/src/r_ipc/r_ipc.c
++++ b/ra/fsp/src/r_ipc/r_ipc.c
+@@ -126,8 +126,20 @@ fsp_err_t R_IPC_Open (ipc_ctrl_t * const p_api_ctrl, ipc_cfg_t const * const p_c
+     p_ctrl->p_callback_memory = NULL;
+ 
+     /* Set instance IPC registers based on channel and current core */
++    #if BSP_TZ_SECURE_BUILD
++    /*
++    * The IPC register groups used by the TF-M mailbox are configured as
++    * Non-Secure. A Secure build starts from the Secure peripheral alias,
++    * so select the corresponding Non-Secure alias before accessing IPC.
++    */
++    p_ctrl->p_send_reg = (R_IPC_IPC_CH_Type *)
++        ((uintptr_t) &(R_IPC->IPC_PRV_SEND_UNIT.CH[p_cfg->channel]) | BSP_FEATURE_TZ_NS_OFFSET);
++    p_ctrl->p_recv_reg = (R_IPC_IPC_CH_Type *)
++        ((uintptr_t) &(R_IPC->IPC_PRV_RECEIVE_UNIT.CH[p_cfg->channel]) | BSP_FEATURE_TZ_NS_OFFSET);
++    #else
+     p_ctrl->p_send_reg = (R_IPC_IPC_CH_Type *) &(R_IPC->IPC_PRV_SEND_UNIT.CH[p_cfg->channel]);
+     p_ctrl->p_recv_reg = (R_IPC_IPC_CH_Type *) &(R_IPC->IPC_PRV_RECEIVE_UNIT.CH[p_cfg->channel]);
++    #endif
+ 
+     /* Enable IRQ if it is set */
+     if (p_cfg->irq >= 0)
+@@ -327,6 +339,12 @@ static fsp_err_t r_ipc_common_parameter_checking (ipc_instance_ctrl_t const * co
+  **********************************************************************************************************************/
+ static void r_ipc_call_callback (ipc_instance_ctrl_t * p_ctrl, ipc_event_t event)
+ {
++    /* Skip callback dispatch when no callback is registered. */
++    if (NULL == p_ctrl->p_callback)
++    {
++        return;
++    }
++
+     ipc_callback_args_t args;
+ 
+     /* Store callback arguments in memory provided by user if available. This allows callback arguments to be
+-- 
+2.43.0
+

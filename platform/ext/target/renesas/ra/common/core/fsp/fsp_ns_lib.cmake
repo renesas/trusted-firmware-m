@@ -115,4 +115,5 @@ target_sources(fsp_library
 target_sources(fsp_library
     PRIVATE
     ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_ioport/r_ioport.c
+    $<$<BOOL:${TFM_PARTITION_NS_AGENT_MAILBOX}>:${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_ipc/r_ipc.c>
 )

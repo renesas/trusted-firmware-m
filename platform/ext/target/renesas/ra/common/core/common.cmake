@@ -184,6 +184,7 @@ target_sources(tfm_spm
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_hal_platform.c
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_platform_system.c
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_peripherals_def.c
+    $<$<BOOL:${TFM_MULTI_CORE_TOPOLOGY}>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/platform_multicore.c>
     $<$<BOOL:${TFM_MULTI_CORE_TOPOLOGY}>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_hal_multi_core.c>
     $<$<BOOL:${TFM_MULTI_CORE_TOPOLOGY}>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_hal_mailbox.c>
     $<$<OR:$<BOOL:${CONFIG_TFM_FLIH_API}>,$<BOOL:${CONFIG_TFM_SLIH_API}>>:${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_interrupts.c>
@@ -224,8 +225,19 @@ install(FILES       ${RENESAS_RA_COMMON_SOURCE_DIR}/core/scripts/gcc/tfm_common_
 
 # NS-side mailbox platform source
 if(RA_CM33_NS_PRESENT)
-    install(FILES       ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/platform_ns_mailbox.c
-            DESTINATION ${INSTALL_PLATFORM_NS_DIR}/../interface/src/multi_core
+    install(
+        FILES
+            ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/platform_ns_mailbox.c
+            ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/platform_multicore.c
+        DESTINATION
+            ${INSTALL_PLATFORM_NS_DIR}/../interface/src/multi_core
+    )
+
+    install(
+        FILES
+            ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/inc/platform_multicore.h
+        DESTINATION
+            ${INSTALL_PLATFORM_NS_DIR}/../interface/include/multi_core
     )
 endif()
 

@@ -26,6 +26,18 @@ target_sources(platform_ns
         ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_ioctl_ns_api.c
 )
 
+if(RA_CM33_NS_PRESENT)
+    target_sources(platform_ns
+        PRIVATE
+            ${CONFIG_SPE_PATH}/interface/src/multi_core/platform_multicore.c
+    )
+
+    target_include_directories(platform_ns
+        PRIVATE
+            ${CONFIG_SPE_PATH}/interface/include/multi_core
+    )
+endif()
+
 target_include_directories(platform_ns
     PUBLIC
         ${TARGET_PLATFORM_PATH}
@@ -49,6 +61,36 @@ target_include_directories(platform_region_defs
 # and the SoC's fsp_post_config.cmake, whose fsp_library_config defs apply only to
 # the fsp_library sources)
 include(${RENESAS_RA_COMMON_SOURCE_DIR}/core/fsp/fsp_ns_lib.cmake)
+
+# Platform dependencies for the remote NSPE mailbox implementation.
+if(RA_CORE STREQUAL "cm33")
+    # app_broker also compiles mailbox sources in ns_multi_core, which links
+    # platform_ns but does not inherit tfm_api_ns_mailbox's compile options
+    # through tfm_api_ns's PRIVATE dependency. Share the configuration through
+    # both targets so all users of the mailbox structures agree on the layout.
+    add_library(ra_ns_mailbox_config INTERFACE)
+    target_include_directories(ra_ns_mailbox_config
+        INTERFACE
+            ${CONFIG_SPE_PATH}/interface/include
+    )
+    target_compile_options(ra_ns_mailbox_config
+        INTERFACE
+            "$<$<COMPILE_LANGUAGE:C>:SHELL:-include config_tfm.h>"
+    )
+
+    target_link_libraries(tfm_api_ns_mailbox
+        PRIVATE
+            platform_region_defs
+            fsp_library
+        PUBLIC
+            ra_ns_mailbox_config
+    )
+
+    target_link_libraries(platform_ns
+        PUBLIC
+            ra_ns_mailbox_config
+    )
+endif()
 
 # Link platform_ns against platform_region_defs to get memory region defines
 target_link_libraries(platform_ns
@@ -151,3 +193,116 @@ if(BL2 AND MCUBOOT_IMAGE_NUMBER GREATER 1)
         OUTPUT_FILE         ${CMAKE_BINARY_DIR}/bin/${NS_TARGET_NAME}_signed.hex
     )
 endif()
+
+#===================== NS image signing (BL2) ===============================#
+
+# The S and NS images are separate MCUboot images and are never merged: the NS
+# image can be in another flash (RA_CPU0_NS_EXTERNAL / RA_CPU1_NS_EXTERNAL) and
+# is programmed on its own. TF-M's default signing in the installed spe
+# CMakeLists.txt (PLATFORM_DEFAULT_IMAGE_SIGNING) assembles a combined
+# tfm_s_ns_signed image with the CPU0 NS offset, and has no option to skip only
+# that step, so it is turned off (spe_config sets it in the spe directory scope,
+# which is read after this directory) and the NS image is signed here with the
+# layout and keys exported by the secure build. The S image is signed by the
+# secure build.
+#
+# CPU0 (TrustZone) is MCUboot image 1. CPU1 (mailbox) is image 2: it is signed
+# with the S key (the default provisioning stores the S key hash in
+# BL2_ROTPK_2) and its own layout, installed by the secure build. The _ns.o
+# suffix of the layouts makes the signing wrapper record the image as non-secure
+# for measured boot.
+if(BL2 AND MCUBOOT_IMAGE_NUMBER GREATER 1)
+    set(PLATFORM_DEFAULT_IMAGE_SIGNING OFF PARENT_SCOPE)
+
+    set(_ra_signing_dir ${CMAKE_CURRENT_SOURCE_DIR}/../image_signing)
+
+    if(RA_NS_INTERFACE_MAILBOX)
+        set(_ra_ns_layout       ${_ra_signing_dir}/layout_files/signing_layout_cpu1_ns.o)
+        set(_ra_ns_key          ${MCUBOOT_KEY_S})
+        set(_ra_ns_version      ${MCUBOOT_IMAGE_VERSION_CPU1_NS})
+        set(_ra_ns_counter      ${MCUBOOT_SECURITY_COUNTER_CPU1_NS})
+        set(_ra_ns_extra_args)
+    else()
+        set(_ra_ns_layout       ${_ra_signing_dir}/layout_files/signing_layout_ns.o)
+        set(_ra_ns_key          ${MCUBOOT_KEY_NS})
+        set(_ra_ns_version      ${MCUBOOT_IMAGE_VERSION_NS})
+        set(_ra_ns_counter      ${MCUBOOT_SECURITY_COUNTER_NS})
+        # The NS image depends on the S image (minimum version)
+        set(_ra_ns_extra_args
+            -d \"\(0, ${MCUBOOT_S_IMAGE_MIN_VER}\)\"
+            $<$<BOOL:${MCUBOOT_ENC_IMAGES}>:-E${MCUBOOT_KEY_ENC_NS}>
+        )
+        if(MCUBOOT_IMAGE_BINDING)
+            list(APPEND _ra_ns_extra_args
+                --extra-tlv "${TLV_METADATA}"
+                --extra-tlv "${TLV_BINDING_TAG}"
+            )
+        endif()
+        if(MCUBOOT_BUILTIN_KEY)
+            list(APPEND _ra_ns_extra_args --psa-key-ids ${TFM_NS_KEY_ID})
+        endif()
+    endif()
+
+    set(_ra_ns_wrapper_args
+        --version ${_ra_ns_version}
+        --layout ${_ra_ns_layout}
+        --key ${_ra_ns_key}
+        --public-key-format $<IF:$<BOOL:${MCUBOOT_HW_KEY}>,full,hash>
+        --align ${MCUBOOT_ALIGN_VAL}
+        --pad
+        --pad-header
+        -H ${BL2_HEADER_SIZE}
+        -s ${_ra_ns_counter}
+        -L ${MCUBOOT_ENC_KEY_LEN}
+        ${_ra_ns_extra_args}
+        $<$<STREQUAL:${MCUBOOT_UPGRADE_STRATEGY},OVERWRITE_ONLY>:--overwrite-only>
+        $<$<BOOL:${MCUBOOT_CONFIRM_IMAGE}>:--confirm>
+        $<$<BOOL:${MCUBOOT_MEASURED_BOOT}>:--measured-boot-record>
+        $<TARGET_FILE_DIR:${NS_TARGET_NAME}>/${NS_TARGET_NAME}.bin
+        ${CMAKE_BINARY_DIR}/bin/${NS_TARGET_NAME}_signed.bin
+    )
+
+    add_custom_target(${NS_TARGET_NAME}_signed_bin ALL
+        SOURCES ${CMAKE_BINARY_DIR}/bin/${NS_TARGET_NAME}_signed.bin
+    )
+    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/${NS_TARGET_NAME}_signed.bin
+        DEPENDS ${NS_TARGET_NAME}_bin
+        DEPENDS ${_ra_ns_layout}
+        WORKING_DIRECTORY ${_ra_signing_dir}/scripts
+        COMMAND mcuboot_imagesign_wrapper ${_ra_ns_wrapper_args}
+    )
+
+    add_convert_to_offset_hex_target(${NS_TARGET_NAME}_signed
+        INPUT_FILE          ${CMAKE_BINARY_DIR}/bin/${NS_TARGET_NAME}_signed.bin
+        OFFSET_MACRO_NAME   NS_CODE_START
+        INCLUDE_BL2_HEADER  TRUE
+        MIRROR_FILE         $<TARGET_PROPERTY:${NS_TARGET_NAME},LINK_DEPENDS>
+        OUTPUT_FILE         ${CMAKE_BINARY_DIR}/bin/${NS_TARGET_NAME}_signed.hex
+    )
+endif()
+
+# NOTE: Temporary workaround for RA remote NSPE regression tests.
+# tf-m-tests/app_broker defines TFM_MULTI_CORE_NS_OS, which selects the
+# blocking RTOS reply-wait path. Undefine it for tfm_ns_mailbox.c to poll
+# replies until interrupt-driven reply notification and RTOS task wake-up
+# are implemented on the remote NSPE. Remove this workaround at that point.
+set(RA_TFM_NS_MAILBOX_SOURCE
+    "${CONFIG_SPE_PATH}/interface/src/multi_core/tfm_ns_mailbox.c"
+)
+
+get_filename_component(
+    RA_TFM_TESTS_ROOT
+    "${CMAKE_SOURCE_DIR}/.."
+    ABSOLUTE
+)
+
+set(RA_APP_BROKER_SOURCE_DIR
+    "${RA_TFM_TESTS_ROOT}/app_broker"
+)
+
+set_source_files_properties(
+    "${RA_TFM_NS_MAILBOX_SOURCE}"
+    DIRECTORY "${RA_APP_BROKER_SOURCE_DIR}"
+    PROPERTIES
+        COMPILE_OPTIONS "-UTFM_MULTI_CORE_NS_OS"
+)

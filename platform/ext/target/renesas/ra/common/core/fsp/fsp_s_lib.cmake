@@ -118,4 +118,5 @@ target_sources(fsp_library
     ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_ioport/r_ioport.c
     ${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_mram/r_mram.c
     $<$<OR:$<BOOL:${TFM_S_REG_TEST}>,$<BOOL:${TFM_NS_REG_TEST}>>:${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_agt/r_agt.c>
+    $<$<BOOL:${TFM_PARTITION_NS_AGENT_MAILBOX}>:${RENESAS_RA_FSP_LIB_PATH}/ra/fsp/src/r_ipc/r_ipc.c>
 )

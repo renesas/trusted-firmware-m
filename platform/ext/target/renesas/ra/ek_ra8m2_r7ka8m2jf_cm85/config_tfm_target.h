@@ -16,4 +16,7 @@
 #define CRYPTO_STACK_SIZE               0x29000
 #endif
 
+/* IPC configuration */
+#define CONFIG_TFM_HYBRID_PLAT_SCHED_TYPE    TFM_HYBRID_PLAT_SCHED_SPE
+
 #endif /* __CONFIG_TFM_TARGET_H__ */
