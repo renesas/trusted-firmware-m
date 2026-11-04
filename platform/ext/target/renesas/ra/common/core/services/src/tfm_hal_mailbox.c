@@ -38,8 +38,14 @@ int32_t tfm_mailbox_hal_init(struct secure_mailbox_queue_t *s_queue)
         goto init_error;
     }
 
-    while (platform_mailbox_buffer_get(&init_snapshot) != FSP_SUCCESS) {
+    do {
         /* Wait for the remote NSPE to provide the mailbox descriptor. */
+        err = platform_mailbox_buffer_get(&init_snapshot);
+    } while (err == FSP_ERR_NOT_FOUND);
+
+    /* Any other error means the descriptor was consumed but rejected. */
+    if (err != FSP_SUCCESS) {
+        goto init_error;
     }
 
     /*
@@ -68,18 +74,23 @@ init_error:
 
 int32_t tfm_mailbox_hal_notify_peer(void)
 {
-    /* TODO: Fully implement this stub when SPE-to-NSPE notification is required */
+    if (platform_mailbox_generate_event(IPC_GENERATE_EVENT_IRQ0) != FSP_SUCCESS) {
+        return MAILBOX_CHAN_BUSY;
+    }
+
     return MAILBOX_SUCCESS;
 }
 
 uint32_t tfm_mailbox_hal_enter_critical(void)
 {
-    /* TODO: Fully implement this stub when mailbox concurrency is supported */
-    return 0U;
+    while (platform_mailbox_semaphore_take() != FSP_SUCCESS) {
+    }
+
+    return 0;
 }
 
 void tfm_mailbox_hal_exit_critical(uint32_t key)
 {
-    /* TODO: Fully implement this stub when mailbox concurrency is supported */
     (void) key;
+    (void) platform_mailbox_semaphore_give();
 }

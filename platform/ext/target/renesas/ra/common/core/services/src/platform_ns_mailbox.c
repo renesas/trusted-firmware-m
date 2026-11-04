@@ -13,6 +13,7 @@
 #include "tfm_ns_mailbox.h"
 #include "platform_multicore.h"
 #include "tfm_multi_core_api.h"
+#include "vector_data.h"
 
 /* IPC event status values for the remote NSPE mailbox */
 #define RA_PLATFORM_MAILBOX_EVENT_IRQ0_NONE       UINT32_C(0)
@@ -27,8 +28,7 @@ int32_t tfm_platform_ns_wait_for_s_cpu_ready(void)
 
     err = platform_mailbox_open();
     if (err != FSP_SUCCESS) {
-        (void) platform_mailbox_close();
-        return err;
+        goto error;
     }
 
     do {
@@ -43,11 +43,32 @@ int32_t tfm_platform_ns_wait_for_s_cpu_ready(void)
 
     err = platform_mailbox_generate_event(IPC_GENERATE_EVENT_IRQ0);
     if (err != FSP_SUCCESS) {
-        (void) platform_mailbox_close();
-        return err;
+        goto error;
     }
 
     return MAILBOX_SUCCESS;
+error:
+    (void) platform_mailbox_close();
+    return MAILBOX_INIT_ERROR;
+}
+
+/* SPE reply notification: wake the NS threads waiting for a mailbox reply. */
+IRQ_HANDLER(RA_NS_MAILBOX_IRQ)
+{
+    ipc_event_t event = (ipc_event_t) 0;
+
+    R_BSP_IrqStatusClear(RA_NS_MAILBOX_IRQ);
+
+    if (platform_mailbox_get_event(&event) != FSP_SUCCESS) {
+        return;
+    }
+
+    /* The FIFO is only used during init; keep a stale word from holding RDY. */
+    platform_mailbox_fifo_flush();
+
+    if (((uint32_t) event & (uint32_t) IPC_EVENT_IRQ0) != 0U) {
+        (void) tfm_ns_mailbox_wake_reply_owner_isr();
+    }
 }
 
 /* Exchange the mailbox descriptor with the SPE. */
@@ -59,7 +80,7 @@ int32_t tfm_ns_mailbox_hal_init(struct ns_mailbox_queue_t *queue)
     uint32_t event_status = RA_PLATFORM_MAILBOX_EVENT_IRQ0_NONE;
 
     if (queue == NULL) {
-        return MAILBOX_INIT_ERROR;
+        return MAILBOX_INVAL_PARAMS;
     }
 
     ns_init.status = &queue->status;
@@ -103,6 +124,16 @@ int32_t tfm_ns_mailbox_hal_init(struct ns_mailbox_queue_t *queue)
 
     __DSB();
 
+    /*
+     * Handshake done: from now on IRQ0 from the SPE means a reply is ready.
+     * Use the lowest priority so RTOS "from ISR" calls are always legal.
+     */
+    platform_mailbox_fifo_flush();
+    R_BSP_IrqStatusClear(RA_NS_MAILBOX_IRQ);
+    NVIC_ClearPendingIRQ(RA_NS_MAILBOX_IRQ);
+    NVIC_SetPriority(RA_NS_MAILBOX_IRQ, (1U << __NVIC_PRIO_BITS) - 1U);
+    NVIC_EnableIRQ(RA_NS_MAILBOX_IRQ);
+
     return MAILBOX_SUCCESS;
 
 init_error:
@@ -119,19 +150,42 @@ int32_t tfm_ns_mailbox_hal_notify_peer(void)
     err = platform_mailbox_generate_event(IPC_GENERATE_EVENT_IRQ0);
 
     return (err == FSP_SUCCESS) ? MAILBOX_SUCCESS :
-                                  MAILBOX_INIT_ERROR;
+                                  MAILBOX_CHAN_BUSY;
 }
 
-/* Enter the single-request mailbox critical section. */
+/* Enter the mailbox critical section: mask local IRQs, then take IPCSEM8. */
 uint32_t tfm_ns_mailbox_hal_enter_critical(void)
 {
-    /* TODO: Fully implement this stub when NS mailbox concurrency is supported */
+    uint32_t state = __get_PRIMASK();
+
+    __disable_irq();
+
+    /* Take the IPC semaphore shared with the SPE mailbox critical section. */
+    while (platform_mailbox_semaphore_take() != FSP_SUCCESS) {
+    }
+
+    return state;
+}
+
+/* Exit the mailbox critical section and restore the local IRQ mask. */
+void tfm_ns_mailbox_hal_exit_critical(uint32_t state)
+{
+    (void) platform_mailbox_semaphore_give();
+
+    __set_PRIMASK(state);
+}
+
+/* ISR variant: IRQs are already masked by the caller's context. */
+uint32_t tfm_ns_mailbox_hal_enter_critical_isr(void)
+{
+    while (platform_mailbox_semaphore_take() != FSP_SUCCESS) {
+    }
+
     return 0U;
 }
 
-/* Exit the single-request mailbox critical section. */
-void tfm_ns_mailbox_hal_exit_critical(uint32_t key)
+void tfm_ns_mailbox_hal_exit_critical_isr(uint32_t state)
 {
-    /* TODO: Fully implement this stub when NS mailbox concurrency is supported */
-    (void) key;
+    (void) state;
+    (void) platform_mailbox_semaphore_give();
 }

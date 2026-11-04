@@ -16,6 +16,11 @@ void ipc_isr(void);
 /* The number of entries required for the ICU vector table. */
 #define BSP_ICU_VECTOR_NUM_ENTRIES (96)
 
+#ifdef RA_NS_INTERFACE_MAILBOX
+/* CPU1 NVIC/IELSR slot of the SPE-to-NSPE mailbox reply notification (IPC IRQ0). */
+#define RA_NS_MAILBOX_IRQ    0
+#endif
+
 #define IRQ_HANDLER_NAME(n)  irq_##n##_handler
 
 #define IRQ_HANDLER(num)           \

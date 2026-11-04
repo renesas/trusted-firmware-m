@@ -103,6 +103,9 @@ IRQ_HANDLER(MAILBOX_IRQ)
      */
     ipc_isr();
 
+    /* The FIFO is only used during init; keep a stale word from holding RDY. */
+    platform_mailbox_fifo_flush();
+
     if ((mailbox_irq.p_pt == NULL) ||
         (mailbox_irq.p_ildi == NULL)) {
         tfm_core_panic();

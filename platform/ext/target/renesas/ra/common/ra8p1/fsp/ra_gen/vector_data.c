@@ -25,6 +25,7 @@ BSP_DONT_REMOVE const
 
 #elif defined(RA_NS_INTERFACE_MAILBOX)
     /* Interrupt handler of remote NSPE */
+    IRQ_VECTOR_ENTRY(RA_NS_MAILBOX_IRQ)
 #else
 	IRQ_FOREACH(IRQ_VECTOR_ENTRY)
 #endif
@@ -37,6 +38,7 @@ const bsp_interrupt_event_t g_interrupt_event_link_select[BSP_ICU_VECTOR_NUM_ENT
 #endif
 #ifdef RA_NS_INTERFACE_MAILBOX
     /* Interrupt event for remote NSPE */
+    [RA_NS_MAILBOX_IRQ] = ELC_EVENT_IPC_IRQ0,
 #endif
 };
 
