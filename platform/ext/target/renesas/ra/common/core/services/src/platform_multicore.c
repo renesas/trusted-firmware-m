@@ -26,6 +26,9 @@
 /* IPC channel used for the mailbox */
 #define RA_MAILBOX_IPC_CHANNEL            UINT32_C(0)
 
+/* IPC hardware semaphore guarding the NSPE mailbox  */
+#define RA_MAILBOX_IPC_SEMAPHORE          (8U)
+
 ipc_instance_ctrl_t ra_ipc_ctrl = {0};
 
 static const ipc_cfg_t ra_ipc_cfg = {
@@ -50,6 +53,20 @@ static bool platform_mailbox_ns_range_valid(uintptr_t address, size_t size)
     return size <= (end - address);
 }
 #endif
+
+/* IPC STA bits that report events; RDY and FULL are FIFO state, not events. */
+#define RA_MAILBOX_IPC_EVENT_MASK (~(R_IPC_IPC_CH_STA_RDY_Msk | R_IPC_IPC_CH_STA_FULL_Msk))
+
+/* Return the mailbox IPC semaphore register. */
+static volatile uint32_t *platform_mailbox_semaphore_reg(void)
+{
+#ifdef DOMAIN_NS
+    return &(R_IPC->IPCSEM[RA_MAILBOX_IPC_SEMAPHORE]);
+#else
+    return (volatile uint32_t *)
+        ((uintptr_t) &(R_IPC->IPCSEM[RA_MAILBOX_IPC_SEMAPHORE]) | BSP_FEATURE_TZ_NS_OFFSET);
+#endif
+}
 
 /* Open the IPC hardware instance if it is not already open. */
 fsp_err_t platform_mailbox_open(void)
@@ -164,11 +181,28 @@ fsp_err_t platform_mailbox_get_event(ipc_event_t *p_event)
         return FSP_ERR_NOT_OPEN;
     }
 
-    *p_event = (ipc_event_t) ra_ipc_ctrl.p_recv_reg->STA;
+    /*
+     * Only event bits are acknowledged. CLR bit 16 is the FIFO reset (RST),
+     * which would alias STA.RDY and discard a pending message word.
+     */
+    *p_event = (ipc_event_t) (ra_ipc_ctrl.p_recv_reg->STA & RA_MAILBOX_IPC_EVENT_MASK);
     ra_ipc_ctrl.p_recv_reg->CLR = (uint32_t) *p_event;
     __DMB();
 
     return FSP_SUCCESS;
+}
+
+/* Discard any unread word in the receive FIFO so RDY cannot keep the IRQ set. */
+void platform_mailbox_fifo_flush(void)
+{
+    if (ra_ipc_ctrl.open == 0) {
+        return;
+    }
+
+    if (ra_ipc_ctrl.p_recv_reg->STA_b.RDY != 0U) {
+        ra_ipc_ctrl.p_recv_reg->CLR = R_IPC_IPC_CH_CLR_RST_Msk;
+        __DMB();
+    }
 }
 
 /* Generate an IPC software event for the peer core. */
@@ -195,4 +229,28 @@ fsp_err_t platform_mailbox_close(void)
     }
 
     return R_IPC_Close((ipc_ctrl_t *) &ra_ipc_ctrl);
+}
+
+/* Attempt once to take the mailbox IPC semaphore without polling. */
+fsp_err_t platform_mailbox_semaphore_take(void)
+{
+    volatile uint32_t * sem_ptr = platform_mailbox_semaphore_reg();
+
+    /* Reading 0 means the semaphore was free and is now owned by this core. */
+    if (*sem_ptr != 0U) {
+        return FSP_ERR_IN_USE;
+    }
+
+    return FSP_SUCCESS;
+}
+
+/* Give the mailbox IPC semaphore back. */
+fsp_err_t platform_mailbox_semaphore_give(void)
+{
+    volatile uint32_t * sem_ptr = platform_mailbox_semaphore_reg();
+
+    /* Writing 1 to releases the semaphore. */
+    *sem_ptr = 1U;
+
+    return FSP_SUCCESS;
 }

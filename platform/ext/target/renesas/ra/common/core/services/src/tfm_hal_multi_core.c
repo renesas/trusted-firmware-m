@@ -40,7 +40,7 @@ void tfm_hal_boot_ns_cpu(uintptr_t start_addr)
 void tfm_hal_wait_for_ns_cpu_ready(void)
 {
     ipc_event_t event;
-    uint32_t event_status;
+    uint32_t event_status = 0U;
     fsp_err_t err;
 
     err = platform_mailbox_generate_event(IPC_GENERATE_EVENT_IRQ0);

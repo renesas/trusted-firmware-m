@@ -29,11 +29,20 @@ fsp_err_t platform_mailbox_buffer_set(const struct mailbox_init_t *p_mailbox_ini
 /* Read and acknowledge the IRQ0 event status once */
 fsp_err_t platform_mailbox_get_event(ipc_event_t *p_event);
 
+/* Discard any unread word in the receive FIFO. */
+void platform_mailbox_fifo_flush(void);
+
 /* Generate an IPC software event for the peer core. */
 fsp_err_t platform_mailbox_generate_event(ipc_generate_event_t event);
 
 /* Close the IPC hardware instance if it is open. */
 fsp_err_t platform_mailbox_close(void);
+
+/* Attempt once to take the mailbox IPC semaphore without polling. */
+fsp_err_t platform_mailbox_semaphore_take(void);
+
+/* Give the mailbox IPC semaphore back. */
+fsp_err_t platform_mailbox_semaphore_give(void);
 
 #ifdef __cplusplus
 }
