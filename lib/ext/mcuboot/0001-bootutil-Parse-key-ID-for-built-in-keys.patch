@@ -1,20 +1,9 @@
-From 67d948ea2f9504c5af2979e83b531daaec51e607 Mon Sep 17 00:00:00 2001
-From: David Vincze <david.vincze@arm.com>
-Date: Wed, 8 Apr 2026 15:27:17 +0000
+From 24eee072bb9a8c9f495b3bca2f49047727fb9723 Mon Sep 17 00:00:00 2001
+From: Hien Le <hien.le.sx@bp.renesas.com>
+Date: Wed, 4 Nov 2026 09:59:39 +0000
 Subject: [PATCH] bootutil: Parse key ID for built-in keys
 
-When MCUBOOT_BUILTIN_KEY is enabled, the key id TLV entry is added
-to the image with the new IMAGE_TLV_KEYID type. Parse this entry while
-validating the image to identify the key used to sign the image.
-In this scenario the IMAGE_TLV_KEYHASH or IMAGE_TLV_PUBKEY entries
-are not needed.
-
-This replaces the previous PoC code that simply assigned the
-image_index to the key ID.
-
-Signed-off-by: Maulik Patel <maulik.patel@arm.com>
-Signed-off-by: David Vincze <david.vincze@arm.com>
-Change-Id: If194aaf281d34c3a2260881b9831d64c3cf386d3
+Signed-off-by: Hien Le <hien.le.sx@bp.renesas.com>
 ---
  boot/bootutil/include/bootutil/crypto/ecdsa.h |  5 --
  boot/bootutil/include/bootutil/image.h        | 13 ++--
@@ -26,14 +15,14 @@ Change-Id: If194aaf281d34c3a2260881b9831d64c3cf386d3
  boot/bootutil/src/image_rsa.c                 |  4 +-
  boot/bootutil/src/image_validate.c            | 35 +++++-----
  scripts/imgtool/image.py                      | 22 ++++--
- scripts/imgtool/main.py                       | 10 ++-
- 11 files changed, 121 insertions(+), 69 deletions(-)
+ scripts/imgtool/main.py                       | 12 +++-
+ 11 files changed, 123 insertions(+), 69 deletions(-)
 
 diff --git a/boot/bootutil/include/bootutil/crypto/ecdsa.h b/boot/bootutil/include/bootutil/crypto/ecdsa.h
-index 35f0930fa..eb2fe9c66 100644
+index 1b6c62dd..4f9ff7b6 100644
 --- a/boot/bootutil/include/bootutil/crypto/ecdsa.h
 +++ b/boot/bootutil/include/bootutil/crypto/ecdsa.h
-@@ -394,11 +394,6 @@ static inline void bootutil_ecdsa_init(bootutil_ecdsa_context *ctx)
+@@ -406,11 +406,6 @@ static inline void bootutil_ecdsa_init(bootutil_ecdsa_context *ctx)
      ctx->required_algorithm = 0;
  
  #else /* !MCUBOOT_BUILTIN_KEY */
@@ -46,7 +35,7 @@ index 35f0930fa..eb2fe9c66 100644
      ctx->curve_byte_count = 32;
      ctx->required_algorithm = PSA_ALG_SHA_256;
 diff --git a/boot/bootutil/include/bootutil/image.h b/boot/bootutil/include/bootutil/image.h
-index 3d103f8da..fab8fcba9 100644
+index 3d103f8d..fab8fcba 100644
 --- a/boot/bootutil/include/bootutil/image.h
 +++ b/boot/bootutil/include/bootutil/image.h
 @@ -3,7 +3,7 @@
@@ -85,7 +74,7 @@ index 3d103f8da..fab8fcba9 100644
  int
  bootutil_img_hash(struct boot_loader_state *state,
 diff --git a/boot/bootutil/include/bootutil/sign_key.h b/boot/bootutil/include/bootutil/sign_key.h
-index a5e81d350..f7a377843 100644
+index a5e81d35..f7a37784 100644
 --- a/boot/bootutil/include/bootutil/sign_key.h
 +++ b/boot/bootutil/include/bootutil/sign_key.h
 @@ -28,6 +28,8 @@
@@ -121,7 +110,7 @@ index a5e81d350..f7a377843 100644
      uint8_t *key;
      unsigned int *len;
 diff --git a/boot/bootutil/src/bootutil_find_key.c b/boot/bootutil/src/bootutil_find_key.c
-index 7d34e05f4..b6f15fba0 100644
+index 7d34e05f..b6f15fba 100644
 --- a/boot/bootutil/src/bootutil_find_key.c
 +++ b/boot/bootutil/src/bootutil_find_key.c
 @@ -51,34 +51,27 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
@@ -219,7 +208,7 @@ index 7d34e05f4..b6f15fba0 100644
      (void)key_len;
  
 diff --git a/boot/bootutil/src/bootutil_priv.h b/boot/bootutil/src/bootutil_priv.h
-index ea676f3af..dbdea7c2b 100644
+index 3b93190d..7cdae2af 100644
 --- a/boot/bootutil/src/bootutil_priv.h
 +++ b/boot/bootutil/src/bootutil_priv.h
 @@ -3,7 +3,7 @@
@@ -231,7 +220,7 @@ index ea676f3af..dbdea7c2b 100644
   *
   * Original license:
   *
-@@ -288,7 +288,7 @@ struct boot_sector_buffer {
+@@ -326,7 +326,7 @@ struct boot_sector_buffer {
   * an image and mlen to length of the hash.
   */
  fih_ret bootutil_verify_sig(uint8_t *msg, uint32_t mlen, uint8_t *sig,
@@ -241,7 +230,7 @@ index ea676f3af..dbdea7c2b 100644
  fih_ret boot_fih_memequal(const void *s1, const void *s2, size_t n);
  
 diff --git a/boot/bootutil/src/image_ecdsa.c b/boot/bootutil/src/image_ecdsa.c
-index 30c7d0d0f..ae0cea626 100644
+index 5e178772..b9583ef3 100644
 --- a/boot/bootutil/src/image_ecdsa.c
 +++ b/boot/bootutil/src/image_ecdsa.c
 @@ -3,7 +3,7 @@
@@ -272,7 +261,7 @@ index 30c7d0d0f..ae0cea626 100644
      int rc;
      bootutil_ecdsa_context ctx;
 diff --git a/boot/bootutil/src/image_ed25519.c b/boot/bootutil/src/image_ed25519.c
-index 94d0142ec..9b52e6352 100644
+index fe4088a0..0fcbcb51 100644
 --- a/boot/bootutil/src/image_ed25519.c
 +++ b/boot/bootutil/src/image_ed25519.c
 @@ -2,7 +2,7 @@
@@ -284,7 +273,7 @@ index 94d0142ec..9b52e6352 100644
   * Copyright (c) 2025 Nordic Semiconductor ASA
   */
  
-@@ -85,7 +85,7 @@ bootutil_import_key(uint8_t **cp, uint8_t *end)
+@@ -86,7 +86,7 @@ bootutil_import_key(uint8_t **cp, uint8_t *end)
   */
  fih_ret
  bootutil_verify_sig(uint8_t *msg, uint32_t mlen, uint8_t *sig, size_t slen,
@@ -294,7 +283,7 @@ index 94d0142ec..9b52e6352 100644
      int rc;
      FIH_DECLARE(fih_rc, FIH_FAILURE);
 diff --git a/boot/bootutil/src/image_rsa.c b/boot/bootutil/src/image_rsa.c
-index 5479b75eb..a1e277d50 100644
+index 5479b75e..a1e277d5 100644
 --- a/boot/bootutil/src/image_rsa.c
 +++ b/boot/bootutil/src/image_rsa.c
 @@ -3,7 +3,7 @@
@@ -316,7 +305,7 @@ index 5479b75eb..a1e277d50 100644
      bootutil_rsa_context ctx;
      int rc;
 diff --git a/boot/bootutil/src/image_validate.c b/boot/bootutil/src/image_validate.c
-index 3e8031b76..c6652b76c 100644
+index 76ddc98d..062c45f8 100644
 --- a/boot/bootutil/src/image_validate.c
 +++ b/boot/bootutil/src/image_validate.c
 @@ -3,7 +3,7 @@
@@ -386,7 +375,7 @@ index 3e8031b76..c6652b76c 100644
  #ifdef MCUBOOT_HW_KEY
      uint8_t key_buf[KEY_BUF_SIZE];
  #endif
-@@ -377,7 +374,7 @@ bootutil_img_validate(struct boot_loader_state *state,
+@@ -382,7 +379,7 @@ bootutil_img_validate(struct boot_loader_state *state,
              if (rc) {
                  goto out;
              }
@@ -396,7 +385,7 @@ index 3e8031b76..c6652b76c 100644
              rc = LOAD_IMAGE_DATA(hdr, fap, off, key_buf, len);
              if (rc) {
 diff --git a/scripts/imgtool/image.py b/scripts/imgtool/image.py
-index 04036b213..f34833bce 100755
+index 06d9caf0..4d7ebf2a 100755
 --- a/scripts/imgtool/image.py
 +++ b/scripts/imgtool/image.py
 @@ -1,6 +1,6 @@
@@ -470,7 +459,7 @@ index 04036b213..f34833bce 100755
          """Install the image header."""
  
 diff --git a/scripts/imgtool/main.py b/scripts/imgtool/main.py
-index a579b1f76..68587be2c 100755
+index a9d9acbc..e057a22f 100755
 --- a/scripts/imgtool/main.py
 +++ b/scripts/imgtool/main.py
 @@ -1,7 +1,7 @@
@@ -482,7 +471,7 @@ index a579b1f76..68587be2c 100755
  #
  # SPDX-License-Identifier: Apache-2.0
  #
-@@ -451,6 +451,8 @@ class BasedIntParamType(click.ParamType):
+@@ -507,6 +507,8 @@ class BasedIntParamType(click.ParamType):
                help='send to OUTFILE the payload or payload''s digest instead '
                'of complied image. These data can be used for external image '
                'signing')
@@ -491,7 +480,7 @@ index a579b1f76..68587be2c 100755
  @click.command(help='''Create a signed or unsigned image\n
                 INFILE and OUTFILE are parsed as Intel HEX if the params have
                 .hex extension, otherwise binary format is used''')
-@@ -464,7 +466,7 @@ def sign(key, public_key_format, align, version, pad_sig, header_size,
+@@ -520,7 +522,7 @@ def sign(key, public_key_format, align, version, pad_sig, header_size,
           dependencies, load_addr, hex_addr, erased_val, save_enctlv,
           security_counter, boot_record, custom_tlv, custom_tlv_file, rom_fixed, max_align,
           clear, fix_sig, fix_sig_pubkey, sig_out, user_sha, hmac_sha, is_pure,
@@ -500,17 +489,19 @@ index a579b1f76..68587be2c 100755
  
      if confirm or test:
          # Confirmed but non-padded images don't make much sense, because
-@@ -480,6 +482,10 @@ def sign(key, public_key_format, align, version, pad_sig, header_size,
+@@ -536,6 +538,12 @@ def sign(key, public_key_format, align, version, pad_sig, header_size,
                        non_bootable=non_bootable, vid=vid, cid=cid)
      compression_tlvs = {}
      img.load(infile)
-+    # If the user passed a PSA key ID, apply it here:
++
++    # If the user passed a PSA key ID, apply it here.
 +    if psa_key_id is not None:
 +        click.echo(f"Signing with PSA key ID: {psa_key_id}")
 +        img.set_key_id(psa_key_id)
++
      key = load_key(key) if key else None
-     enckey = load_key(encrypt) if encrypt else None
-     if enckey and key and ((isinstance(key, keys.ECDSA256P1) and
+     if key is not None and not isinstance(key, (keys.PayloadSigner, keys.DigestSigner)):
+         raise click.UsageError(
 -- 
-2.34.1
+2.43.0
 
