@@ -140,6 +140,44 @@ __PACKED_STRUCT bl2_assembly_and_test_provisioning_data_t {
         0x1b, 0x22, 0x5c, 0xc3, 0x6a, 0x5b, 0xa8, 0x08, \
         0x1d, 0xf0, 0x71, 0xe0, 0xcb, 0xbc, 0x61, 0x92, \
     }
+#elif defined(MCUBOOT_SIGN_MLDSA87)
+/*
+ * SHA-256 hashes of the raw ML-DSA-87 public keys (BL2_ROTPK_0..2).
+ *
+ * DATA_KIND_0: Secure image                     (MCUBOOT_KEY_S)
+ * DATA_KIND_1: Non-Secure image, CPU0 TrustZone (MCUBOOT_KEY_NS)
+ * DATA_KIND_2: Non-Secure CM33 image, CPU1      (MCUBOOT_KEY_S)
+ *              Only defined when MCUBOOT_IMAGE_NUMBER > 2.
+ *
+ * The CM33 image is signed with MCUBOOT_KEY_S, so DATA_KIND_2
+ * intentionally holds the same hash as DATA_KIND_0. It is still
+ * recorded as non-secure for measured boot.
+ *
+ * Keep in sync with the image signing setup (_ra_ns_key) in
+ * platform/ext/target/renesas/ra/common/core/ns/common.cmake.
+ */
+#define ASSEMBLY_AND_TEST_PROV_DATA_KIND_0 {            \
+        0x87, 0x11, 0xad, 0x6f, 0x4e, 0x43, 0x00, 0x06, \
+        0xe5, 0x8b, 0x9e, 0x22, 0xf8, 0x6d, 0x42, 0xb6, \
+        0x6e, 0xf0, 0xfe, 0xab, 0x85, 0xb1, 0xaa, 0x8f, \
+        0x9d, 0x7d, 0x08, 0x1c, 0x49, 0x18, 0x9f, 0xaf, \
+    }
+
+#define ASSEMBLY_AND_TEST_PROV_DATA_KIND_1 {            \
+        0x1f, 0x72, 0x94, 0x13, 0x15, 0x4f, 0xc8, 0x45, \
+        0xd1, 0x9c, 0x75, 0x58, 0x33, 0xed, 0xb9, 0xd8, \
+        0x57, 0x1c, 0x68, 0x7e, 0xdd, 0xd0, 0xd5, 0xe0, \
+        0xcc, 0x15, 0x7c, 0xdd, 0xcb, 0xd7, 0xac, 0x80, \
+    }
+
+#if (MCUBOOT_IMAGE_NUMBER > 2)
+#define ASSEMBLY_AND_TEST_PROV_DATA_KIND_2 {            \
+        0x87, 0x11, 0xad, 0x6f, 0x4e, 0x43, 0x00, 0x06, \
+        0xe5, 0x8b, 0x9e, 0x22, 0xf8, 0x6d, 0x42, 0xb6, \
+        0x6e, 0xf0, 0xfe, 0xab, 0x85, 0xb1, 0xaa, 0x8f, \
+        0x9d, 0x7d, 0x08, 0x1c, 0x49, 0x18, 0x9f, 0xaf, \
+    }
+#endif /* MCUBOOT_IMAGE_NUMBER > 2 */
 #endif /* MCUBOOT_SIGN_RSA */
 
 #else /* !MCUBOOT_BUILTIN_KEY */
@@ -255,6 +293,15 @@ static const struct bl2_assembly_and_test_provisioning_data_t bl2_assembly_and_t
 #endif
 #if MCUBOOT_IMAGE_NUMBER > 3
     ASSEMBLY_AND_TEST_PROV_DATA_KIND_0, /* bl2 rotpk 3 */
+#endif
+#elif defined(MCUBOOT_SIGN_MLDSA87)
+    ASSEMBLY_AND_TEST_PROV_DATA_KIND_0, /* S:  BL2 ROTPK 0 */
+    ASSEMBLY_AND_TEST_PROV_DATA_KIND_1, /* NS: BL2 ROTPK 1 */
+#if (MCUBOOT_IMAGE_NUMBER > 2)
+    ASSEMBLY_AND_TEST_PROV_DATA_KIND_0, /* BL2 ROTPK 2 */
+#endif
+#if (MCUBOOT_IMAGE_NUMBER > 3)
+    ASSEMBLY_AND_TEST_PROV_DATA_KIND_0, /* BL2 ROTPK 3 */
 #endif
 #else
 #error "No public key available for given signing algorithm."

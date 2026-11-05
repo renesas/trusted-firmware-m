@@ -22,7 +22,15 @@
 
 #ifdef BL2
 #define BL2_HEAP_SIZE      (0x00001000)
-#define BL2_MSP_STACK_SIZE (0x00002800)
+#if defined(MCUBOOT_SIGN_MLDSA87)
+/*
+ * ML-DSA-87 verify: measured peak MSP usage 114900 B (0x1c0d4).
+ * +20% margin, rounded up to 4 KiB, includes 8 B stack seal.
+ */
+#define BL2_MSP_STACK_SIZE    (0x00022000)
+#else
+#define BL2_MSP_STACK_SIZE    (0x00002800)
+#endif /* MCUBOOT_SIGN_MLDSA87 */
 #else
 #define BL2_HEAP_SIZE      (0x0)
 #define BL2_MSP_STACK_SIZE (0x0)
