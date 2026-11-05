@@ -17,7 +17,9 @@
 #include "load/interrupt_defs.h"
 #include "tfm_multi_core.h"
 #include "tfm_peripherals_def.h"
+#ifdef TFM_PARTITION_NS_AGENT_MAILBOX
 #include "platform_multicore.h"
+#endif /* TFM_PARTITION_NS_AGENT_MAILBOX */
 
 static struct irq_t timer0_irq = {0};
 
