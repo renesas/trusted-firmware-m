@@ -47,6 +47,13 @@ static void platform_icu_init(void)
 
 enum tfm_hal_status_t tfm_hal_platform_init(void)
 {
+#ifndef TFM_MULTI_CORE_TOPOLOGY
+    R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR);
+    /* Mark CPU1 non-secure so the NSPE can reach its CPU_CTRL registers */
+    R_CPSCU->CPUSAR_b.CPUSA1 = 1U;
+    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
+#endif
+
 #if BSP_MULTICORE_PROJECT
     platform_icu_init();
 #endif

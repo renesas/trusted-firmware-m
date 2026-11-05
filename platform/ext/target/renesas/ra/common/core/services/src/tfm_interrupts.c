@@ -17,6 +17,7 @@
 #include "load/interrupt_defs.h"
 #include "tfm_multi_core.h"
 #include "tfm_peripherals_def.h"
+#include "platform_multicore.h"
 
 static struct irq_t timer0_irq = {0};
 
