@@ -286,9 +286,11 @@ def main():
         die(f"ERROR: readelf '{READELF}' not on PATH (set $READELF)")
     regions, images, max_word, require, forbid, flat, emit, quar = parse_args(sys.argv[1:])
 
-    # Emit first, then check what was emitted. Doing both in one invocation is what makes
-    # --check-flat-bin meaningful: it verifies the file this run just wrote, rather than
-    # whatever a separate target left on disk.
+    # Emit first, then check what was emitted, when one invocation is asked to do both.
+    # The builds do not ask: all three parts run --emit-safe-bin and --check-flat-bin as
+    # separate targets, sequenced by add_dependencies. That is not the weaker arrangement -
+    # --check-flat-bin re-reads the file from disk, which is the artifact that gets flashed,
+    # and the dependency makes it the file the emit target just wrote.
     if emit:
         if len(images) != 1:
             die("ERROR: --emit-safe-bin takes exactly one image")
@@ -338,8 +340,9 @@ def main():
                 bad += 1
                 print(f"  {bn:<14} *** FLAT BINARY REACHES OFS - DO NOT FLASH *** "
                       f"({actual} bytes, 0x{lo:08X}-0x{hi_all:08X}; {fill} bytes of zero "
-                      f"fill past 0x{hi_other:08X}. Safe size is {safe} - regenerate with "
-                      f"--remove-section=.option_setting*)")
+                      f"fill past 0x{hi_other:08X}. Safe size is {safe} - re-emit with "
+                      f"--emit-safe-bin, which is what the build uses, or by hand with "
+                      f"objcopy --remove-section=.option_setting*)")
             elif status == "missing":
                 bad += 1
                 print(f"  {bn:<14} *** FLAT BINARY MISSING, CANNOT VERIFY *** "

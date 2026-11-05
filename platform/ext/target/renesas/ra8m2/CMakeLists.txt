@@ -7,9 +7,9 @@
 # RA8M2 platform. Consumes the e2 studio SOLUTION project set:
 #
 #   cmake -DTFM_PLATFORM=renesas/ra8m2 \
-#         -DFSP_BL2_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra8m2_mcuboot   \
-#         -DFSP_S_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra8m2_secure      \
-#         -DFSP_NS_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra8m2_nonsecure  ...
+#         -DFSP_BL2_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra8m2_gcc_mcuboot        \
+#         -DFSP_S_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra8m2_gcc_CPU0_secure      \
+#         -DFSP_NS_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra8m2_gcc_CPU0_nonsecure  ... (ra8m2_iar_*)
 #
 # Why no per-project cmake file: e2-generated projects carry none, and hand-kept source lists
 # drift from the generated tree (that drift broke the ra6m4 external BL2 path). This file
@@ -154,7 +154,7 @@ else()
 endif()
 # _RA_CORE names the rzone processor on a multi-core part, not the core type: the e2 projects
 # define _RA_CORE=CPU0 where RA6E1/RA6M5 use _RA_CORE=CM33. The FLASH_CPU0_* partitions and the
-# ra8m2_iar_CPU0_* project names follow the same convention. Nothing in ra/ consumes it; it is
+# ra8m2_{gcc,iar}_CPU0_* project names follow it too. Nothing in ra/ consumes it; it is
 # RASC build metadata, kept matching the generated projects so a diff against them stays clean.
 set(FSP_COMPILE_DEFS _RA_CORE=CPU0 _RENESAS_RA_)
 
@@ -818,12 +818,6 @@ if(BL2)
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_options(bl2 PRIVATE ${RA8M2_MAIN_STACK_DEFSYM})
-        # ra8m2_bl2.ld relocates FSP's .ram_from_flash (the code-flash program/erase routines)
-        # into RAM: executable code in a read/write segment, so ld reports "LOAD segment with
-        # RWX permissions". TF-M links with -Wl,-fatal-warnings, so without this the link
-        # fails. Scoped to bl2, the only image that programs code flash and the only one with a
-        # relocated text section. FSP's own linker scripts produce the same RWX segment.
-        target_link_options(bl2 PRIVATE -Wl,--no-warn-rwx-segments)
     endif()
 endif()
 

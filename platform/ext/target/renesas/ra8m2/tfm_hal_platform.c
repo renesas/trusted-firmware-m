@@ -5,7 +5,6 @@
  */
 
 #include "tfm_hal_platform.h"
-#include <string.h>
 #include "target_cfg.h"
 #include "region_defs.h"
 #include "bsp_api.h"
@@ -37,44 +36,17 @@ uint64_t __STACK_SEAL = 0xFEF5EDA5FEF5EDA5ULL;
  */
 #ifndef RA8M2_BUILDING_BL2
 
-#if defined(__ICCARM__)
 /*
- * Copy .ram_from_flash to RAM. DECISIONS D048, which closes D029.
- *
- * FSP's code-flash program/erase routines must run from RAM: the FCU makes code flash
- * unreadable for the duration of a P/E operation, so a routine fetching from flash aborts
- * mid-erase with the FCU still in P/E mode - a hang, not a fault.
- *
- * ILINK will not be trusted with the copy. Asked to copy-init the section it decides for
- * itself whether it may, and at isolation 3 it declined - "excluded because they were marked
- * as possibly needed for init" (--log initialization) - leaving the routines in flash while
- * isolation 1 relocated them correctly, with nothing in the build to say so. The ICF now
- * declares the section 'initialize manually' and the copy happens here, identically at every
- * isolation level.
- *
- * The section pragmas give the RAM half and the initialiser ILINK left in ER_RO_DATA.
- * Sizes are taken from the destination: it is what the members hook placed, and ER_CODE_SRAM
- * has maximum size = S_RAM_CODE_SIZE, so an overflow is a link error rather than a run-time
- * overrun. The GNU build reaches the same result through the linker script and needs none of
- * this.
+ * No RAM-code copy on this part. RA6E1/RA6M5 relocate FSP's code-flash program/erase routines
+ * because the FCU makes code flash unreadable during a P/E; r_mram applies
+ * PLACE_IN_RAM_SECTION nowhere, MRAM stays readable while it is programmed, and the linked
+ * .ram_from_flash block comes out empty. region_defs.h defines no S_RAM_CODE_*, so TF-M's
+ * template emits no ER_CODE_SRAM, and ra8m2_fsp_sections.icf places no section into it. The
+ * three agree by all three saying nothing; the recipe for putting them back is at the top of
+ * ra8m2_fsp_sections.icf. The IAR helper this file used to carry was removed on 2026-11-05
+ * (D164): __section_begin() on a section nothing creates is a link-time question, not a
+ * no-op.
  */
-#pragma section = ".ram_from_flash"
-#pragma section = ".ram_from_flash_init"
-
-static void ra_ram_code_init(void)
-{
-    const uint8_t *src = (const uint8_t *)__section_begin(".ram_from_flash_init");
-    uint8_t       *dst = (uint8_t *)__section_begin(".ram_from_flash");
-    size_t         len = (size_t)__section_size(".ram_from_flash");
-
-    if ((src != dst) && (len != 0U)) {
-        (void)memcpy(dst, src, len);
-        /* The copied bytes are executed: make them visible to the instruction side. */
-        __DSB();
-        __ISB();
-    }
-}
-#endif /* __ICCARM__ */
 
 #ifdef CONFIG_TFM_ENABLE_MEMORY_PROTECT
 /* Included here, not at the top of the file: tfm_spm_log.h has
@@ -189,11 +161,6 @@ FIH_RET_TYPE(enum tfm_hal_status_t) tfm_hal_platform_init(void)
      * Secure image only: BL2 never calls this SPM hook. BL2 relies on early initialisation,
      * checked in bl2_option_setting.c.
      */
-#if defined(__ICCARM__)
-    /* Before anything can reach the flash driver. DECISIONS D048. */
-    ra_ram_code_init();
-#endif
-
     SystemCoreClockUpdate();
 
     /* Clear PRIMASK. Reset_Handler in startup_ra8m2.c sets it with __disable_irq(), as every

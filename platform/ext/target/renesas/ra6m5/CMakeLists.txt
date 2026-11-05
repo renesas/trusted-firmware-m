@@ -7,9 +7,9 @@
 # RA6M5 platform. Consumes the e2 studio SOLUTION project set:
 #
 #   cmake -DTFM_PLATFORM=renesas/ra6m5 \
-#         -DFSP_BL2_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6m5_mcuboot   \
-#         -DFSP_S_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6m5_secure      \
-#         -DFSP_NS_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6m5_nonsecure  ...
+#         -DFSP_BL2_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6m5_gcc_mcuboot   \
+#         -DFSP_S_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6m5_gcc_secure      \
+#         -DFSP_NS_APP_DIR=<repo>/ra_fsp_cmake_tfm/ra6m5_gcc_nonsecure  ... (ra6m5_iar_* for IAR)
 #
 # Why no per-project cmake file: e2-generated projects carry none, and hand-kept source lists
 # drift from the generated tree (that drift broke the ra6m4 external BL2 path). This file
