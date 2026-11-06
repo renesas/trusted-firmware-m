@@ -148,19 +148,32 @@ target_compile_definitions(bl2_crypto
 )
 
 if(MCUBOOT_SIGNATURE_TYPE STREQUAL "ML-DSA-87")
+    # BL2 builds the PQCP sources on its own instead of using TF-PSA-Crypto's
+    # drivers/pqcp/CMakeLists.txt, so it does not inherit the mldsa-native
+    # include path from there. Read MLDSA_NATIVE_DIR here as well, so that
+    # integrators (e.g. Zephyr) can point BL2 to an external mldsa-native
+    # checkout.
+    if(MLDSA_NATIVE_DIR)
+        set(BL2_MLDSA_NATIVE_DIR "${MLDSA_NATIVE_DIR}")
+    else()
+        set(BL2_MLDSA_NATIVE_DIR
+            "${TF_PSA_CRYPTO_PATH}/drivers/pqcp/mldsa-native"
+        )
+    endif()
+
+    if(NOT EXISTS "${BL2_MLDSA_NATIVE_DIR}/mldsa/mldsa_native.h")
+        message(FATAL_ERROR
+            "ML-DSA-87: mldsa_native.h not found under "
+            "${BL2_MLDSA_NATIVE_DIR}/mldsa. "
+            "Set MLDSA_NATIVE_DIR to the mldsa-native repository root.")
+    endif()
+
     target_include_directories(bl2_crypto
         PUBLIC
-            # PQCP driver headers: when ML-DSA is enabled, crypto_struct.h
-            # includes tf-psa-crypto/private/crypto_struct_pqcp.h. psa/crypto.h
-            # is used by BL2 and bootutil, so this path is propagated to every
-            # target linking bl2_crypto. TF-PSA-Crypto adds the same path in
-            # drivers/CMakeLists.txt, which BL2 doesn't use.
             ${TF_PSA_CRYPTO_PATH}/drivers/pqcp/include
         PRIVATE
-            # Same private include directories as drivers/pqcp/CMakeLists.txt;
-            # only needed to compile BL2_PQCP_SRC.
             ${TF_PSA_CRYPTO_PATH}/drivers/pqcp/src
-            ${TF_PSA_CRYPTO_PATH}/drivers/pqcp/mldsa-native/mldsa
+            ${BL2_MLDSA_NATIVE_DIR}/mldsa
     )
 endif()
 
