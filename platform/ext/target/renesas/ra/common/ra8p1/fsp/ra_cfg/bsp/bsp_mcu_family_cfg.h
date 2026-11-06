@@ -249,8 +249,12 @@
 /* Security attribution for CGC registers. */
 #ifndef BSP_TZ_CFG_CGFSAR
 #if BSP_CFG_CLOCKS_SECURE
-/* Protect all CGC registers from Non-secure write access. */
-#define BSP_TZ_CFG_CGFSAR (0U)
+/* Protect all CGC registers from Non-secure write access, except OCTACLK
+ * (OCTACKCR/OCTACKDIVCR, NONSEC17), which the Non-secure OSPI_B driver
+ * reprograms at runtime.
+ * TODO: Make OCTACLK security attribution configurable instead of fixed.
+ */
+#define BSP_TZ_CFG_CGFSAR (1U << 17 | 0x00000000U)
 #else
 /* Allow Secure and Non-secure write access. */
 #define BSP_TZ_CFG_CGFSAR (0x1F7F7FFDU)
