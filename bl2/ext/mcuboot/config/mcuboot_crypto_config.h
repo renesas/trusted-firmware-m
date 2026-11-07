@@ -52,6 +52,20 @@
 /* Signature verification algorithms */
 #if defined(MCUBOOT_SIGN_RSA)
 #define PSA_WANT_ALG_RSA_PSS                1
+#elif defined(MCUBOOT_SIGN_MLDSA87)
+/* ML-DSA-87 (FIPS 204) is provided by the PQCP driver (based on mldsa-native)
+ * of TF-PSA-Crypto. It is enabled through the driver's own configuration
+ * options rather than PSA_WANT_* macros:
+ *  - TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED:    ML-DSA support in the PQCP driver
+ *  - TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED: ML-DSA-87 parameter set
+ * The driver sources and include path are added by bl2/CMakeLists.txt.
+ * Images are signed in pure mode (MCUBOOT_SIGN_PURE / imgtool --pure), so
+ * the signature covers the whole image rather than its digest.
+ * No ECC key type or curve is needed for signature verification. Curves
+ * required for image encryption are enabled in the MCUBOOT_ENC_IMAGES section.
+ */
+#define TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED    1
+#define TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED 1
 #else
 #define PSA_WANT_ALG_ECDSA                  1
 /* Curves supported for ECDSA */
@@ -65,6 +79,9 @@
 /* Key types supported */
 #if defined(MCUBOOT_SIGN_RSA)
 #define PSA_WANT_KEY_TYPE_RSA_PUBLIC_KEY    1
+#elif defined(MCUBOOT_SIGN_MLDSA87)
+/* ML-DSA-87 keys are handled through the PQCP driver options enabled in the
+ * signature verification section above, so no RSA or ECC key type is needed. */
 #else
 #define PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY    1
 #endif

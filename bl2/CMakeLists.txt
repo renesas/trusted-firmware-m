@@ -20,6 +20,9 @@ endif()
 
 set(is_ec_signature  "$<STREQUAL:${SIG_TYPE},EC>")
 set(is_rsa_signature "$<STREQUAL:${SIG_TYPE},RSA>")
+# ML-DSA-87 doesn't fit the <TYPE><LEN> parsing above (SIG_TYPE = "ML"),
+# so compare against the full signature type string.
+set(is_mldsa87_signature "$<STREQUAL:${MCUBOOT_SIGNATURE_TYPE},ML-DSA-87>")
 
 add_library(bl2_crypto_config INTERFACE)
 
@@ -33,6 +36,8 @@ target_compile_definitions(bl2_crypto_config
         $<${is_ec_signature}:MCUBOOT_SIGN_EC${SIG_LEN}>
         $<$<BOOL:${MCUBOOT_IMAGE_BINDING}>:MCUBOOT_IMAGE_BINDING>
         $<$<BOOL:${MCUBOOT_ENC_IMAGES}>:MCUBOOT_ENC_IMAGES>
+        # ML-DSA-87 is verified in pure mode (must match imgtool --pure)
+        $<${is_mldsa87_signature}:MCUBOOT_SIGN_PURE>
 )
 
 target_include_directories(bl2_crypto_config
@@ -62,8 +67,39 @@ set(build_sha_384    "$<AND:${is_ec_signature},${is_384_bit_curve}>")
 set(build_sha_256    "$<NOT:${build_sha_384}>")
 set(build_p256m      "$<IF:$<BOOL:${MBEDTLS_P256M_ENABLED}>,$<AND:${is_ec_signature},${is_256_bit_curve}>,0>")
 
+# Reject unsupported ML-DSA variants and spellings to prevent BL2 from
+# silently building without ML-DSA support. Only "ML-DSA-87" is recognized.
+if(MCUBOOT_SIGNATURE_TYPE MATCHES "^ML-?DSA"
+   AND NOT MCUBOOT_SIGNATURE_TYPE STREQUAL "ML-DSA-87")
+    message(FATAL_ERROR
+        "Unsupported MCUBOOT_SIGNATURE_TYPE: "
+        "${MCUBOOT_SIGNATURE_TYPE}. Only ML-DSA-87 is supported "
+        "for ML-DSA signatures."
+    )
+endif()
+
+# ML-DSA-87: BL2 doesn't use the TF-PSA-Crypto PQCP CMake target, which belongs
+# to the SPE Crypto partition and is built with the SPE crypto config. Build the
+# same driver sources here with bl2_crypto_config instead. They provide
+# tf_psa_crypto_mldsa_verify_message(), called by psa_verify_message() in
+# thin_psa_crypto_core.c.
+# As in the PQCP target, only the top-level src/*.c wrappers are compiled; the
+# mldsa-native implementation files are pulled in by those wrappers through
+# #include and must not be compiled separately.
+set(BL2_PQCP_SRC)
+if(MCUBOOT_SIGNATURE_TYPE STREQUAL "ML-DSA-87")
+    file(GLOB BL2_PQCP_SRC CONFIGURE_DEPENDS
+        "${TF_PSA_CRYPTO_PATH}/drivers/pqcp/src/*.c"
+    )
+    if(NOT BL2_PQCP_SRC)
+        message(FATAL_ERROR "ML-DSA-87 requires the PQCP driver, but no sources were "
+                            "found in ${TF_PSA_CRYPTO_PATH}/drivers/pqcp/src")
+    endif()
+endif()
+
 list(APPEND BL2_CRYPTO_SRC
     ${CMAKE_SOURCE_DIR}/lib/ext/thin-psa-crypto-core/thin_psa_crypto_core.c
+    ${BL2_PQCP_SRC}
     $<$<BOOL:${MCUBOOT_ENC_IMAGES}>:${TF_PSA_CRYPTO_PATH}/drivers/builtin/src/aes.c>
     ${TF_PSA_CRYPTO_PATH}/platform/platform.c
     ${TF_PSA_CRYPTO_PATH}/platform/platform_util.c
@@ -106,6 +142,36 @@ target_compile_definitions(bl2_crypto
         $<$<BOOL:${MCUBOOT_ROTPK_SIGN_POLICY}>:MCUBOOT_ROTPK_SIGN_POLICY>
         MAX_KEYS_PER_IMAGE=${MCUBOOT_ROTPK_MAX_KEYS_PER_IMAGE}
 )
+
+if(MCUBOOT_SIGNATURE_TYPE STREQUAL "ML-DSA-87")
+    # BL2 builds the PQCP sources on its own instead of using TF-PSA-Crypto's
+    # drivers/pqcp/CMakeLists.txt, so it does not inherit the mldsa-native
+    # include path from there. Read MLDSA_NATIVE_DIR here as well, so that
+    # integrators (e.g. Zephyr) can point BL2 to an external mldsa-native
+    # checkout.
+    if(MLDSA_NATIVE_DIR)
+        set(BL2_MLDSA_NATIVE_DIR "${MLDSA_NATIVE_DIR}")
+    else()
+        set(BL2_MLDSA_NATIVE_DIR
+            "${TF_PSA_CRYPTO_PATH}/drivers/pqcp/mldsa-native"
+        )
+    endif()
+
+    if(NOT EXISTS "${BL2_MLDSA_NATIVE_DIR}/mldsa/mldsa_native.h")
+        message(FATAL_ERROR
+            "ML-DSA-87: mldsa_native.h not found under "
+            "${BL2_MLDSA_NATIVE_DIR}/mldsa. "
+            "Set MLDSA_NATIVE_DIR to the mldsa-native repository root.")
+    endif()
+
+    target_include_directories(bl2_crypto
+        PUBLIC
+            ${TF_PSA_CRYPTO_PATH}/drivers/pqcp/include
+        PRIVATE
+            ${TF_PSA_CRYPTO_PATH}/drivers/pqcp/src
+            ${BL2_MLDSA_NATIVE_DIR}/mldsa
+    )
+endif()
 
 target_include_directories(bl2_crypto
     PUBLIC

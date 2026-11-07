@@ -1,0 +1,92 @@
+#-------------------------------------------------------------------------------
+# Copyright (c) 2026 Renesas Electronics Corporation
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+#-------------------------------------------------------------------------------
+
+# Generated from common/core/ns/config.cmake.in during the secure build and
+# installed as <spe>/platform/config.cmake. This file contains configuration
+# settings that depend on the NS target (CPU0 or CPU1) and the NS interface
+# (TrustZone or mailbox), and is used by the non-secure build to configure
+# the NS image.
+
+#===================== SoC hardware facts ======================================#
+include(${RENESAS_RA_SOC_SOURCE_DIR}/config.cmake)
+
+#===================== Used non-secure clients =================================#
+set(RA_CM85_NS_PRESENT "@RA_CM85_NS_PRESENT@" CACHE BOOL "Serve a local TrustZone NS client on CPU0 (Cortex-M85)")
+set(RA_CM33_NS_PRESENT "@RA_CM33_NS_PRESENT@" CACHE BOOL "Serve a remote mailbox NS client on CPU1 (Cortex-M33)")
+
+#===================== Resolved flash/RAM map ==================================#
+
+set(FLASH_AREA_BL2_OFFSET        "@FLASH_AREA_BL2_OFFSET@"        CACHE STRING "BL2 offset" FORCE)
+set(FLASH_AREA_BL2_SIZE          "@FLASH_AREA_BL2_SIZE@"          CACHE STRING "BL2 size" FORCE)
+set(FLASH_SLOTS_PER_IMAGE     "@FLASH_SLOTS_PER_IMAGE@"     CACHE INTERNAL "Number of MRAM slots per image (primary, plus secondary with BL2)" FORCE)
+set(FLASH_S_REGION_SIZE       "@FLASH_S_REGION_SIZE@"       CACHE INTERNAL "Size of the secure-attributed MRAM (BL2, S slots, storage)" FORCE)
+
+# Flash instances: 0 is the MRAM (FLASH0_*, from the SoC config.cmake above),
+# 1 the flash the NS images can be relocated to. FLASH_AREA_IMAGE_SECTOR_SIZE and FLASH_PROGRAM_UNIT are
+# the largest values of the instances that hold an image.
+set(FLASH1_DEV_NAME              "@FLASH1_DEV_NAME@"             CACHE STRING "CMSIS flash driver of flash instance 1" FORCE)
+set(FLASH1_SECTOR_SIZE           "@FLASH1_SECTOR_SIZE@"          CACHE STRING "Flash instance 1 FS block granularity" FORCE)
+set(FLASH1_PROGRAM_UNIT          "@FLASH1_PROGRAM_UNIT@"         CACHE STRING "Flash instance 1 minimum write size in bytes" FORCE)
+set(RA_CPU0_NS_EXTERNAL          "@RA_CPU0_NS_EXTERNAL@"         CACHE INTERNAL "CPU0 NS image is in flash instance 1" FORCE)
+set(RA_CPU1_NS_EXTERNAL          "@RA_CPU1_NS_EXTERNAL@"         CACHE INTERNAL "CPU1 NS image is in flash instance 1" FORCE)
+set(FLASH_AREA_IMAGE_SECTOR_SIZE "@FLASH_AREA_IMAGE_SECTOR_SIZE@" CACHE INTERNAL "Sector size used by the MCUboot flash map" FORCE)
+set(FLASH_PROGRAM_UNIT           "@FLASH_PROGRAM_UNIT@"          CACHE INTERNAL "Program unit used by the MCUboot flash map" FORCE)
+
+set(S_ROM_ALIAS_BASE             "@S_ROM_ALIAS_BASE@"       CACHE STRING "MRAM secure alias base" FORCE)
+set(S_RAM_ALIAS_BASE             "@S_RAM_ALIAS_BASE@"       CACHE STRING "SRAM secure alias base" FORCE)
+set(FLASH_S_PARTITION_SIZE       "@FLASH_S_PARTITION_SIZE@" CACHE STRING "Secure image slot size" FORCE)
+
+set(FLASH_PS_AREA_SIZE              "@FLASH_PS_AREA_SIZE@"              CACHE STRING "Protected Storage area size" FORCE)
+set(FLASH_ITS_AREA_SIZE             "@FLASH_ITS_AREA_SIZE@"             CACHE STRING "Internal Trusted Storage area size" FORCE)
+set(FLASH_OTP_NV_COUNTERS_AREA_SIZE "@FLASH_OTP_NV_COUNTERS_AREA_SIZE@" CACHE STRING "OTP/NV counters area size" FORCE)
+set(FLASH_STORAGE_TOTAL_SIZE        "@FLASH_STORAGE_TOTAL_SIZE@"        CACHE INTERNAL "Total storage area size" FORCE)
+
+set(S_DATA_SIZE                     "@S_DATA_SIZE@"                     CACHE STRING "Secure RAM size" FORCE)
+set(S_RAM_CODE_SIZE                 "@S_RAM_CODE_SIZE@"                 CACHE STRING "Secure RAM size for RAM-resident MRAM programming code" FORCE)
+
+set(FLASH_CPU0_NS_PARTITION_SIZE    "@FLASH_CPU0_NS_PARTITION_SIZE@"    CACHE STRING "CPU0 (local TrustZone) non-secure image slot size" FORCE)
+set(CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET "@CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET@" CACHE STRING "CPU0 NS image offset within its ROM alias" FORCE)
+set(CPU0_NS_RAM_DATA_SIZE  "@CPU0_NS_RAM_DATA_SIZE@"  CACHE STRING "CPU0 (local TrustZone) non-secure RAM size" FORCE)
+set(CPU0_NS_ROM_ALIAS_BASE "@CPU0_NS_ROM_ALIAS_BASE@" CACHE STRING "MRAM non-secure alias base" FORCE)
+set(CPU0_NS_RAM_ALIAS_BASE "@CPU0_NS_RAM_ALIAS_BASE@" CACHE STRING "SRAM non-secure alias base" FORCE)
+set(CPU0_NS_RAM_OFFSET     "@CPU0_NS_RAM_OFFSET@"     CACHE STRING "CPU0 RAM window offset within the SRAM bank" FORCE)
+set(FLASH_CPU0_C_SIZE      "@FLASH_CPU0_C_SIZE@"      CACHE STRING "CMSE veneer region size in MRAM" FORCE)
+
+set(FLASH_CPU1_NS_PARTITION_SIZE    "@FLASH_CPU1_NS_PARTITION_SIZE@"    CACHE STRING "CPU1 (remote) non-secure image slot size" FORCE)
+set(CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET "@CPU1_NS_IMAGE_PRIMARY_PARTITION_OFFSET@" CACHE STRING "CPU1 (remote) NS image offset within its ROM alias" FORCE)
+set(CPU1_NS_ROM_ALIAS_BASE "@CPU1_NS_ROM_ALIAS_BASE@" CACHE STRING "CPU1 ROM alias base" FORCE)
+set(CPU1_NS_RAM_DATA_SIZE  "@CPU1_NS_RAM_DATA_SIZE@"  CACHE STRING "CPU1 RAM size" FORCE)
+set(CPU1_NS_RAM_ALIAS_BASE "@CPU1_NS_RAM_ALIAS_BASE@" CACHE STRING "CPU1 RAM alias base" FORCE)
+set(CPU1_NS_RAM_OFFSET     "@CPU1_NS_RAM_OFFSET@"     CACHE STRING "CPU1 RAM window offset within the SRAM bank" FORCE)
+
+set(MCUBOOT_IMAGE_VERSION_CPU1_NS    "@MCUBOOT_IMAGE_VERSION_CPU1_NS@"    CACHE STRING "Version number of the CPU1 NS image" FORCE)
+set(MCUBOOT_SECURITY_COUNTER_CPU1_NS "@MCUBOOT_SECURITY_COUNTER_CPU1_NS@" CACHE STRING "Security counter for the CPU1 NS image" FORCE)
+
+#===================== Transport selection =====================================#
+
+if(RA_NS_INTERFACE_TZ)
+    # CPU0: local non-secure image, veneer calls across the TrustZone boundary.
+    set(CONFIG_TFM_USE_TRUSTZONE       ON  CACHE BOOL "Use TrustZone to transition between NSPE and SPE" FORCE)
+    set(TFM_MULTI_CORE_TOPOLOGY        OFF CACHE BOOL "Build for a dual-cpu architecture" FORCE)
+    set(TFM_PARTITION_NS_AGENT_MAILBOX OFF CACHE BOOL "Enable the Non-Secure Mailbox Agent partition" FORCE)
+    set(TFM_NS_MAILBOX_API             OFF CACHE BOOL "Build NS code for a remote processing element using mailbox APIs" FORCE)
+elseif(RA_NS_INTERFACE_MAILBOX)
+    # CPU1: remote non-secure image, PSA calls forwarded over the mailbox.
+    set(CONFIG_TFM_USE_TRUSTZONE       OFF CACHE BOOL "Use TrustZone to transition between NSPE and SPE" FORCE)
+    set(TFM_MULTI_CORE_TOPOLOGY        ON  CACHE BOOL "Build for a dual-cpu architecture" FORCE)
+    set(TFM_PARTITION_NS_AGENT_MAILBOX ON  CACHE BOOL "Enable the Non-Secure Mailbox Agent partition" FORCE)
+    set(TFM_NS_MAILBOX_API             ON  CACHE BOOL "Build NS code for a remote processing element using mailbox APIs" FORCE)
+
+    # Selects tfm_ns_mailbox_thread.c over tfm_ns_mailbox.c in the NS interface
+    # (tf-m-tests app_broker). Off by default: the RA non-secure test app is
+    # bare-metal, so there is no RTOS to own a mailbox thread.
+    set(TFM_MULTI_CORE_NS_OS_MAILBOX_THREAD OFF CACHE BOOL "Use a dedicated RTOS thread to service the NS mailbox")
+endif()
+
+#===================== Map validation ==========================================#
+
+include(${CMAKE_CURRENT_LIST_DIR}/check_config.cmake)

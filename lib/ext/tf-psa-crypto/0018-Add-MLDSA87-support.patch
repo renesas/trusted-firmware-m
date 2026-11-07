@@ -1,0 +1,513 @@
+From 236e80ac9488a0efd719640cb476d45584f1a326 Mon Sep 17 00:00:00 2001
+From: Hien Le <hien.le.sx@bp.renesas.com>
+Date: Tue, 15 Sep 2026 16:36:08 +0700
+Subject: [PATCH] Add ML-DSA-87 support
+
+Signed-off-by: Hien Le <hien.le.sx@bp.renesas.com>
+---
+ core/psa_crypto.c                           |  68 ++++++-
+ core/psa_crypto_driver_wrappers_no_static.c |  10 ++
+ drivers/pqcp/src/psa_crypto_mldsa.c         | 185 +++++++++++++++++++-
+ drivers/pqcp/src/psa_crypto_mldsa.h         |  92 +++++++++-
+ include/psa/crypto_values.h                 |  37 +++-
+ 5 files changed, 382 insertions(+), 10 deletions(-)
+
+diff --git a/core/psa_crypto.c b/core/psa_crypto.c
+index 273ae81ed..a1b4149dd 100644
+--- a/core/psa_crypto.c
++++ b/core/psa_crypto.c
+@@ -694,6 +694,36 @@ psa_status_t psa_import_key_into_slot(
+ 
+         return PSA_SUCCESS;
+     } else if (PSA_KEY_TYPE_IS_ASYMMETRIC(type)) {
++#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED)
++        if (PSA_KEY_TYPE_IS_ML_DSA(type)) {
++            /* The PSA API uses the 32-byte seed as the key pair
++             * representation, and the full packed public key as the
++             * public key representation. */
++            if (*bits == 0) {
++                return PSA_ERROR_INVALID_ARGUMENT;
++            }
++
++            if (*bits == 87) {
++                if (PSA_KEY_TYPE_IS_KEY_PAIR(type)) {
++                    if (data_length != 32) {
++                        return PSA_ERROR_INVALID_ARGUMENT;
++                    }
++                } else {
++                    if (data_length != 2592) {
++                        return PSA_ERROR_INVALID_ARGUMENT;
++                    }
++                }
++            } else {
++                return PSA_ERROR_NOT_SUPPORTED;
++            }
++
++            memcpy(key_buffer, data, data_length);
++            *key_buffer_length = data_length;
++            (void) key_buffer_size;
++
++            return PSA_SUCCESS;
++        }
++#endif
+ #if defined(MBEDTLS_PSA_BUILTIN_KEY_TYPE_DH_KEY_PAIR_IMPORT) || \
+         defined(MBEDTLS_PSA_BUILTIN_KEY_TYPE_DH_PUBLIC_KEY)
+         if (PSA_KEY_TYPE_IS_DH(type)) {
+@@ -1371,7 +1401,8 @@ psa_status_t psa_export_key_internal(
+     if (key_type_is_raw_bytes(type) ||
+         PSA_KEY_TYPE_IS_RSA(type)   ||
+         PSA_KEY_TYPE_IS_ECC(type)   ||
+-        PSA_KEY_TYPE_IS_DH(type)) {
++        PSA_KEY_TYPE_IS_DH(type)    ||
++        PSA_KEY_TYPE_IS_ML_DSA(type)) {
+         return psa_export_key_buffer_internal(
+             key_buffer, key_buffer_size,
+             data, data_size, data_length);
+@@ -1443,7 +1474,7 @@ psa_status_t psa_export_public_key_internal(
+ 
+     if (PSA_KEY_TYPE_IS_PUBLIC_KEY(type) &&
+         (PSA_KEY_TYPE_IS_RSA(type) || PSA_KEY_TYPE_IS_ECC(type) ||
+-         PSA_KEY_TYPE_IS_DH(type))) {
++         PSA_KEY_TYPE_IS_DH(type) || PSA_KEY_TYPE_IS_ML_DSA(type))) {
+         /* Exporting public -> public */
+         return psa_export_key_buffer_internal(
+             key_buffer, key_buffer_size,
+@@ -3089,10 +3120,12 @@ static psa_status_t psa_sign_verify_check_alg(int input_is_message,
+ 
+     /* Now hash_alg==0 if alg by itself doesn't need a hash.
+      * This is good enough for sign-hash, but a guaranteed failure for
+-     * sign-message which needs to hash first for all algorithms
+-     * supported at the moment. */
+-
+-    if (hash_alg == 0 && input_is_message) {
++     * sign-message which needs to hash first for all sign-hash algorithms.
++     * Pure algorithms (PureEdDSA, pure ML-DSA) sign the message directly
++     * without a separate pre-hashing step, so they are allowed. */
++    if (hash_alg == 0 && input_is_message
++        && alg != PSA_ALG_PURE_EDDSA
++        && !PSA_ALG_IS_ML_DSA(alg)) {
+         return PSA_ERROR_INVALID_ARGUMENT;
+     }
+     if (hash_alg == PSA_ALG_ANY_HASH) {
+@@ -3265,6 +3298,17 @@ psa_status_t psa_sign_message_builtin(
+             alg, hash, hash_length,
+             signature, signature_size, signature_length);
+     }
++#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED)
++    else if (PSA_ALG_IS_ML_DSA(alg)) {
++        status = tf_psa_crypto_mldsa_sign_message(
++                    attributes,
++                    key_buffer, key_buffer_size,
++                    alg,
++                    input, input_length,
++                    signature, signature_size, signature_length);
++        return status;
++    }
++#endif
+ 
+     return PSA_ERROR_NOT_SUPPORTED;
+ }
+@@ -3324,7 +3368,17 @@ psa_status_t psa_verify_message_builtin(
+             alg, hash, hash_length,
+             signature, signature_length);
+     }
+-
++#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED)
++    else if (PSA_ALG_IS_ML_DSA(alg)) {
++        status = tf_psa_crypto_mldsa_verify_message(
++                    attributes,
++                    key_buffer, key_buffer_size,
++                    alg,
++                    input, input_length,
++                    signature, signature_length);
++        return status;
++    }
++#endif
+     return PSA_ERROR_NOT_SUPPORTED;
+ }
+ 
+diff --git a/core/psa_crypto_driver_wrappers_no_static.c b/core/psa_crypto_driver_wrappers_no_static.c
+index 40145b92d..ea5c7ebaa 100644
+--- a/core/psa_crypto_driver_wrappers_no_static.c
++++ b/core/psa_crypto_driver_wrappers_no_static.c
+@@ -217,6 +217,16 @@ psa_status_t psa_driver_wrapper_export_public_key(
+ 
+ #endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
+             /* Fell through, meaning no accelerator supports this operation */
++
++#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED)
++            if (psa_get_key_type(attributes) == PSA_KEY_TYPE_ML_DSA_KEY_PAIR) {
++                status = tf_psa_crypto_mldsa_export_public_key(
++                            attributes,
++                            key_buffer, key_buffer_size,
++                            data, data_size, data_length);
++                return status;
++            }
++#endif
+             return( psa_export_public_key_internal( attributes,
+                                                     key_buffer,
+                                                     key_buffer_size,
+diff --git a/drivers/pqcp/src/psa_crypto_mldsa.c b/drivers/pqcp/src/psa_crypto_mldsa.c
+index 03c6e2d46..70ac59833 100644
+--- a/drivers/pqcp/src/psa_crypto_mldsa.c
++++ b/drivers/pqcp/src/psa_crypto_mldsa.c
+@@ -8,8 +8,191 @@
+ 
+ #if defined(MBEDTLS_PSA_CRYPTO_C) && defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED)
+ 
++#include <psa/crypto.h>
++#include "psa_crypto_mldsa.h"
+ #include "wrap_mldsa_native.h"
++#include <mbedtls/platform_util.h>
+ 
+-int tf_psa_crypto_pqcp_driver_exists = 1;
++/* The size of an ML-DSA seed in bytes.
++ * The PSA API uses the seed as the private key.
++ * (Some other ML-DSA interfaces use the "expanded secret", which is
++ * derived from the seed, as the private key.)
++ */
++#define SEED_SIZE 32
++
++/* For now, hard-coded values for MLDSA-87 */
++#define TF_PSA_CRYPTO_MLDSA_EXPANDED_SECRET_MAX_SIZE MLDSA87_SECRETKEYBYTES
++#define TF_PSA_CRYPTO_MLDSA_PUBLIC_KEY_MAX_SIZE MLDSA87_PUBLICKEYBYTES
++#define TF_PSA_CRYPTO_MLDSA_SIGNATURE_MAX_SIZE MLDSA87_BYTES
++
++static psa_status_t pqcp_to_psa_error(int ret)
++{
++    if (ret == 0) {
++        return PSA_SUCCESS;
++    } else if (ret == MLD_ERR_OUT_OF_MEMORY) {
++        return PSA_ERROR_INSUFFICIENT_MEMORY;
++    } else {
++        /* MLD_ERR_RNG_FAIL is intentionally not mapped: we don't install
++         * mldsa-native's RNG callback (mu is computed on our side for
++         * hedged ML-DSA), so it shouldn't be reachable. It would land
++         * here and be reported as a generic driver failure.
++         *
++         * Not really hardware, but PSA_ERROR_HARDWARE_FAILURE is the
++         * fallback error code for something unexpectedly going wrong
++         * in a driver. */
++        return PSA_ERROR_HARDWARE_FAILURE;
++    }
++}
++
++static psa_status_t seed_to_public_key(
++    size_t bits,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    uint8_t *data, size_t data_size, size_t *data_length)
++{
++    if (key_buffer_size != SEED_SIZE) {
++        return PSA_ERROR_INVALID_ARGUMENT;
++    }
++
++    if (bits != 87) {
++        /* Other parameter sets are not supported yet. */
++        return PSA_ERROR_NOT_SUPPORTED;
++    }
++
++    size_t public_key_length = MLDSA87_PUBLICKEYBYTES;
++    if (data_size < public_key_length) {
++        return PSA_ERROR_BUFFER_TOO_SMALL;
++    }
++
++    /* Beyond this point, we must go through the cleanup code. */
++    uint8_t secret[TF_PSA_CRYPTO_MLDSA_EXPANDED_SECRET_MAX_SIZE];
++
++    int ret = tf_psa_crypto_pqcp_mldsa87_keypair_internal(data,
++                                                          secret,
++                                                          key_buffer);
++    if (ret != 0) {
++        goto cleanup;
++    }
++    ret = 0;
++    *data_length = public_key_length;
++
++cleanup:
++    mbedtls_platform_zeroize(secret, sizeof(secret));
++    return pqcp_to_psa_error(ret);
++}
++
++psa_status_t tf_psa_crypto_mldsa_export_public_key(
++    const psa_key_attributes_t *attributes,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    uint8_t *data, size_t data_size, size_t *data_length)
++{
++    *data_length = 0;           /* Safe default */
++
++    if (psa_get_key_type(attributes) != PSA_KEY_TYPE_ML_DSA_KEY_PAIR) {
++        return PSA_ERROR_NOT_SUPPORTED;
++    }
++
++    return seed_to_public_key(psa_get_key_bits(attributes),
++                              key_buffer, key_buffer_size,
++                              data, data_size, data_length);
++}
++
++psa_status_t tf_psa_crypto_mldsa_sign_message(
++    const psa_key_attributes_t *attributes,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    psa_algorithm_t alg,
++    const uint8_t *message, size_t message_length,
++    uint8_t *signature, size_t signature_size, size_t *signature_length)
++{
++    *signature_length = 0;      /* Safe default */
++
++    if (alg != PSA_ALG_DETERMINISTIC_ML_DSA) {
++        return PSA_ERROR_NOT_SUPPORTED;
++    }
++
++    if (psa_get_key_type(attributes) != PSA_KEY_TYPE_ML_DSA_KEY_PAIR) {
++        return PSA_ERROR_INVALID_ARGUMENT;
++    }
++    if (psa_get_key_bits(attributes) != 87) {
++        /* Other parameter sets are not supported yet. */
++        return PSA_ERROR_NOT_SUPPORTED;
++    }
++    size_t actual_signature_length = MLDSA87_BYTES;
++
++    if (key_buffer_size != SEED_SIZE) {
++        return PSA_ERROR_INVALID_ARGUMENT;
++    }
++
++    if (signature_size < actual_signature_length) {
++        return PSA_ERROR_BUFFER_TOO_SMALL;
++    }
++
++    /* Beyond this point, we must go through the cleanup code. */
++    uint8_t secret[TF_PSA_CRYPTO_MLDSA_EXPANDED_SECRET_MAX_SIZE];
++    uint8_t public[TF_PSA_CRYPTO_MLDSA_PUBLIC_KEY_MAX_SIZE];
++
++    int ret = tf_psa_crypto_pqcp_mldsa87_keypair_internal(public,
++                                                          secret,
++                                                          key_buffer);
++    if (ret != 0) {
++        goto cleanup;
++    }
++
++    const uint8_t prefix[2] = { 0, 0 }; // pure ML-DSA with empty context
++    const size_t prefix_length = sizeof(prefix);
++    const uint8_t rnd[MLDSA_RNDBYTES] = { 0 };
++
++    ret = tf_psa_crypto_pqcp_mldsa87_signature_internal(signature,
++                                                        signature_length,
++                                                        message, message_length,
++                                                        prefix, prefix_length,
++                                                        rnd,
++                                                        secret,
++                                                        0);
++
++cleanup:
++    mbedtls_platform_zeroize(secret, sizeof(secret));
++    return pqcp_to_psa_error(ret);
++}
++
++psa_status_t tf_psa_crypto_mldsa_verify_message(
++    const psa_key_attributes_t *attributes,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    psa_algorithm_t alg,
++    const uint8_t *message, size_t message_length,
++    const uint8_t *signature, size_t signature_length)
++{
++    if (!PSA_ALG_IS_ML_DSA(alg)) {
++        return PSA_ERROR_NOT_SUPPORTED;
++    }
++
++    if (psa_get_key_type(attributes) != PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY) {
++        return PSA_ERROR_INVALID_ARGUMENT;
++    }
++    if (psa_get_key_bits(attributes) != 87) {
++        /* Other parameter sets are not supported yet. */
++        return PSA_ERROR_NOT_SUPPORTED;
++    }
++    if (key_buffer_size != MLDSA87_PUBLICKEYBYTES) {
++        return PSA_ERROR_INVALID_ARGUMENT;
++    }
++
++    if (signature_length != MLDSA87_BYTES) {
++        return PSA_ERROR_INVALID_SIGNATURE;
++    }
++
++    int ret = tf_psa_crypto_pqcp_mldsa87_verify(signature, signature_length,
++                                                message, message_length,
++                                                NULL, 0,
++                                                key_buffer);
++    if (ret == 0) {
++        return PSA_SUCCESS;
++    } else {
++        /* At the time of writing, invalid signature is the only possible
++         * error condition. But this will change when we update mldsa-native
++         * with support for heap allocation of intermediate values.
++         */
++        return PSA_ERROR_INVALID_SIGNATURE;
++    }
++}
+ 
+ #endif /* MBEDTLS_PSA_CRYPTO_C && TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED */
+diff --git a/drivers/pqcp/src/psa_crypto_mldsa.h b/drivers/pqcp/src/psa_crypto_mldsa.h
+index e3141b641..b1a003730 100644
+--- a/drivers/pqcp/src/psa_crypto_mldsa.h
++++ b/drivers/pqcp/src/psa_crypto_mldsa.h
+@@ -9,6 +9,96 @@
+ 
+ #include <psa/crypto.h>
+ 
+-extern int tf_psa_crypto_pqcp_driver_exists;
++/** Export the public key of an ML-DSA key pair.
++ *
++ * \param[in] attributes        The key attributes.
++ * \param[in] key_buffer        The key material. This must be a key pair
++ *                              in the standard representation, i.e.
++ *                              just the 32-byte seed.
++ * \param key_buffer_size       The size of \p key_buffer, in bytes.
++ * \param[out] data             On success, the exported key.
++ * \param data_size             The size of \p data, in bytes.
++ * \param[out] data_length      On success, the length of the data written
++ *                              to \p data.
++ *
++ * \retval #PSA_SUCCESS
++ *         Success.
++ * \retval #PSA_ERROR_NOT_SUPPORTED
++ *         The key type or size registered in \p attributes is not supported.
++ * \retval #PSA_ERROR_INVALID_ARGUMENT
++ *         The key material is invalid.
++ * \retval #PSA_ERROR_BUFFER_TOO_SMALL
++ *         \p data_size is too small.
++ */
++psa_status_t tf_psa_crypto_mldsa_export_public_key(
++    const psa_key_attributes_t *attributes,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    uint8_t *data, size_t data_size, size_t *data_length);
++
++/** Sign a message using pure-ML-DSA (without pre-hashing).
++ *
++ * \param[in] attributes        The key attributes.
++ * \param[in] key_buffer        The key material. This must be a key pair
++ *                              in the standard representation, i.e.
++ *                              just the 32-byte seed.
++ * \param key_buffer_size       The size of \p key_buffer, in bytes.
++ * \param alg                   The algorithm:
++ *                              #PSA_ALG_ML_DSA (not implemented yet) or
++ *                              #PSA_ALG_DETERMINISTIC_ML_DSA.
++ * \param[in] message           The message to sign.
++ * \param message_length        The length of \p message, in bytes.
++ * \param[out] signature        On success, the exported key.
++ * \param signature_size        The size of \p signature, in bytes.
++ * \param[out] signature_length On success, the length of the data written
++ *                              to \p signature.
++ *
++ * \retval #PSA_SUCCESS
++ *         Success.
++ * \retval #PSA_ERROR_NOT_SUPPORTED
++ *         The key type or size registered in \p attributes is not supported,
++ *         or the algorithm is not supported.
++ * \retval #PSA_ERROR_INVALID_ARGUMENT
++ *         The key material is invalid, or the key type is invalid for the
++ *         given algorithm.
++ * \retval #PSA_ERROR_BUFFER_TOO_SMALL
++ *         \p signature_size is too small.
++ */
++psa_status_t tf_psa_crypto_mldsa_sign_message(
++    const psa_key_attributes_t *attributes,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    psa_algorithm_t alg,
++    const uint8_t *message, size_t message_length,
++    uint8_t *signature, size_t signature_size, size_t *signature_length);
++
++/** Verify a message using pure-ML-DSA (without pre-hashing).
++ *
++ * \param[in] attributes        The key attributes.
++ * \param[in] key_buffer        The key material. This must be a public key
++ *                              in the standard representation.
++ * \param key_buffer_size       The size of \p key_buffer, in bytes.
++ * \param alg                   The algorithm:
++ *                              #PSA_ALG_ML_DSA (not implemented yet) or
++ *                              #PSA_ALG_DETERMINISTIC_ML_DSA.
++ * \param[in] message           The message to verify.
++ * \param message_length        The length of \p message, in bytes.
++ * \param[in] signature         The signature to verify.
++ * \param signature_length      The length of \p signature, in bytes.
++ *
++ * \retval #PSA_SUCCESS
++ *         Success.
++ * \retval #PSA_ERROR_NOT_SUPPORTED
++ *         The key type or size registered in \p attributes is not supported,
++ *         or the algorithm is not supported.
++ * \retval #PSA_ERROR_INVALID_ARGUMENT
++ *         The key material is invalid.
++ * \retval #PSA_ERROR_INVALID_SIGNATURE
++ *         The signature is not valid for this message.
++ */
++psa_status_t tf_psa_crypto_mldsa_verify_message(
++    const psa_key_attributes_t *attributes,
++    const uint8_t *key_buffer, size_t key_buffer_size,
++    psa_algorithm_t alg,
++    const uint8_t *message, size_t message_length,
++    const uint8_t *signature, size_t signature_length);
+ 
+ #endif /* "psa_crypto_mldsa.h" */
+diff --git a/include/psa/crypto_values.h b/include/psa/crypto_values.h
+index f6b0e8d7f..880cd65a0 100644
+--- a/include/psa/crypto_values.h
++++ b/include/psa/crypto_values.h
+@@ -537,6 +537,28 @@
+ #define PSA_KEY_TYPE_ECC_PUBLIC_KEY_BASE            ((psa_key_type_t) 0x4100)
+ #define PSA_KEY_TYPE_ECC_KEY_PAIR_BASE              ((psa_key_type_t) 0x7100)
+ #define PSA_KEY_TYPE_ECC_CURVE_MASK                 ((psa_key_type_t) 0x00ff)
++
++/** The type of an ML-DSA key pair.
++ *
++ * It is represented as just the 32-byte seed.
++ *
++ * The `bits` attribute of the key indicates the parameter set:
++ * 44, 56 or 87.
++ */
++#define PSA_KEY_TYPE_ML_DSA_KEY_PAIR                ((psa_key_type_t) 0x7002)
++
++/** The type of an ML-DSA public key.
++ *
++ * The `bits` attribute of the key indicates the parameter set:
++ * 44, 56 or 87.
++ */
++#define PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY              ((psa_key_type_t) 0x4002)
++
++/** Whether the key type is an ML-DSA key (key pair or public key). */
++#define PSA_KEY_TYPE_IS_ML_DSA(type)                                    \
++    ((type) == PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY ||                        \
++     (type) == PSA_KEY_TYPE_ML_DSA_KEY_PAIR)
++
+ /** Elliptic curve key pair.
+  *
+  * The size of an elliptic curve key is the bit size associated with the curve,
+@@ -1694,6 +1716,19 @@
+ #define PSA_ALG_ED448PH                                 \
+     (PSA_ALG_HASH_EDDSA_BASE | (PSA_ALG_SHAKE256_512 & PSA_ALG_HASH_MASK))
+ 
++/** Hedged pure ML-DSA (without pre-hashing). */
++#define PSA_ALG_ML_DSA                          ((psa_algorithm_t) 0x06004400)
++
++/** Deterministic pure ML-DSA (without pre-hashing). */
++#define PSA_ALG_DETERMINISTIC_ML_DSA            ((psa_algorithm_t) 0x06004500)
++
++/** Whether the given algorithm is a pure ML-DSA algorithm
++ * (without pre-hashing).
++ */
++#define PSA_ALG_IS_ML_DSA(alg)                \
++    ((alg) == PSA_ALG_DETERMINISTIC_ML_DSA || \
++     (alg) == PSA_ALG_ML_DSA)
++
+ /* Default definition, to be overridden if the library is extended with
+  * more hash-and-sign algorithms that we want to keep out of this header
+  * file. */
+@@ -1733,7 +1768,7 @@
+  *         supported algorithm identifier.
+  */
+ #define PSA_ALG_IS_SIGN_MESSAGE(alg)                                    \
+-    (PSA_ALG_IS_SIGN_HASH(alg) || (alg) == PSA_ALG_PURE_EDDSA)
++    (PSA_ALG_IS_SIGN_HASH(alg) || (alg) == PSA_ALG_PURE_EDDSA || PSA_ALG_IS_ML_DSA(alg))
+ 
+ /** Whether the specified algorithm is a hash-and-sign algorithm.
+  *
+-- 
+2.53.0.windows.3
+

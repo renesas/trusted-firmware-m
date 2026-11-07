@@ -1,0 +1,883 @@
+From 84ea2953c9db231e1557f1a83d1c4003ad760fd0 Mon Sep 17 00:00:00 2001
+From: Hien Le <hien.le.sx@bp.renesas.com>
+Date: Wed, 4 Nov 2026 10:05:20 +0000
+Subject: [PATCH] Add ML-DSA-87 support
+
+Signed-off-by: Hien Le <hien.le.sx@bp.renesas.com>
+---
+ boot/bootutil/CMakeLists.txt                  |   1 +
+ boot/bootutil/include/bootutil/boot_status.h  |   5 +-
+ boot/bootutil/include/bootutil/crypto/mldsa.h | 102 +++++++
+ boot/bootutil/include/bootutil/image.h        |   1 +
+ boot/bootutil/src/boot_record.c               |   2 +
+ boot/bootutil/src/bootutil_find_key.c         |   3 +-
+ boot/bootutil/src/image_mldsa.c               |  77 +++++
+ boot/bootutil/src/image_validate.c            |  26 +-
+ docs/design.md                                |   1 +
+ scripts/imgtool/image.py                      |  56 ++--
+ scripts/imgtool/keys/__init__.py              |  21 +-
+ scripts/imgtool/keys/mldsa87.py               | 288 ++++++++++++++++++
+ scripts/imgtool/main.py                       |  10 +-
+ scripts/requirements.txt                      |   2 +
+ scripts/setup.py                              |   1 +
+ 15 files changed, 568 insertions(+), 28 deletions(-)
+ create mode 100644 boot/bootutil/include/bootutil/crypto/mldsa.h
+ create mode 100644 boot/bootutil/src/image_mldsa.c
+ create mode 100644 scripts/imgtool/keys/mldsa87.py
+
+diff --git a/boot/bootutil/CMakeLists.txt b/boot/bootutil/CMakeLists.txt
+index 7ad9e8d5..42a1b417 100644
+--- a/boot/bootutil/CMakeLists.txt
++++ b/boot/bootutil/CMakeLists.txt
+@@ -30,6 +30,7 @@ target_sources(bootutil
+         src/image_ecdsa.c
+         src/image_ed25519.c
+         src/image_rsa.c
++        src/image_mldsa.c
+         src/image_validate.c
+         src/loader.c
+         src/swap_misc.c
+diff --git a/boot/bootutil/include/bootutil/boot_status.h b/boot/bootutil/include/bootutil/boot_status.h
+index 4198559e..9626fa2c 100644
+--- a/boot/bootutil/include/bootutil/boot_status.h
++++ b/boot/bootutil/include/bootutil/boot_status.h
+@@ -142,7 +142,8 @@ enum mcuboot_signature_type {
+     MCUBOOT_SIGNATURE_TYPE_NONE,
+     MCUBOOT_SIGNATURE_TYPE_RSA,
+     MCUBOOT_SIGNATURE_TYPE_ECDSA_P256,
+-    MCUBOOT_SIGNATURE_TYPE_ED25519
++    MCUBOOT_SIGNATURE_TYPE_ED25519,
++    MCUBOOT_SIGNATURE_TYPE_ML_DSA87,
+ };
+ 
+ enum mcuboot_recovery_mode {
+@@ -192,4 +193,4 @@ struct shared_boot_data {
+ }
+ #endif
+ 
+-#endif /* __BOOT_STATUS_H__ */
++#endif /* __BOOT_STATUS_H__ */
+\ No newline at end of file
+diff --git a/boot/bootutil/include/bootutil/crypto/mldsa.h b/boot/bootutil/include/bootutil/crypto/mldsa.h
+new file mode 100644
+index 00000000..05b01fc9
+--- /dev/null
++++ b/boot/bootutil/include/bootutil/crypto/mldsa.h
+@@ -0,0 +1,102 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright (c) 2023-2025 Arm Limited
++ */
++
++/*
++ * This module provides ML-DSA signature verification using the PSA Crypto API.
++ */
++
++#ifndef __BOOTUTIL_CRYPTO_MLDSA_H_
++#define __BOOTUTIL_CRYPTO_MLDSA_H_
++
++#include <stdint.h>
++#include "mcuboot_config/mcuboot_config.h"
++
++#include <psa/crypto.h>
++#include <string.h>
++
++#include "bootutil/sign_key.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/*
++ * ML-DSA-87 parameter set from FIPS 204.
++ */
++#define MLDSA_KEY_BITS       87
++#define MLDSA_PUBLICKEYBYTES 2592
++
++typedef struct {
++    psa_key_id_t key_id;
++} bootutil_mldsa_context;
++
++static inline void bootutil_mldsa_init(bootutil_mldsa_context *ctx)
++{
++#if !defined(MCUBOOT_BUILTIN_KEY)
++    ctx->key_id = PSA_KEY_ID_NULL;
++#else
++    ctx->key_id++; /* Make sure it is not equal to 0. */
++#endif
++}
++
++static inline void bootutil_mldsa_drop(bootutil_mldsa_context *ctx)
++{
++    if (ctx->key_id != PSA_KEY_ID_NULL) {
++        (void)psa_destroy_key(ctx->key_id);
++    }
++}
++
++#if !defined(MCUBOOT_BUILTIN_KEY)
++/*
++ * Import an ML-DSA-87 public key into the PSA keystore.
++ *
++ * The public key is raw bytes (2592 bytes), no ASN.1 encoding.
++ */
++static int bootutil_mldsa_parse_public_key(bootutil_mldsa_context *ctx,
++                                           uint8_t **cp, uint8_t *end)
++{
++    psa_key_attributes_t key_attributes = psa_key_attributes_init();
++    size_t key_size = (size_t)(end - *cp);
++
++    if (key_size != MLDSA_PUBLICKEYBYTES) {
++        return (int)PSA_ERROR_INVALID_ARGUMENT;
++    }
++
++    psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_VERIFY_MESSAGE);
++    psa_set_key_algorithm(&key_attributes, PSA_ALG_DETERMINISTIC_ML_DSA);
++    psa_set_key_type(&key_attributes, PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY);
++    psa_set_key_bits(&key_attributes, MLDSA_KEY_BITS);
++
++    return (int)psa_import_key(&key_attributes, *cp, key_size, &ctx->key_id);
++}
++#endif /* !MCUBOOT_BUILTIN_KEY */
++
++/*
++ * Verify an ML-DSA-87 signature over a raw message (pure mode, FIPS 204).
++ *
++ * In pure mode the caller passes the raw image bytes (header + image +
++ * protected TLVs) directly.  ML-DSA applies SHAKE256 internally; there is
++ * no external pre-hashing step.
++ */
++static inline int bootutil_mldsa_verify(bootutil_mldsa_context *ctx,
++                                        uint8_t *pk, size_t pk_len,
++                                        const uint8_t *msg, size_t mlen,
++                                        uint8_t *sig, size_t slen)
++{
++    (void)pk;
++    (void)pk_len;
++
++    return (int)psa_verify_message(ctx->key_id,
++                                   PSA_ALG_DETERMINISTIC_ML_DSA,
++                                   msg, mlen,
++                                   sig, slen);
++}
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* __BOOTUTIL_CRYPTO_MLDSA_H_ */
+diff --git a/boot/bootutil/include/bootutil/image.h b/boot/bootutil/include/bootutil/image.h
+index 3d103f8d..99d72eb6 100644
+--- a/boot/bootutil/include/bootutil/image.h
++++ b/boot/bootutil/include/bootutil/image.h
+@@ -109,6 +109,7 @@ extern "C" {
+ #define IMAGE_TLV_SIG_PURE          0x25    /* Indicator that attached signature has been prepared
+                                              * over image rather than its digest.
+                                              */
++#define IMAGE_TLV_MLDSA87_SIG       0x27    /* ML-DSA87 pure signature over image */
+ #define IMAGE_TLV_ENC_RSA2048       0x30    /* Key encrypted with RSA-OAEP-2048 */
+ #define IMAGE_TLV_ENC_KW            0x31    /* Key encrypted with AES-KW 128 or 256*/
+ #define IMAGE_TLV_ENC_EC256         0x32    /* Key encrypted with ECIES-EC256 */
+diff --git a/boot/bootutil/src/boot_record.c b/boot/bootutil/src/boot_record.c
+index f4091684..ab80fac5 100644
+--- a/boot/bootutil/src/boot_record.c
++++ b/boot/bootutil/src/boot_record.c
+@@ -286,6 +286,8 @@ int boot_save_shared_data(const struct image_header *hdr, const struct flash_are
+     uint8_t signature_type = MCUBOOT_SIGNATURE_TYPE_ECDSA_P256;
+ #elif defined(MCUBOOT_SIGN_ED25519)
+     uint8_t signature_type = MCUBOOT_SIGNATURE_TYPE_ED25519;
++#elif defined(MCUBOOT_SIGN_MLDSA87)
++    uint8_t signature_type = MCUBOOT_SIGNATURE_TYPE_ML_DSA87;
+ #else
+     uint8_t signature_type = MCUBOOT_SIGNATURE_TYPE_NONE;
+ #endif
+diff --git a/boot/bootutil/src/bootutil_find_key.c b/boot/bootutil/src/bootutil_find_key.c
+index 7d34e05f..f3986e82 100644
+--- a/boot/bootutil/src/bootutil_find_key.c
++++ b/boot/bootutil/src/bootutil_find_key.c
+@@ -42,7 +42,8 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
+     defined(MCUBOOT_SIGN_EC256)     || \
+     defined(MCUBOOT_SIGN_EC384)     || \
+     defined(MCUBOOT_SIGN_EC)        || \
+-    defined(MCUBOOT_SIGN_ED25519)
++    defined(MCUBOOT_SIGN_ED25519)   || \
++    defined(MCUBOOT_SIGN_MLDSA87)
+ #define EXPECTED_SIG_TLV
+ #else
+     /* no signing, sha256 digest only */
+diff --git a/boot/bootutil/src/image_mldsa.c b/boot/bootutil/src/image_mldsa.c
+new file mode 100644
+index 00000000..d89c535e
+--- /dev/null
++++ b/boot/bootutil/src/image_mldsa.c
+@@ -0,0 +1,77 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ *
++ *
++ * Original license:
++ *
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *  http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied.  See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++
++#include <string.h>
++
++#include "mcuboot_config/mcuboot_config.h"
++
++#include "bootutil/bootutil_log.h"
++BOOT_LOG_MODULE_DECLARE(mcuboot);
++
++#if defined(MCUBOOT_SIGN_MLDSA87)
++#include "bootutil_priv.h"
++#include "bootutil/fault_injection_hardening.h"
++#include "bootutil/crypto/mldsa.h"
++
++/*
++ * bootutil_verify_sig for ML-DSA-87 pure mode.
++ *
++ * In pure mode (MCUBOOT_SIGN_PURE), image_validate.c passes a pointer to
++ * the raw image in XIP flash as 'msg', and its byte count as 'mlen'.
++ * No pre-hashing is done; ML-DSA applies SHAKE256 internally (FIPS 204).
++ */
++fih_ret
++bootutil_verify_sig(uint8_t *msg, uint32_t mlen, uint8_t *sig, size_t slen,
++                    uint32_t key_id)
++{
++    int rc;
++    bootutil_mldsa_context ctx;
++    FIH_DECLARE(fih_rc, FIH_FAILURE);
++    uint8_t *pubkey;
++    uint8_t *end;
++
++    pubkey = (uint8_t *)bootutil_keys[key_id].key;
++    end = pubkey + *bootutil_keys[key_id].len;
++    bootutil_mldsa_init(&ctx);
++
++    rc = bootutil_mldsa_parse_public_key(&ctx, &pubkey, end);
++    if (rc) {
++        BOOT_LOG_DBG("bootutil_verify_sig: parse_public_key failed rc=%d", rc);
++        goto out;
++    }
++
++    rc = bootutil_mldsa_verify(&ctx, pubkey, end - pubkey, msg, mlen, sig, slen);
++    BOOT_LOG_DBG("bootutil_verify_sig: psa_verify_message rc=%d", rc);
++    fih_rc = fih_ret_encode_zero_equality(rc);
++    if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
++        FIH_SET(fih_rc, FIH_FAILURE);
++    }
++
++out:
++    bootutil_mldsa_drop(&ctx);
++
++    FIH_RET(fih_rc);
++}
++
++#endif /* MCUBOOT_SIGN_MLDSA87 */
+diff --git a/boot/bootutil/src/image_validate.c b/boot/bootutil/src/image_validate.c
+index 76ddc98d..2acf5b78 100644
+--- a/boot/bootutil/src/image_validate.c
++++ b/boot/bootutil/src/image_validate.c
+@@ -64,7 +64,8 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
+ #if (defined(MCUBOOT_SIGN_RSA)      + \
+      defined(MCUBOOT_SIGN_EC256)    + \
+      defined(MCUBOOT_SIGN_EC384)    + \
+-     defined(MCUBOOT_SIGN_ED25519)) > 1
++     defined(MCUBOOT_SIGN_ED25519)  + \
++     defined(MCUBOOT_SIGN_MLDSA87)) > 1
+ #error "Only a single signature type is supported!"
+ #endif
+ 
+@@ -84,6 +85,10 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
+ #    define EXPECTED_SIG_TLV IMAGE_TLV_ECDSA_SIG
+ #    define SIG_BUF_SIZE 128
+ #    define EXPECTED_SIG_LEN(x) (1) /* always true, ASN.1 will validate */
++#elif defined(MCUBOOT_SIGN_MLDSA87)
++#    define EXPECTED_SIG_TLV IMAGE_TLV_MLDSA87_SIG
++#    define SIG_BUF_SIZE 4627  /* ML-DSA-87 signature size per FIPS 204 */
++#    define EXPECTED_SIG_LEN(x) ((x) == SIG_BUF_SIZE)
+ #elif defined(MCUBOOT_SIGN_ED25519)
+ #    define EXPECTED_SIG_TLV IMAGE_TLV_ED25519
+ #    define SIG_BUF_SIZE 64
+@@ -177,6 +182,7 @@ static const uint16_t allowed_unprot_tlvs[] = {
+      IMAGE_TLV_ECDSA_SIG,
+      IMAGE_TLV_RSA3072_PSS,
+      IMAGE_TLV_ED25519,
++     IMAGE_TLV_MLDSA87_SIG,
+ #if defined(MCUBOOT_SIGN_PURE)
+      IMAGE_TLV_SIG_PURE,
+ #endif
+@@ -423,6 +429,24 @@ bootutil_img_validate(struct boot_loader_state *state,
+                 goto out;
+             }
+ 
++    /*
++     * Pure-signature verification accesses the complete image
++     * directly through memory mapping. Use the corresponding
++     * Non-Secure MRAM alias for each Non-Secure image because
++     * its physical Secure alias is not accessible.
++     */
++#if defined(CPU0_NS_ROM_ALIAS_BASE)
++            if (image_index == 1) {
++                base = CPU0_NS_ROM_ALIAS_BASE;
++            }
++#endif
++
++#if defined(CPU1_NS_ROM_ALIAS_BASE)
++            if (image_index == 2) {
++                base = CPU1_NS_ROM_ALIAS_BASE;
++            }
++#endif
++
+ #if defined(MCUBOOT_SWAP_USING_OFFSET)
+             base += boot_get_state_secondary_offset(state, fap);
+ #endif
+diff --git a/docs/design.md b/docs/design.md
+index 41ac58ea..f53e983d 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -116,6 +116,7 @@ struct image_tlv {
+ #define IMAGE_TLV_SIG_PURE          0x25    /* Indicator that attached signature has been prepared
+                                              * over image rather than its digest.
+                                              */
++#define IMAGE_TLV_MLDSA87_SIG       0x27    /* ML-DSA87 pure signature over image */
+ #define IMAGE_TLV_ENC_RSA2048       0x30    /* Key encrypted with RSA-OAEP-2048 */
+ #define IMAGE_TLV_ENC_KW            0x31    /* Key encrypted with AES-KW 128 or 256*/
+ #define IMAGE_TLV_ENC_EC256         0x32    /* Key encrypted with ECIES-EC256 */
+diff --git a/scripts/imgtool/image.py b/scripts/imgtool/image.py
+index 06d9caf0..18e67073 100755
+--- a/scripts/imgtool/image.py
++++ b/scripts/imgtool/image.py
+@@ -43,7 +43,7 @@ from intelhex import IntelHex
+ from . import keys
+ from . import version as versmod
+ from .boot_record import create_sw_component_data
+-from .keys import ecdsa, rsa, x25519
++from .keys import ecdsa, rsa, x25519, mldsa87
+ 
+ IMAGE_MAGIC = 0x96f3b83d
+ IMAGE_HEADER_SIZE = 32
+@@ -79,6 +79,7 @@ TLV_VALUES = {
+         'RSA3072': 0x23,
+         'ED25519': 0x24,
+         'SIG_PURE': 0x25,
++        'MLDSA87': 0x27,
+         'ENCRSA2048': 0x30,
+         'ENCKW': 0x31,
+         'ENCEC256': 0x32,
+@@ -199,37 +200,48 @@ ALLOWED_KEY_SHA = {
+ }
+ 
+ ALLOWED_PURE_KEY_SHA = {
+-    keys.Ed25519            : ['512']
++    keys.Ed25519            : ['512'],
++    keys.Mldsa87            : ['256'],
++    keys.Mldsa87Public      : ['256'],
+ }
+ 
+ ALLOWED_PURE_SIG_TLVS = [
+-    TLV_VALUES['ED25519']
++    TLV_VALUES['ED25519'],
++    TLV_VALUES['MLDSA87'],
+ ]
+ 
+-def key_and_user_sha_to_alg_and_tlv(key, user_sha, is_pure = False):
+-    """Matches key and user requested sha to sha alogrithm and TLV name.
++def key_and_user_sha_to_alg_and_tlv(key, user_sha, is_pure=False):
++    """Match a key and requested SHA algorithm to hash algorithm and TLV name.
+ 
+-       The returned tuple will contain hash functions and TVL name.
+-       The function is designed to succeed or completely fail execution,
+-       as providing incorrect pair here basically prevents doing
+-       any more work.
++    The returned tuple contains the hash algorithm and TLV name.
++    The function either returns a valid combination or raises UsageError.
+     """
+     if key is None:
+-        # If key is none, we allow whatever user has selected for sha
++        # If key is None, allow the user-selected SHA algorithm.
+         return USER_SHA_TO_ALG_AND_TLV[user_sha]
+ 
+-    # If key is not None, then we have to filter hash to only allowed
+-    allowed = None
+-    allowed_key_ssh = ALLOWED_PURE_KEY_SHA if is_pure else ALLOWED_KEY_SHA
+-    try:
+-        allowed = allowed_key_ssh[type(key)]
++    # ML-DSA-87 always uses Pure mode.
++    # This is required because mcuboot_imagesign_wrapper does not pass
++    # an explicit Pure-mode option.
++    if isinstance(key, (keys.Mldsa87, keys.Mldsa87Public)):
++        is_pure = True
++
++    # Filter the hash algorithms allowed for this key and signing mode.
++    allowed_key_sha = (
++        ALLOWED_PURE_KEY_SHA
++        if is_pure
++        else ALLOWED_KEY_SHA
++    )
+ 
++    try:
++        allowed = allowed_key_sha[type(key)]
+     except KeyError:
+         raise click.UsageError(
+-            f"Could not find allowed hash algorithms for {type(key)}") from None
++            f"Could not find allowed hash algorithms for {type(key)}"
++        ) from None
+ 
+-    # Pure enforces auto, and user selection is ignored
+-    if user_sha == 'auto' or is_pure:
++    # Pure mode enforces the key's preferred hash selection.
++    if user_sha == "auto" or is_pure:
+         return USER_SHA_TO_ALG_AND_TLV[allowed[0]]
+ 
+     if user_sha in allowed:
+@@ -237,7 +249,7 @@ def key_and_user_sha_to_alg_and_tlv(key, user_sha, is_pure = False):
+ 
+     raise click.UsageError(
+         f"Key {key.sig_type()} can not be used with --sha {user_sha}; "
+-        "allowed sha are one of {allowed}"
++        f"allowed sha are one of {allowed}"
+     ) from None
+ 
+ 
+@@ -522,6 +534,12 @@ class Image:
+ 
+         # key decides on sha, then pub_key; of both are none default is used
+         check_key = key if key is not None else pub_key
++
++        # ML-DSA-87 always uses Pure mode.
++        # Image.create() must see this so SIG_PURE is added.
++        if isinstance(check_key, (keys.Mldsa87, keys.Mldsa87Public)):
++            is_pure = True
++
+         hash_algorithm, hash_tlv = key_and_user_sha_to_alg_and_tlv(check_key, user_sha, is_pure)
+ 
+         # Calculate the hash of the public key
+diff --git a/scripts/imgtool/keys/__init__.py b/scripts/imgtool/keys/__init__.py
+index f91e9d7c..988f558d 100644
+--- a/scripts/imgtool/keys/__init__.py
++++ b/scripts/imgtool/keys/__init__.py
+@@ -32,6 +32,12 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
+ from .ecdsa import ECDSA256P1, ECDSA384P1, ECDSA256P1Public, ECDSA384P1Public, ECDSAUsageError
+ from .ed25519 import Ed25519, Ed25519Public, Ed25519UsageError
+ from .general import DigestSigner, PayloadSigner
++from .mldsa87 import (
++    Mldsa87,
++    Mldsa87Public,
++    Mldsa87UsageError,
++    load_mldsa87_pem,
++)
+ from .rsa import RSA, RSA_KEY_SIZES, RSAPublic, RSAUsageError
+ from .x25519 import X25519, X25519Public, X25519UsageError
+ 
+@@ -45,6 +51,9 @@ __all__ = [
+     "Ed25519",
+     "Ed25519Public",
+     "Ed25519UsageError",
++    "Mldsa87",
++    "Mldsa87Public",
++    "Mldsa87UsageError",
+     "PayloadSigner",
+     "RSA",
+     "RSA_KEY_SIZES",
+@@ -81,9 +90,15 @@ def load(path, passwd=None):
+     except ValueError:
+         # This seems to happen if the key is a public key, let's try
+         # loading it as a public key.
+-        pk = serialization.load_pem_public_key(
+-                raw_pem,
+-                backend=default_backend())
++        try:
++            pk = serialization.load_pem_public_key(
++                    raw_pem,
++                    backend=default_backend())
++        except ValueError:
++            # ML-DSA-87: PKCS#8 PEM with OID 2.16.840.1.101.3.4.3.19
++            text = raw_pem.decode('ascii', errors='ignore')
++            if '-----BEGIN PRIVATE KEY-----' in text:
++                return load_mldsa87_pem(text)
+ 
+     if isinstance(pk, RSAPrivateKey):
+         if pk.key_size not in RSA_KEY_SIZES:
+diff --git a/scripts/imgtool/keys/mldsa87.py b/scripts/imgtool/keys/mldsa87.py
+new file mode 100644
+index 00000000..ec167d2b
+--- /dev/null
++++ b/scripts/imgtool/keys/mldsa87.py
+@@ -0,0 +1,288 @@
++"""
++MLDSA87 key management using FIPS 204 specification.
++
++Private key storage uses PKCS#8 (RFC 5958) PEM format.
++The canonical private key is the 32-byte seed xi (ξ) per FIPS 204;
++the expanded 4896-byte secret key is derived on demand via key_derive().
++
++"""
++
++# SPDX-License-Identifier: Apache-2.0
++
++import base64
++import os
++
++from dilithium_py.ml_dsa import ML_DSA_87
++from cryptography.exceptions import InvalidSignature
++
++from .general import KeyClass
++
++# ML-DSA-87 seed size per FIPS 204
++MLDSA87_SEED_BYTES    = 32
++MLDSA87_PUBKEY_BYTES  = 2592
++MLDSA87_SIG_BYTES     = 4627
++
++# DER-encoded OID 2.16.840.1.101.3.4.3.19 (ML-DSA-87, NIST FIPS 204)
++_OID_ML_DSA_87 = bytes([0x06, 0x09,
++                         0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x13])
++
++
++def _der_len(n):
++    """Encode DER length."""
++    if n < 0x80:
++        return bytes([n])
++    elif n < 0x100:
++        return bytes([0x81, n])
++    else:
++        return bytes([0x82, n >> 8, n & 0xff])
++
++
++def _der_seq(*items):
++    body = b''.join(items)
++    return b'\x30' + _der_len(len(body)) + body
++
++
++def _der_octet(data):
++    return b'\x04' + _der_len(len(data)) + data
++
++
++def _der_bit_string(data):
++    """Encode data as a DER BIT STRING with no unused bits."""
++    return b'\x03' + _der_len(len(data) + 1) + b'\x00' + data
++
++
++def _seed_to_pkcs8_der(seed):
++    """
++    Encode a 32-byte ML-DSA-87 seed as PKCS#8 OneAsymmetricKey DER (RFC 5958).
++
++    OneAsymmetricKey ::= SEQUENCE {
++        version           INTEGER (0),
++        algorithm         AlgorithmIdentifier { OID },
++        privateKey        OCTET STRING { OCTET STRING { seed } }
++    }
++    """
++    version    = b'\x02\x01\x00'
++    alg_id     = _der_seq(_OID_ML_DSA_87)
++    # RFC 5958: privateKey is an OCTET STRING wrapping the key encoding.
++    # For ML-DSA the key encoding is itself an OCTET STRING of the seed.
++    priv_key   = _der_octet(_der_octet(seed))
++    return _der_seq(version, alg_id, priv_key)
++
++
++def _public_key_to_spki_der(public_key):
++    """
++    Encode a raw ML-DSA-87 public key as SubjectPublicKeyInfo DER.
++
++    SubjectPublicKeyInfo ::= SEQUENCE {
++        algorithm         AlgorithmIdentifier { OID },
++        subjectPublicKey  BIT STRING
++    }
++    """
++    if len(public_key) != MLDSA87_PUBKEY_BYTES:
++        raise Mldsa87UsageError(
++            f"Expected public key of {MLDSA87_PUBKEY_BYTES} bytes, "
++            f"got {len(public_key)}")
++
++    alg_id = _der_seq(_OID_ML_DSA_87)
++    return _der_seq(alg_id, _der_bit_string(public_key))
++
++
++def _pkcs8_der_to_seed(der):
++    """
++    Extract the 32-byte seed from a PKCS#8 OneAsymmetricKey DER buffer.
++    Raises ValueError on malformed input.
++    """
++    def _parse_tlv(buf, offset):
++        tag  = buf[offset]
++        b1   = buf[offset + 1]
++        if b1 < 0x80:
++            length, offset = b1, offset + 2
++        elif b1 == 0x81:
++            length, offset = buf[offset + 2], offset + 3
++        elif b1 == 0x82:
++            length = (buf[offset + 2] << 8) | buf[offset + 3]
++            offset = offset + 4
++        else:
++            raise ValueError("Unsupported DER length encoding")
++        return tag, length, offset
++
++    # SEQUENCE (outer)
++    tag, _, off = _parse_tlv(der, 0)
++    if tag != 0x30:
++        raise ValueError("Expected SEQUENCE")
++    # version INTEGER
++    tag, ln, off = _parse_tlv(der, off)
++    if tag != 0x02 or ln != 1 or der[off] != 0:
++        raise ValueError("Expected version 0")
++    off += ln
++    # AlgorithmIdentifier SEQUENCE
++    tag, ln, off = _parse_tlv(der, off)
++    if tag != 0x30:
++        raise ValueError("Expected AlgorithmIdentifier")
++    off += ln  # skip OID contents
++    # privateKey OCTET STRING (outer)
++    tag, ln, off = _parse_tlv(der, off)
++    if tag != 0x04:
++        raise ValueError("Expected OCTET STRING (outer)")
++    # privateKey OCTET STRING (inner seed)
++    tag, ln, off = _parse_tlv(der, off)
++    if tag != 0x04:
++        raise ValueError("Expected OCTET STRING (inner seed)")
++    if ln != MLDSA87_SEED_BYTES:
++        raise ValueError(f"Expected seed of {MLDSA87_SEED_BYTES} bytes, got {ln}")
++    return der[off:off + ln]
++
++
++def _pem_wrap(der, label="PRIVATE KEY"):
++    b64    = base64.b64encode(der).decode()
++    lines  = '\n'.join(b64[i:i + 64] for i in range(0, len(b64), 64))
++    return f'-----BEGIN {label}-----\n{lines}\n-----END {label}-----\n'
++
++
++def _pem_unwrap(pem_text, label="PRIVATE KEY"):
++    lines = pem_text.strip().splitlines()
++    if lines[0] != f'-----BEGIN {label}-----':
++        raise ValueError(f"Missing PEM header '-----BEGIN {label}-----'")
++    if lines[-1] != f'-----END {label}-----':
++        raise ValueError(f"Missing PEM footer '-----END {label}-----'")
++    return base64.b64decode(''.join(lines[1:-1]))
++
++
++class Mldsa87UsageError(Exception):
++    pass
++
++class Mldsa87Public(KeyClass):
++    """ML-DSA-87 public key (2592 bytes raw, FIPS 204)."""
++
++    def __init__(self, public_key_bytes):
++        if not isinstance(public_key_bytes, bytes):
++            raise Mldsa87UsageError("Public key must be bytes")
++        if len(public_key_bytes) != MLDSA87_PUBKEY_BYTES:
++            raise Mldsa87UsageError(
++                f"Invalid public key size: {len(public_key_bytes)} bytes, "
++                f"expected {MLDSA87_PUBKEY_BYTES}")
++        self.public_key_bytes = public_key_bytes
++
++    def shortname(self):
++        return "mldsa87"
++
++    def _unsupported(self, name):
++        raise Mldsa87UsageError(f"Operation {name} requires private key")
++
++    def _get_public(self):
++        return self.public_key_bytes
++
++    def get_public_bytes(self):
++        return self.public_key_bytes
++
++    def get_public_pem(self):
++        """Return the ML-DSA-87 public key as SubjectPublicKeyInfo PEM."""
++        der = _public_key_to_spki_der(self.public_key_bytes)
++        return _pem_wrap(der, label="PUBLIC KEY").encode("ascii")
++
++    def get_private_bytes(self, minimal, format):
++        self._unsupported('get_private_bytes')
++
++    def export_private(self, path, passwd=None):
++        self._unsupported('export_private')
++
++    def export_public(self, path):
++        """Write the raw 2592-byte public key to file."""
++        try:
++            with open(path, 'wb') as f:
++                f.write(self.public_key_bytes)
++        except OSError as e:
++            raise Mldsa87UsageError(f"Failed to write public key to {path}: {e}")
++
++    def sig_type(self):
++        return "MLDSA87"
++
++    def sig_tlv(self):
++        return "MLDSA87"
++
++    def sig_len(self):
++        return MLDSA87_SIG_BYTES
++
++    def verify(self, signature, message):
++        """Verify ML-DSA-87 pure-mode signature over raw message."""
++        try:
++            result = ML_DSA_87.verify(self.public_key_bytes, message, signature)
++        except Exception as e:
++            raise InvalidSignature("ML-DSA-87 verification failed") from e
++        if not result:
++            raise InvalidSignature("ML-DSA-87 verification failed")
++
++    def verify_digest(self, signature, digest):
++        self.verify(signature, digest)
++
++
++class Mldsa87(Mldsa87Public):
++    """
++    ML-DSA-87 key pair.
++
++    Stores the canonical 32-byte seed (ξ per FIPS 204).
++    The expanded 4896-byte secret key is derived via ML_DSA_87.key_derive(seed)
++    and cached after the first use.
++
++    Key file format: PKCS#8 PEM (RFC 5958) with OID 2.16.840.1.101.3.4.3.19.
++    """
++
++    def __init__(self, seed, public_key_bytes):
++        if not isinstance(seed, bytes) or len(seed) != MLDSA87_SEED_BYTES:
++            raise Mldsa87UsageError(
++                f"Seed must be {MLDSA87_SEED_BYTES} bytes, got {len(seed) if isinstance(seed, bytes) else type(seed)}")
++        super().__init__(public_key_bytes)
++        self._seed = seed
++        self._sk   = None  # expanded SK, derived lazily
++
++    @staticmethod
++    def generate():
++        """Generate a new ML-DSA-87 key pair from a random 32-byte seed."""
++        seed = os.urandom(MLDSA87_SEED_BYTES)
++        pk, _sk = ML_DSA_87.key_derive(seed)
++        return Mldsa87(seed, pk)
++
++    def _expanded_sk(self):
++        """Return the 4896-byte expanded secret key, deriving it if needed."""
++        if self._sk is None:
++            _pk, self._sk = ML_DSA_87.key_derive(self._seed)
++        return self._sk
++
++    def get_private_bytes(self, minimal, format):
++        if format == 'raw':
++            return self._seed
++        raise Mldsa87UsageError(
++            f"get_private_bytes format '{format}' not supported for mldsa87")
++
++    def export_private(self, path, passwd=None):
++        """
++        Write the private key as PKCS#8 PEM (seed only, 32 bytes).
++        Password protection is not supported.
++        """
++        if passwd is not None:
++            raise Mldsa87UsageError("Password protection is not supported for ML-DSA-87 keys")
++        pem = _pem_wrap(_seed_to_pkcs8_der(self._seed))
++        try:
++            with open(path, 'w') as f:
++                f.write(pem)
++        except OSError as e:
++            raise Mldsa87UsageError(f"Failed to write private key to {path}: {e}")
++
++    def sign(self, payload):
++        """Sign raw payload (pure mode) using FIPS 204 ML-DSA-87."""
++        return ML_DSA_87.sign(self._expanded_sk(), payload)
++
++    def sign_digest(self, digest):
++        """Sign bytes using ML-DSA-87; kept for API compatibility."""
++        return self.sign(digest)
++
++
++def load_mldsa87_pem(pem_text):
++    """Load an ML-DSA-87 private key from PKCS#8 PEM text."""
++    try:
++        der  = _pem_unwrap(pem_text)
++        seed = _pkcs8_der_to_seed(der)
++    except (ValueError, IndexError, KeyError) as e:
++        raise Mldsa87UsageError(f"Invalid ML-DSA-87 PEM key: {e}") from e
++    pk, _sk = ML_DSA_87.key_derive(seed)
++    return Mldsa87(seed, pk)
+diff --git a/scripts/imgtool/main.py b/scripts/imgtool/main.py
+index a9d9acbc..2543c487 100755
+--- a/scripts/imgtool/main.py
++++ b/scripts/imgtool/main.py
+@@ -32,7 +32,7 @@ from imgtool import image, imgtool_version
+ from imgtool.dumpinfo import dump_imginfo
+ from imgtool.version import decode_version
+ 
+-from .keys import ECDSAUsageError, Ed25519UsageError, RSAUsageError, X25519UsageError
++from .keys import ECDSAUsageError, Ed25519UsageError, RSAUsageError, X25519UsageError, Mldsa87UsageError
+ 
+ comp_default_dictsize=131072
+ comp_default_pb=2
+@@ -70,6 +70,8 @@ def gen_ed25519(keyfile, passwd):
+ def gen_x25519(keyfile, passwd):
+     keys.X25519.generate().export_private(path=keyfile, passwd=passwd)
+ 
++def gen_mldsa87(keyfile, passwd):
++    keys.Mldsa87.generate().export_private(path=keyfile, passwd=passwd)
+ 
+ valid_langs = ['c', 'rust']
+ valid_hash_encodings = ['lang-c', 'raw']
+@@ -92,6 +94,7 @@ keygens = {
+     'ecdsa-p384': gen_ecdsa_p384,
+     'ed25519':    gen_ed25519,
+     'x25519':     gen_x25519,
++    'mldsa-87':   gen_mldsa87,
+ }
+ valid_formats = ['openssl', 'pkcs8']
+ valid_sha = [ 'auto', '256', '384', '512' ]
+@@ -272,7 +275,7 @@ def getpriv(key, minimal, format):
+         print("Invalid passphrase")
+     try:
+         key.emit_private(minimal, format)
+-    except (RSAUsageError, ECDSAUsageError, Ed25519UsageError, X25519UsageError) as e:
++    except (RSAUsageError, ECDSAUsageError, Ed25519UsageError, X25519UsageError, Mldsa87UsageError) as e:
+         raise click.UsageError(e) from e
+ 
+ 
+@@ -595,6 +598,9 @@ def sign(key, public_key_format, align, version, pad_sig, header_size,
+             'value': raw_signature
+         }
+ 
++    if key is not None and isinstance(key, keys.Mldsa87):
++        is_pure = True
++
+     if is_pure and user_sha != 'auto':
+         raise click.UsageError(
+             'Pure signatures, currently, enforces preferred hash algorithm, '
+diff --git a/scripts/requirements.txt b/scripts/requirements.txt
+index ebf67b2b..a1b13db3 100644
+--- a/scripts/requirements.txt
++++ b/scripts/requirements.txt
+@@ -13,3 +13,5 @@ pytest
+ # used.
+ jinja2
+ jsonschema
++
++dilithium-py>=1.3.0
+diff --git a/scripts/setup.py b/scripts/setup.py
+index 3decaaaf..d8d2056d 100644
+--- a/scripts/setup.py
++++ b/scripts/setup.py
+@@ -19,6 +19,7 @@ setuptools.setup(
+         'click',
+         'cbor2',
+         'pyyaml',
++        'dilithium-py>=1.3.0',
+     ],
+     entry_points={
+         "console_scripts": ["imgtool=imgtool.main:imgtool"]
+-- 
+2.43.0
+

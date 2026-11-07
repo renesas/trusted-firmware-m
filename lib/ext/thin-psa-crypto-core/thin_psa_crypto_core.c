@@ -27,6 +27,10 @@
 #include "psa/crypto.h"
 #include "psa_crypto_driver_wrappers.h"
 #include "psa_crypto_driver_wrappers_no_static.h"
+#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED) && \
+    defined(TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED)
+#include "psa_crypto_mldsa.h"
+#endif
 #if defined(MCUBOOT_BUILTIN_KEY)
 #include "tfm_plat_crypto_keys.h"
 #endif /* MCUBOOT_BUILTIN_KEY */
@@ -1076,6 +1080,20 @@ psa_status_t psa_import_key(const psa_key_attributes_t *attributes,
    }
 #endif
 
+#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED) && \
+    defined(TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED)
+    if (psa_get_key_type(attributes) == PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY) {
+        /*
+         * Limited PoC support for ML-DSA-87.
+         * The public key is stored in packed form.
+         */
+        if (data_length != 2592U) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+
+        bits = 87U;
+    } else
+#endif
     if (PSA_KEY_TYPE_IS_UNSTRUCTURED(psa_get_key_type(attributes))) {
         bits = PSA_BYTES_TO_BITS(data_length);
     }
@@ -1235,6 +1253,38 @@ psa_status_t psa_verify_message(psa_key_id_t key,
     const psa_algorithm_t hash_alg = PSA_ALG_SIGN_GET_HASH(alg);
 
     assert(PSA_ALG_IS_SIGN_MESSAGE(alg));
+
+#if defined(TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED) && \
+    defined(TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED)
+    if (PSA_ALG_IS_ML_DSA(alg)) {
+        if (is_key_builtin(key)) {
+            status = get_builtin_key(key);
+            if (status != PSA_SUCCESS) {
+                FATAL_ERR(status);
+                return status;
+            }
+        } else {
+            assert(g_key_slot.is_valid && (g_key_slot.key_id == key));
+        }
+
+        status = tf_psa_crypto_mldsa_verify_message(
+                     &g_key_slot.attr,
+                     g_key_slot.buf,
+                     g_key_slot.len,
+                     alg,
+                     message,
+                     message_length,
+                     signature,
+                     signature_length);
+
+        if ((status != PSA_SUCCESS) &&
+            (status != PSA_ERROR_INVALID_SIGNATURE)) {
+            FATAL_ERR(status);
+        }
+
+        return status;
+    }
+#endif
 
     /* LMS isn't part of PSA yet, so we need this here */
 #ifdef PSA_WANT_ALG_LMS
