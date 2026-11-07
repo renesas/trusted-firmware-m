@@ -16,7 +16,9 @@
 #define CRYPTO_STACK_SIZE               0x29000
 #endif
 
-/* IPC configuration */
+/* Hybrid (SPE-scheduled) IPC is needed only for the CPU1 mailbox NS client */
+#if defined(RA_CM33_NS_PRESENT)
 #define CONFIG_TFM_HYBRID_PLAT_SCHED_TYPE    TFM_HYBRID_PLAT_SCHED_SPE
+#endif
 
 #endif /* __CONFIG_TFM_TARGET_H__ */

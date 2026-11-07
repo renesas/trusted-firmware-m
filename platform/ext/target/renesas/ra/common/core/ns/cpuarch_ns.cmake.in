@@ -13,6 +13,12 @@ set(RENESAS_RA_SOC_SOURCE_DIR    "@RENESAS_RA_SOC_SOURCE_DIR@")
 # Marks this as the non-secure-side build
 set(NS_BUILD ON)
 
+# Default to the CPU0 (Cortex-M85) TrustZone NS client; pass -DRA_CORE=cm33
+# to build the CPU1 mailbox NS client.
+if(NOT DEFINED RA_CORE OR RA_CORE STREQUAL "")
+    set(RA_CORE "cm85")
+endif()
+
 include(${RENESAS_RA_SOC_SOURCE_DIR}/cpuarch.cmake)
 
 if(RA_CORE STREQUAL "cm85")
