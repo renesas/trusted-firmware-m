@@ -406,6 +406,14 @@ LR_CODE S_CODE_START S_CODE_SIZE {
      */
     ScatterAssert(ImageLimit(SRAM_WATERMARK) <= S_DATA_START + S_DATA_SIZE)
 
+#ifdef S_RAM_CODE_START
+    /* Secure data must not grow into the RAM-resident MRAM programming code
+     * carved from the top of the secure SRAM (execute-never PRoT data at
+     * isolation level 2+).
+     */
+    ScatterAssert(ImageLimit(SRAM_WATERMARK) <= S_RAM_CODE_START)
+#endif
+
 {# Check whether DTCM needs to be included. #}
 {% set outer_namespace = namespace(use_dtcm=false) %}
 {% for partition in partitions %}

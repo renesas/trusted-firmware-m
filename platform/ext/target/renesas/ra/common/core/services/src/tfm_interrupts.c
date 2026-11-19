@@ -4,10 +4,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-/*
- * Renesas RA8 SPE mailbox interrupt integration.
- */
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -17,40 +13,33 @@
 #include "load/interrupt_defs.h"
 #include "tfm_multi_core.h"
 #include "tfm_peripherals_def.h"
+#include "target_cfg.h"
+#include "vector_data.h"
+#if defined(TFM_PARTITION_SLIH_TEST) || defined(TFM_PARTITION_FLIH_TEST)
+#include "plat_test.h"
+#endif
 #ifdef TFM_PARTITION_NS_AGENT_MAILBOX
 #include "platform_multicore.h"
 #endif /* TFM_PARTITION_NS_AGENT_MAILBOX */
 
+#if defined(TFM_PARTITION_SLIH_TEST) || defined(TFM_PARTITION_FLIH_TEST)
 static struct irq_t timer0_irq = {0};
+#endif /* defined(TFM_PARTITION_SLIH_TEST) || defined(TFM_PARTITION_FLIH_TEST) */
 
 #ifdef TFM_PARTITION_NS_AGENT_MAILBOX
 static struct irq_t mailbox_irq = {0};
 #endif /* TFM_PARTITION_NS_AGENT_MAILBOX */
 
-/*
- * The ICU secure interrupt initialization for Renesas RA MCUs:
- *  - Set the IRQ as secure in the ICU security attribution register (ICUSARG).
- *  - Route the ELC event to the IRQ vector (IELSR) and select it (INTSELR).
- */
-static void icu_secure_irq_setup(IRQn_Type irq, uint32_t elc_event)
-{
-    const uint32_t index = (uint32_t) irq / 32U;
-    const uint32_t bit   = (uint32_t) irq % 32U;
-    uint32_t volatile *p_icusarg = &R_CPSCU->ICUSARG;
-
-    R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_SAR);
-    p_icusarg[index] &= ~(1U << bit);
-    R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_SAR);
-    R_ICU->IELSR[irq] = elc_event;
-    R_ICU->INTSELR[elc_event >> 5U] &= ~(1U << (elc_event % 32U));
-}
+#if defined(TFM_PARTITION_SLIH_TEST) || defined(TFM_PARTITION_FLIH_TEST)
 
 enum tfm_hal_status_t tfm_timer0_irq_init(void *p_pt, const struct irq_load_info_t *p_ildi)
 {
     timer0_irq.p_pt   = p_pt;
     timer0_irq.p_ildi = p_ildi;
 
-    icu_secure_irq_setup(TFM_TIMER0_IRQ, ELC_EVENT_AGT0_INT);
+    tfm_plat_test_secure_timer_init();
+
+    platform_icu_secure_irq_setup(TFM_TIMER0_IRQ, ELC_EVENT_AGT0_INT);
 
     NVIC_ClearTargetState(TFM_TIMER0_IRQ);
     NVIC_SetPriority(TFM_TIMER0_IRQ, DEFAULT_IRQ_PRIORITY);
@@ -61,8 +50,12 @@ enum tfm_hal_status_t tfm_timer0_irq_init(void *p_pt, const struct irq_load_info
 
 IRQ_HANDLER(TFM_TIMER0_IRQ)
 {
+    R_BSP_IrqStatusClear(TFM_TIMER0_IRQ);
+
     spm_handle_interrupt(timer0_irq.p_pt, timer0_irq.p_ildi);
 }
+
+#endif /* defined(TFM_PARTITION_SLIH_TEST) || defined(TFM_PARTITION_FLIH_TEST) */
 
 #ifdef TFM_PARTITION_NS_AGENT_MAILBOX
 
@@ -88,7 +81,7 @@ enum tfm_hal_status_t mailbox_irq_init(void *p_pt,
 
     mailbox_irq.p_pt = p_pt;
     mailbox_irq.p_ildi = p_ildi;
-    icu_secure_irq_setup(MAILBOX_IRQ, ELC_EVENT_IPC_IRQ0);
+    platform_icu_secure_irq_setup(MAILBOX_IRQ, ELC_EVENT_IPC_IRQ0);
 
     NVIC_ClearTargetState(MAILBOX_IRQ);
     NVIC_SetPriority(MAILBOX_IRQ, DEFAULT_IRQ_PRIORITY);
