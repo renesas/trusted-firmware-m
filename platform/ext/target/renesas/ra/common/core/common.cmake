@@ -17,6 +17,9 @@ set(CMAKE_FSP_LIBS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../common/core/fsp)
 # Include FSP library configuration for platform_s code
 include(${CMAKE_FSP_LIBS_PATH}/fsp_s_lib.cmake)
 
+# Regression-test only: libraries for the test partitions
+include(${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/plat_test.cmake)
+
 #========================= platform_region_defs ===============================#
 
 target_include_directories(platform_region_defs
@@ -146,6 +149,8 @@ target_link_libraries(platform_s
     PUBLIC
     fsp_library
     cmsis
+    # Regression-test FSP driver lib, see services/plat_test.cmake
+    $<$<TARGET_EXISTS:tfm_sprt_fsp_agt>:tfm_sprt_fsp_agt>
 )
 
 target_sources(platform_s
@@ -177,9 +182,19 @@ endif()
 
 #========================= tfm_spm ============================================#
 
+# tfm_peripherals_def.c only builds the named MMIO of the peripherals that are
+# secure, so it needs the RENESAS_RA_PSAR_NS_<X> switches. fsp_library_config
+# applies them to the FSP sources only; pass just the PSAR ones to tfm_spm.
+get_target_property(_ra_psar_defs fsp_library_config INTERFACE_COMPILE_DEFINITIONS)
+list(FILTER _ra_psar_defs INCLUDE REGEX "^RENESAS_RA_PSAR_NS_")
+target_compile_definitions(tfm_spm
+    PRIVATE
+    ${_ra_psar_defs}
+)
+
 target_sources(tfm_spm
     PRIVATE
-    target_cfg.c
+    ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/target_cfg.c
     ${PLATFORM_DIR}/ext/common/tfm_hal_platform_v8m.c
     ${PLATFORM_DIR}/ext/common/tfm_hal_isolation_v8m.c
     ${RENESAS_RA_COMMON_SOURCE_DIR}/core/services/src/tfm_hal_platform.c

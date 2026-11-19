@@ -82,6 +82,18 @@ else()
     set(FLASH_AREA_BL2_SIZE     "0x0"    CACHE STRING "BL2 size")
 endif()
 
+# Privileged-execute-never is available on the Armv8.1-M CM85 only; the CM33
+# (Armv8-M) NS image must not set it (config/check_config.cmake rejects that).
+# It is only effective with isolation level 2 or higher.
+if(RA_CORE STREQUAL "cm85")
+    set(TFM_PXN_ENABLE         ON  CACHE BOOL   "Use Privileged execute never (PXN)")
+endif()
+
+# The generic Armv8-M isolation HAL (ext/common/tfm_hal_isolation_v8m.c) used by
+# this platform loads per-partition MPU regions at partition switch, which is
+# what isolation level 3 needs.
+set(PLATFORM_HAS_ISOLATION_L3_SUPPORT ON)
+
 set(CONFIG_TFM_SPM_BACKEND     IPC CACHE STRING "The SPM backend")
 set(CONFIG_TFM_INCLUDE_STDLIBC ON  CACHE BOOL   "Include standard C libraries and startup code or not")
 set(CONFIG_TFM_ENABLE_FP       ON  CACHE BOOL   "Enable floating point support")

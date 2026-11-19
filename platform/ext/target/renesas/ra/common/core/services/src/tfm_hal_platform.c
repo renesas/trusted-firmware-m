@@ -63,36 +63,3 @@ enum tfm_hal_status_t tfm_hal_platform_init(void)
 
     return TFM_HAL_SUCCESS;
 }
-
-/*
- * PPC (Peripheral Protection Controller) functions.
- * These functions are provided as stubs since peripheral security is configured
- * by the FSP during early boot.
- *
- * TODO: Provide PPC support when enabling higher isolation levels.
- * Reference: tfm_hal_isolation_v8m.c implementation.
- */
-
-void ppc_configure_to_secure(ppc_bank_t bank, uint32_t pos)
-{
-    (void)bank;
-    (void)pos;
-}
-
-void ppc_configure_to_non_secure(ppc_bank_t bank, uint32_t pos)
-{
-    (void)bank;
-    (void)pos;
-}
-
-void ppc_en_secure_unpriv(ppc_bank_t bank, uint32_t pos)
-{
-    (void)bank;
-    (void)pos;
-}
-
-void ppc_clr_secure_unpriv(ppc_bank_t bank, uint32_t pos)
-{
-    (void)bank;
-    (void)pos;
-}

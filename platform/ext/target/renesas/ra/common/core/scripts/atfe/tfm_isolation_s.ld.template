@@ -702,6 +702,14 @@ SECTIONS
     } > RAM
 #endif
 
+#ifdef S_RAM_CODE_START
+    /* The RAM-resident MRAM programming code is carved from the top of the
+     * secure SRAM. Secure data must not grow into it: at isolation level 2+
+     * the overlap would be execute-never PRoT data.
+     */
+    ASSERT(. <= S_RAM_CODE_START, "Secure RAM data overlaps the RAM code area (S_RAM_CODE_SIZE)")
+#endif
+
 #ifdef CONFIG_TFM_USE_TRUSTZONE
     Image$$ER_VENEER$$Base = ADDR(.gnu.sgstubs);
     Image$$VENEER_ALIGN$$Limit = ADDR(.sgstubs_end);
