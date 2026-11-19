@@ -40,3 +40,12 @@ set(PLATFORM_FLIH_IRQ_TEST_SUPPORT    ON)
 
 # Make AGT0 peripheral (for IRQ test) become Secure
 set(RENESAS_RA_PSAR_NS_AGT0 OFF CACHE BOOL "" FORCE)
+
+# Workaround for a hardware issue of the MRAM Prefetch Buffer (MRCPFB) on
+# WS/ES silicon. MP silicon is not affected.
+# When ON, the MRAM Prefetch Buffer is kept disabled (see bsp_prv_set_pfb()
+# in the FSP BSP). This avoids a hang of the MRAM program/erase sequence in
+# r_mram.c (wait on MRCPS.ABUFEMP), at the cost of lower MRAM read
+# performance.
+# Remove this override when the regression runs on MP silicon only.
+set(RA_MRAM_PFB_DISABLE ON CACHE BOOL "Keep the MRAM Prefetch Buffer disabled (WS/ES silicon hardware issue workaround)" FORCE)
