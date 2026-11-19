@@ -412,3 +412,18 @@ target_compile_definitions(fsp_library_config
     RENESAS_RA_SRAMSAR_NS_SRAMSA2=$<IF:$<BOOL:${RENESAS_RA_SRAMSAR_NS_SRAMSA2}>,1,0>
     RENESAS_RA_SRAMSAR_NS_SRAMSA3=$<IF:$<BOOL:${RENESAS_RA_SRAMSAR_NS_SRAMSA3}>,1,0>
 )
+
+# MRAM Prefetch Buffer hardware issue workaround (WS/ES silicon only),
+# enabled by the regression test config (RA_MRAM_PFB_DISABLE).
+# bsp_prv_set_pfb() enables the Prefetch Buffer only when MRCFREQ.MRCMHZ is
+# at least BSP_PRV_MRCPFB_LIMIT. A threshold above any reachable MRCMHZ value
+# keeps the Prefetch Buffer disabled everywhere the FSP re-enables it
+# (end of every MRAM write/erase, return to MRAM read mode).
+# Without the workaround, the FSP default threshold is kept.
+# Only the FSP BSP sources use it, hence PRIVATE.
+if(RA_MRAM_PFB_DISABLE)
+    target_compile_definitions(fsp_library
+        PRIVATE
+        BSP_PRV_MRCPFB_LIMIT=0xFFFF
+    )
+endif()
