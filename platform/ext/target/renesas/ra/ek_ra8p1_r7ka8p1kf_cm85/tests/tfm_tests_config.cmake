@@ -28,7 +28,7 @@ if(NOT BL2)
     endif()
 endif()
 
-if(NOT RA_NS_INTERFACE_MAILBOX)
+if(RA_NS_INTERFACE_TZ)
     set(TEST_NS_MULTI_CORE OFF CACHE BOOL "Whether to build NS regression multi-core tests" FORCE)
 endif()
 
